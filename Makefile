@@ -11,7 +11,7 @@ CXXFLAGS=-std=c++11 -W -Wall -Wextra -pedantic
 CXXFLAGS+=-Iduktape
 DUKOPTS+=-std=c++11 -fstrict-aliasing -fdata-sections -ffunction-sections -Os -DDUK_USE_CPP_EXCEPTIONS
 DUKTAPE_VERSION=2.1.0
-DUKTAPE_ARCHIVE=duktape/duktape-$(DUKTAPE_VERSION).tar.xz
+DUKTAPE_ARCHIVE=duktape/duktape-releases/duktape-$(DUKTAPE_VERSION).tar.xz
 
 #---------------------------------------------------------------------------------------------------
 
@@ -64,7 +64,7 @@ MAIN_TESTJS:=$(wildcard main.js)
 #---------------------------------------------------------------------------------------------------
 # make targets
 #---------------------------------------------------------------------------------------------------
-.PHONY: clean all binary bininfo run tests test test-run documentation jsdoc dev
+.PHONY: clean all binary bininfo run tests test test-run documentation jsdoc dev mrproper
 
 binary: cli/$(BINARY)
 all: clean binary bininfo test documentation jsdoc dev
@@ -74,14 +74,15 @@ run: cli/$(BINARY)	; cli/$(BINARY) $(MAIN_TESTJS)
 bininfo:
 clean:			; @rm -f cli/$(BINARY) cli/$(DEVBINARY) cli/$(EXAMPLEBINARY) cli/*.o duktape/*.o *.o; rm -f $(TEST_BINARIES) $(TEST_RESULTS)
 jsdoc:
-documentation: jsdoc
 else
 run: cli/$(BINARY)	; ./cli/$(BINARY) $(MAIN_TESTJS)
 bininfo: cli/$(BINARY)  ; @echo -n "[info] "; file cli/$(BINARY); echo -n "[info] "; ls -lh cli/$(BINARY)
 clean:			; @rm -f cli/$(BINARY) cli/$(DEVBINARY) cli/*.o duktape/*.o *.o; rm -f $(TEST_BINARIES) $(TEST_RESULTS)
 jsdoc: doc/stdmods.js
-documentation: jsdoc
 endif
+
+documentation: jsdoc
+mrproper: clean		; @rm -rf duktape/duktape-releases; rm -f duktape/*.h duktape/*.c
 
 #---------------------------------------------------------------------------------------------------
 # CLI example app
@@ -105,17 +106,27 @@ duktape/duktape.o: duktape/duktape.c duktape/duk_config.h duktape/duktape.h
 	@$(CXX) -c -o $@ $< $(DUKOPTS)
 
 #---------------------------------------------------------------------------------------------------
-# Retrieving Duktape base sources from duktape.org
+# Retrieving Duktape base sources from duktape.org or github
 #---------------------------------------------------------------------------------------------------
 
 duktape/duk_config.h duktape/duktape.h duktape/duktape.c:
+ifeq ($(GET_DUKTAPE_VIA_WGET),y)
 	@if [ ! -f $(DUKTAPE_ARCHIVE) ]; then \
+	  mkdir -p duktape/duktape-releases; \
 	  echo "[wget] Downloading ($(DUKTAPE_ARCHIVE)) from duktape.org ..."; \
-	  cd duktape; \
+	  cd duktape/duktape-releases; \
 	  wget -q http://duktape.org/$(notdir $(DUKTAPE_ARCHIVE)); \
 	fi
-	@echo "[tar ] Extracting $@ ..."
-	@tar -xJf $(DUKTAPE_ARCHIVE) duktape-$(DUKTAPE_VERSION)/src/$(notdir $@) --to-command=cat > $@
+else
+	@if [ ! -f $(DUKTAPE_ARCHIVE) ]; then \
+	  echo "[git ] Getting ($(DUKTAPE_ARCHIVE)) from github.com/svaarala/duktape-releases.git ..."; \
+	  cd duktape; git clone --depth=1 https://github.com/svaarala/duktape-releases.git; \
+	fi
+endif
+	@echo "[tar ] Extracting ..."
+	@tar -xJf $(DUKTAPE_ARCHIVE) duktape-$(DUKTAPE_VERSION)/src/duk_config.h --to-command=cat > duktape/duk_config.h
+	@tar -xJf $(DUKTAPE_ARCHIVE) duktape-$(DUKTAPE_VERSION)/src/duktape.h --to-command=cat > duktape/duktape.h
+	@tar -xJf $(DUKTAPE_ARCHIVE) duktape-$(DUKTAPE_VERSION)/src/duktape.c --to-command=cat > duktape/duktape.c
 
 duktape/duktape.hh: duktape/duktape.h duktape/duk_config.h
 

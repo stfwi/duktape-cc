@@ -8,6 +8,7 @@ nbproject
 cli/js
 cli/dev
 /bin
+/doc/stdmods.js
 *.elf
 *.log
 *.exe
@@ -22,4 +23,4 @@ tmp/
 /duktape/*.tgz
 /duktape/*.c
 /duktape/*.h
-#/doc/stdmods.js
+/duktape/duktape-releases
