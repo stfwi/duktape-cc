@@ -202,3 +202,11 @@ int main(int argc, const char** argv)
       cases. Randomly generated inputs for better coverage are on the list.
 
     - [ ] With Visual Studio not tested at all yet.
+
+- Duktape release files
+
+    - Initially the release files were separately downloaded
+      and extracted from the `tar.xz` archive when invoking
+      `make`, but unfortunately people keep having trouble
+      with wget, tar and xz on Windows. So they are now included
+      as the licenses of the projects are identical.

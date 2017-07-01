@@ -109,6 +109,7 @@ duktape/duktape.o: duktape/duktape.c duktape/duk_config.h duktape/duktape.h
 # Retrieving Duktape base sources from duktape.org or github
 #---------------------------------------------------------------------------------------------------
 
+ifeq ($(GET_DUKTAPE_RELEASE),y)
 duktape/duk_config.h duktape/duktape.h duktape/duktape.c:
 ifeq ($(GET_DUKTAPE_VIA_WGET),y)
 	@if [ ! -f $(DUKTAPE_ARCHIVE) ]; then \
@@ -129,6 +130,7 @@ endif
 	@tar -xJf $(DUKTAPE_ARCHIVE) duktape-$(DUKTAPE_VERSION)/src/duktape.c --to-command=cat > duktape/duktape.c
 
 duktape/duktape.hh: duktape/duktape.h duktape/duk_config.h
+endif
 
 #---------------------------------------------------------------------------------------------------
 # Developer testing ground

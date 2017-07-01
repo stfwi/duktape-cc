@@ -21,6 +21,4 @@ tmp/
 /duktape/*.xz
 /duktape/*.tar
 /duktape/*.tgz
-/duktape/*.c
-/duktape/*.h
 /duktape/duktape-releases
