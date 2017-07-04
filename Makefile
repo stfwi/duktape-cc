@@ -21,7 +21,7 @@ ifdef DEBUG
 #  CXXFLAGS+=-fsanitize=address
 #  LDFLAGS+=-fsanitize=address
   LIBS+=-lm
-  DUKOPTS+=-g
+  DUKOPTS+=-g -O0
 else
   STRIP=strip
   CXXFLAGS+=-Os -fomit-frame-pointer -fdata-sections -ffunction-sections

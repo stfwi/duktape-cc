@@ -96,7 +96,17 @@ namespace duktape {
     class basic_script_error : public std::runtime_error
     {
       public:
-        explicit basic_script_error(const std::string& msg) : std::runtime_error(msg)  { ; }
+        explicit basic_script_error(const std::string&& msg) : std::runtime_error(std::move(msg)), callstack_()
+        {}
+
+        explicit basic_script_error(std::string&& msg, std::string&& callstack)
+                  : std::runtime_error(std::move(msg)), callstack_(std::move(callstack)) {}
+
+        const std::string& callstack() const noexcept
+        { return callstack_; }
+
+      private:
+        std::string callstack_;
     };
 
     template <typename=void>
@@ -976,7 +986,7 @@ namespace duktape { namespace detail {
     { duk_gc(ctx_, 0); }
 
     int throw_exception() const
-    { duk_throw(ctx_); return 0; }
+    { ::duk_throw_raw(ctx_); return 0; }
 
     int throw_exception(std::string msg) const
     { error(error_code_t::err_ecma, msg); return 0; }
@@ -1069,18 +1079,14 @@ namespace duktape { namespace detail {
     // void duk_pop_2(duk_context *ctx);
     // void duk_pop_3(duk_context *ctx);
     // const char *duk_push_vsprintf(duk_context *ctx, const char *fmt, va_list ap);
-
     // duk_int_t duk_get_current_magic(duk_context *ctx);
     // duk_int_t duk_get_magic(duk_context *ctx, duk_idx_t idx);
     // void duk_set_magic(duk_context *ctx, duk_idx_t idx, duk_int_t magic);
-
     // void *duk_get_heapptr(duk_context *ctx, duk_idx_t idx);
     // void *duk_require_heapptr(duk_context *ctx, duk_idx_t idx);
     // duk_idx_t duk_push_heapptr(duk_context *ctx, void *ptr);
-
     // void duk_new(duk_context *ctx, duk_idx_t nargs); // use pnew
     // const char *duk_require_string(duk_context *ctx, duk_idx_t idx);
-
     // duk_error(duk_context *ctx, duk_errcode_t err_code, const char *fmt, ...);
     // duk_ret_t duk_range_error(duk_context *ctx, const char *fmt, ...);
     // duk_ret_t duk_range_error_va(duk_context *ctx, const char *fmt, va_list ap);
@@ -1096,7 +1102,6 @@ namespace duktape { namespace detail {
     // duk_ret_t duk_type_error_va(duk_context *ctx, const char *fmt, va_list ap);
     // duk_ret_t duk_uri_error(duk_context *ctx, const char *fmt, ...);
     // duk_ret_t duk_uri_error_va(duk_context *ctx, const char *fmt, va_list ap);
-
     // duk_eval_noresult(ctx);
     // void duk_eval_string(duk_context *ctx, const char *src);
     // void duk_eval_string_noresult(duk_context *ctx, const char *src);
@@ -1108,8 +1113,6 @@ namespace duktape { namespace detail {
     // duk_ret_t duk_fatal(duk_context *ctx, const char *err_msg);
     // void dump_context_stderr() const  { duk_dump_context_stderr(ctx_); }
     // void dump_context_stdout() const  { duk_dump_context_stdout(ctx_); }
-    //
-    //
     // ------------------------------------------------------------------------------------------
     // Do be checked to include with c++ type (chrono, extra class etc) or if already covered
     // (e.g. with Date conversion trait).
@@ -1123,11 +1126,7 @@ namespace duktape { namespace detail {
     // duk_bool_t duk_debugger_notify(duk_context *ctx, duk_idx_t nvalues);
     // void duk_debugger_pause(duk_context *ctx);
     // duk_idx_t duk_push_c_lightfunc(duk_context *ctx, duk_c_function func, duk_idx_t nargs, duk_idx_t length, duk_int_t magic);
-
-
-
     // </editor-fold>
-
     // <editor-fold desc="api extension" defaultstate="collapsed">
 
     #ifdef DUKTAPE_NO_API_EXTENSION
@@ -1803,7 +1802,7 @@ namespace duktape { namespace detail { namespace {
 
   template<typename R, typename... Args, unsigned... Is, typename std::enable_if<std::is_void<R>::value>::type* = nullptr >
   int fn_wrap(R(*fn)(Args...), duk_context* ctx, indices<Is...>)
-  { fn( std::move(convert_arg<Args, Is>(ctx))... ); return 0; }
+  { fn( std::move(convert_arg<Args, Is>(ctx))... ); (void)ctx; return 0; }
 
   template<typename R, typename... Args, typename std::enable_if<sizeof...(Args) != 1>::type* = nullptr>
   int function_wrap(R(*fn)(Args...), duk_context* ctx)
@@ -1870,6 +1869,16 @@ namespace duktape { namespace detail { namespace {
         } catch(const exit_exception&) {
           stack.gc(); // sweep through to trigger possible finalisers, then rethrow to next higher frame.
           throw;
+        } catch(const script_error& e) {
+          if(e.callstack().empty()) {
+            // Script error was thrown from the c++ code itself
+            stack.throw_exception(e.what());
+          } else {
+            // Script error was caught by call() or eval() invoked in the function,
+            // and the forwarded Error obkect is still on stack top --> rethrow.
+            stack.throw_exception();
+          }
+          return 0;
         } catch(const std::exception& e) {
           stack.throw_exception(e.what());
           return 0;
@@ -1913,6 +1922,23 @@ namespace duktape { namespace detail {
       static constexpr type configurable = (DUK_DEFPROP_CONFIGURABLE);
       static constexpr type defaults = (DUK_DEFPROP_ENUMERABLE);
     };
+
+  private:
+
+    /**
+     * Tracks the call recursion level.
+     */
+    struct call_recursion_guard
+    {
+      explicit call_recursion_guard(typename api_type::context_t ctx, long& l) noexcept : ctx_(ctx), level_(l)
+      { ++level_; }
+
+      ~call_recursion_guard() noexcept
+      { if((--level_) <= 0) { level_ = 0; ::duk_set_top(ctx_, 0); } }
+
+      typename api_type::context_t ctx_;
+      long& level_;
+    };
     // </editor-fold>
 
   public:
@@ -1921,7 +1947,7 @@ namespace duktape { namespace detail {
     /**
      * c' tor
      */
-    explicit basic_engine() : stack_(), define_flags_(defflags::defaults)
+    explicit basic_engine() : stack_(), define_flags_(defflags::defaults), call_recursion_level_(0)
     { clear(); }
 
     /**
@@ -1980,6 +2006,7 @@ namespace duktape { namespace detail {
     void clear()
     {
       define_flags_ = defflags::defaults;
+      call_recursion_level_ = 0;
       if(ctx()) ::duk_destroy_heap(ctx());
       stack_.ctx(::duk_create_heap(0, 0, 0, 0, 0));
       if(!ctx()) throw engine_error("Failed to create context");
@@ -2007,7 +2034,7 @@ namespace duktape { namespace detail {
       std::ifstream is;
       is.open(path.c_str(), std::ifstream::in | std::ifstream::binary);
       std::string code((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
-      if(!is) throw script_error(std::string("Failed to read '") + path + "'");
+      if(!is) throw script_error(std::string("Failed to read include file '") + path + "'");
       is.close();
       return eval<ReturnType, Strict>(std::move(code), path);
     }
@@ -2033,19 +2060,36 @@ namespace duktape { namespace detail {
     template <typename ReturnType=void, bool Strict=false>
     ReturnType eval(std::string&& code, std::string file="(eval)")
     {
+      call_recursion_guard crg(ctx(), call_recursion_level_);
       stack_guard_type sg(ctx(), true);
       stack().require_stack(2);
       stack().push_string(std::move(code));
       stack().push_string(file);
       bool ok;
       try {
-        ok = (stack().eval_raw(0, 0, DUK_COMPILE_EVAL | DUK_COMPILE_SAFE) == 0);
+        ok = (stack().eval_raw(0, 0, DUK_COMPILE_EVAL | DUK_COMPILE_SAFE | DUK_COMPILE_SHEBANG) == 0);
       } catch(const exit_exception&) {
-        stack().gc(); // trigger sweep for possible finalisers
+        stack().gc(); // trigger sweep for possible finalizers
         throw;
       }
       if(!ok) {
-        throw script_error(stack().safe_to_string(-1));
+        if(stack().top() > 0) {
+          // The stack top index is the error
+          stack().swap_top(sg.initial_top());
+          sg.initial_top(sg.initial_top()+1);
+          stack().top(sg.initial_top());
+          stack().dup_top(); // Ensure that safe_to_string() does not modify the original (Error) object.
+          std::string msg = stack().safe_to_string(-1);
+          stack().pop();
+          std::string callstack;
+          stack().get_prop_string(-1, "stack");
+          if(!stack().is_undefined(-1)) callstack = stack().to_string(-1);
+          stack().pop();
+          throw script_error(std::move(msg), std::move(callstack));
+        } else {
+          //  Should not happen at all
+          throw script_error(std::string("Unspecified exception evaluating code."));
+        }
       } else if(std::is_void<ReturnType>::value) {
         return ReturnType();
       } else if(!Strict) {
@@ -2084,6 +2128,7 @@ namespace duktape { namespace detail {
     template <typename ReturnType=void, bool Strict=false, typename ...Args>
     ReturnType call(std::string funct, Args ...args)
     {
+      call_recursion_guard crg(ctx(), call_recursion_level_);
       stack_guard_type sg(ctx(), true);
       stack().require_stack(6);
       if(!stack().select(funct)) {
@@ -2100,7 +2145,23 @@ namespace duktape { namespace detail {
         throw e;
       }
       if(!ok) {
-        throw script_error(stack().safe_to_string(-1));
+        if(stack().top() > 0) {
+          // The stack top index is the error
+          stack().swap_top(sg.initial_top());
+          sg.initial_top(sg.initial_top()+1);
+          stack().top(sg.initial_top());
+          stack().dup_top(); // Ensure that safe_to_string() does not modify the original (Error) object.
+          std::string msg = stack().safe_to_string(-1);
+          stack().pop();
+          std::string callstack;
+          stack().get_prop_string(-1, "stack");
+          if(!stack().is_undefined(-1)) callstack = stack().to_string(-1);
+          stack().pop();
+          throw script_error(std::move(msg), std::move(callstack));
+        } else {
+          //  Should not happen at all
+          throw script_error(std::string("Unspecified exception calling function '") + funct + "");
+        }
       } else if(std::is_void<ReturnType>::value) {
         return ReturnType();
       } else if(!Strict) {
@@ -2398,6 +2459,7 @@ namespace duktape { namespace detail {
     // <editor-fold desc="instance variables" defaultstate="collapsed">
     api_type stack_;
     typename defflags::type define_flags_;
+    long call_recursion_level_;
     // </editor-fold>
   };
 }}
