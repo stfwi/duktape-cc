@@ -57,6 +57,7 @@
 #include <memory>
 #include <functional>
 #include <type_traits>
+#include <mutex>
 
 #ifdef WITH_DUKTAPE_HH_ASSERT
 #include <cassert>
@@ -71,7 +72,7 @@ namespace duktape {
   namespace detail {
     template <typename R=void> class basic_api;
     template <typename R=void> class basic_stack_guard;
-    template <typename R=void> class basic_engine;
+    template <typename MutexType=std::recursive_timed_mutex> class basic_engine;
     template <typename T> struct conv;
   }
 
@@ -1054,81 +1055,9 @@ namespace duktape { namespace detail {
     static void xmove_top(context_t to_ctx, context_t from_ctx, size_t count)
     { duk_xmove_top(to_ctx, from_ctx, duk_idx_t(count)); }
 
-    //
-    // Not appropriate or replaced with std::string (general lstring usage)
-    // ------------------------------------------------------------------------------------------
-    // duk_context *duk_create_heap_default(void);
-    // void duk_destroy_heap(duk_context *ctx);
-    // int duk_pcompile_string(duk_context *ctx, unsigned flags, const char *src);
-    // int duk_pcompile_string_filename(duk_context *ctx, unsigned flags, const char *src);
-    // int duk_peval_file(duk_context *ctx, const char *path);
-    // int duk_peval_file_noresult(duk_context *ctx, const char *path);
-    // int duk_peval_noresult(duk_context *ctx);
-    // int duk_peval_string(duk_context *ctx, const char *src);
-    // int duk_peval_string_noresult(duk_context *ctx, const char *src);
-    // const char *duk_get_string(duk_context *ctx, duk_idx_t idx);
-    // const char *duk_push_string(duk_context *ctx, const char *str);
-    // const char *duk_push_sprintf(duk_context *ctx, const char *fmt, ...);
-    // duk_bool_t duk_put_prop_string(duk_context *ctx, index_t obj_index, const char *key);
-    // const char *duk_safe_to_lstring(duk_context *ctx, index_t index, size_t *out_len)
-    // const char *duk_safe_to_string(duk_context *ctx, index_t index);
-    // const char *duk_to_lstring(duk_context *ctx, index_t index, size_t *out_len)
-    // const char *duk_to_string(duk_context *ctx, index_t index);
-    // const char* get_string(duk_context *ctx, index_t index)
-    // const char* require_string(duk_context *ctx, index_t index)
-    // void duk_pop_2(duk_context *ctx);
-    // void duk_pop_3(duk_context *ctx);
-    // const char *duk_push_vsprintf(duk_context *ctx, const char *fmt, va_list ap);
-    // duk_int_t duk_get_current_magic(duk_context *ctx);
-    // duk_int_t duk_get_magic(duk_context *ctx, duk_idx_t idx);
-    // void duk_set_magic(duk_context *ctx, duk_idx_t idx, duk_int_t magic);
-    // void *duk_get_heapptr(duk_context *ctx, duk_idx_t idx);
-    // void *duk_require_heapptr(duk_context *ctx, duk_idx_t idx);
-    // duk_idx_t duk_push_heapptr(duk_context *ctx, void *ptr);
-    // void duk_new(duk_context *ctx, duk_idx_t nargs); // use pnew
-    // const char *duk_require_string(duk_context *ctx, duk_idx_t idx);
-    // duk_error(duk_context *ctx, duk_errcode_t err_code, const char *fmt, ...);
-    // duk_ret_t duk_range_error(duk_context *ctx, const char *fmt, ...);
-    // duk_ret_t duk_range_error_va(duk_context *ctx, const char *fmt, va_list ap);
-    // duk_ret_t duk_error_va(duk_context *ctx, duk_errcode_t err_code, const char *fmt, va_list ap);
-    // duk_ret_t duk_eval_error_va(duk_context *ctx, const char *fmt, va_list ap);
-    // duk_ret_t duk_generic_error(duk_context *ctx, const char *fmt, ...);
-    // duk_ret_t duk_generic_error_va(duk_context *ctx, const char *fmt, va_list ap);
-    // duk_ret_t duk_reference_error(duk_context *ctx, const char *fmt, ...);
-    // duk_ret_t duk_reference_error_va(duk_context *ctx, const char *fmt, va_list ap);
-    // duk_ret_t duk_syntax_error(duk_context *ctx, const char *fmt, ...);
-    // duk_ret_t duk_syntax_error_va(duk_context *ctx, const char *fmt, va_list ap);
-    // duk_ret_t duk_type_error(duk_context *ctx, const char *fmt, ...);
-    // duk_ret_t duk_type_error_va(duk_context *ctx, const char *fmt, va_list ap);
-    // duk_ret_t duk_uri_error(duk_context *ctx, const char *fmt, ...);
-    // duk_ret_t duk_uri_error_va(duk_context *ctx, const char *fmt, va_list ap);
-    // duk_eval_noresult(ctx);
-    // void duk_eval_string(duk_context *ctx, const char *src);
-    // void duk_eval_string_noresult(duk_context *ctx, const char *src);
-    // duk_bool_t duk_put_global_string(duk_context *ctx, const char *key);
-    // index_t duk_push_error_object(duk_context *ctx, duk_errcode_t err_code, const char *fmt, ...);
-    // const char *duk_push_sprintf(duk_context *ctx, const char *fmt, ...);
-    // const char *duk_push_vsprintf(duk_context *ctx, const char *fmt, va_list ap);
-    // duk_idx_t duk_push_error_object_va(duk_context *ctx, duk_errcode_t err_code, const char *fmt, va_list ap);
-    // duk_ret_t duk_fatal(duk_context *ctx, const char *err_msg);
-    // void dump_context_stderr() const  { duk_dump_context_stderr(ctx_); }
-    // void dump_context_stdout() const  { duk_dump_context_stdout(ctx_); }
-    // ------------------------------------------------------------------------------------------
-    // Do be checked to include with c++ type (chrono, extra class etc) or if already covered
-    // (e.g. with Date conversion trait).
-    // ------------------------------------------------------------------------------------------
-    // duk_idx_t duk_push_error_object(duk_context *ctx, duk_errcode_t err_code, const char *fmt, ...); // covered with throw_error()
-    // duk_double_t duk_components_to_time(duk_context *ctx, duk_time_components *comp); // Covered with Date conversion
-    // void duk_time_to_components(duk_context *ctx, duk_double_t time, duk_time_components *comp);
-    // void duk_debugger_attach(duk_context *ctx,.......);
-    // void duk_debugger_cooperate(duk_context *ctx);
-    // void duk_debugger_detach(duk_context *ctx);
-    // duk_bool_t duk_debugger_notify(duk_context *ctx, duk_idx_t nvalues);
-    // void duk_debugger_pause(duk_context *ctx);
-    // duk_idx_t duk_push_c_lightfunc(duk_context *ctx, duk_c_function func, duk_idx_t nargs, duk_idx_t length, duk_int_t magic);
     // </editor-fold>
-    // <editor-fold desc="api extension" defaultstate="collapsed">
 
+    // <editor-fold desc="api extension" defaultstate="collapsed">
     #ifdef DUKTAPE_NO_API_EXTENSION
     friend class basic_engine<R>;
     protected:
@@ -1899,7 +1828,7 @@ namespace duktape { namespace detail {
    *
    * The allocated heap is freed during destruction.
    */
-  template <typename>
+  template <typename MutexType>
   class basic_engine
   {
   public:
@@ -1907,6 +1836,7 @@ namespace duktape { namespace detail {
     // <editor-fold desc="types" defaultstate="collapsed">
     using api_type = ::duktape::api;
     using stack_guard_type = ::duktape::stack_guard;
+    using lock_guard_type = std::lock_guard<MutexType>;
 
     /**
      * define(....) : Defines are done using these flags (DUK_DEFPROP_HAVE_... will be
@@ -1947,7 +1877,7 @@ namespace duktape { namespace detail {
     /**
      * c' tor
      */
-    explicit basic_engine() : stack_(), define_flags_(defflags::defaults), call_recursion_level_(0)
+    explicit basic_engine() : stack_(), define_flags_(defflags::defaults), call_recursion_level_(0), mutex_()
     { clear(); }
 
     /**
@@ -2005,6 +1935,7 @@ namespace duktape { namespace detail {
      */
     void clear()
     {
+      lock_guard_type lck(mutex_);
       define_flags_ = defflags::defaults;
       call_recursion_level_ = 0;
       if(ctx()) ::duk_destroy_heap(ctx());
@@ -2060,6 +1991,7 @@ namespace duktape { namespace detail {
     template <typename ReturnType=void, bool Strict=false>
     ReturnType eval(std::string&& code, std::string file="(eval)")
     {
+      lock_guard_type lck(mutex_);
       call_recursion_guard crg(ctx(), call_recursion_level_);
       stack_guard_type sg(ctx(), true);
       stack().require_stack(2);
@@ -2128,6 +2060,7 @@ namespace duktape { namespace detail {
     template <typename ReturnType=void, bool Strict=false, typename ...Args>
     ReturnType call(std::string funct, Args ...args)
     {
+      lock_guard_type lck(mutex_);
       call_recursion_guard crg(ctx(), call_recursion_level_);
       stack_guard_type sg(ctx(), true);
       stack().require_stack(6);
@@ -2190,6 +2123,7 @@ namespace duktape { namespace detail {
     void undef(std::string name)
     {
       if(name.empty()) return;
+      lock_guard_type lck(mutex_);
       stack_guard_type sg(ctx());
       std::string base, tail;
       if(!aux<>::split_selector(name, base, tail)) {
@@ -2246,6 +2180,7 @@ namespace duktape { namespace detail {
      */
     void define(std::string name, ::duk_c_function fn, int nargs=-1)
     {
+      lock_guard_type lck(mutex_);
       stack_guard_type sg(ctx());
       name = define_base(name);
       stack().push_string(name);
@@ -2286,6 +2221,7 @@ namespace duktape { namespace detail {
      */
     void define(std::string name, native_function_type fn, int nargs=-1)
     {
+      lock_guard_type lck(mutex_);
       stack_guard_type sg(ctx());
       name = define_base(name);
       stack().push_string(name);
@@ -2313,6 +2249,7 @@ namespace duktape { namespace detail {
     template <typename R, typename ...Args>
     void define(std::string name, R(*fn)(Args...))
     {
+      lock_guard_type lck(mutex_);
       stack_guard_type sg(ctx());
       name = define_base(name);
       stack().push_string(name);
@@ -2360,6 +2297,7 @@ namespace duktape { namespace detail {
     >::type* = nullptr>
     void define(std::string name, T value)
     {
+      lock_guard_type lck(mutex_);
       stack_guard_type sg(ctx());
       name = define_base(name);
       stack().push_string(name);
@@ -2460,6 +2398,7 @@ namespace duktape { namespace detail {
     api_type stack_;
     typename defflags::type define_flags_;
     long call_recursion_level_;
+    MutexType mutex_;
     // </editor-fold>
   };
 }}
