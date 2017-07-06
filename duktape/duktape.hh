@@ -1875,7 +1875,7 @@ namespace duktape { namespace detail { namespace {
             stack.throw_exception(e.what());
           } else {
             // Script error was caught by call() or eval() invoked in the function,
-            // and the forwarded Error obkect is still on stack top --> rethrow.
+            // and the forwarded Error object is still on stack top --> rethrow.
             stack.throw_exception();
           }
           return 0;
@@ -2150,7 +2150,7 @@ namespace duktape { namespace detail {
           stack().swap_top(sg.initial_top());
           sg.initial_top(sg.initial_top()+1);
           stack().top(sg.initial_top());
-          stack().dup_top(); // Ensure that safe_to_string() does not modify the original (Error) object.
+          stack().dup_top();
           std::string msg = stack().safe_to_string(-1);
           stack().pop();
           std::string callstack;
