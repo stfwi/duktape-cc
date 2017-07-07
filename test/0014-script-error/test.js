@@ -33,9 +33,6 @@ function a() {
 try {
   a();
 } catch(ex) {
-  if(ex.stack !== undefined) {
-    print(typeof(ex.stack));
-    print(JSON.stringify(ex.stack));
-  }
+  print("(exception caught and rethrown in js)");
   throw ex;
 }

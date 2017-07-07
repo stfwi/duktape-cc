@@ -1055,16 +1055,6 @@ namespace duktape { namespace detail {
     static void xmove_top(context_t to_ctx, context_t from_ctx, size_t count)
     { duk_xmove_top(to_ctx, from_ctx, duk_idx_t(count)); }
 
-    // </editor-fold>
-
-    // <editor-fold desc="api extension" defaultstate="collapsed">
-    #ifdef DUKTAPE_NO_API_EXTENSION
-    friend class basic_engine<R>;
-    protected:
-    #else
-    public:
-    #endif
-
     /**
      * Push a (raw) buffer with defined size and in turn push a
      * buffer object of type ArrayBuffer linked to the raw buffer.
@@ -1334,6 +1324,17 @@ namespace duktape { namespace detail {
 
     bool is_true(index_t index)
     { return is_boolean(index) && get_boolean(index); }
+
+    engine& parent_engine()
+    {
+      stack_guard sg(*this);
+      push_heap_stash();
+      get_prop_string(-1, "_engine_");
+      if(!is_pointer(-1)) {
+        throw engine_error("Duktape stack has no duktape::engine assigned.");
+      }
+      return *reinterpret_cast<engine*>(get_pointer(-1));
+    }
 
   private:
 
@@ -1795,6 +1796,8 @@ namespace duktape { namespace detail { namespace {
         }
         try {
           return function_wrap<R, Args...>(fn, ctx);
+        } catch(const engine_error& e) {
+          throw; // no cleanup, something on the heap might be wrong.
         } catch(const exit_exception&) {
           stack.gc(); // sweep through to trigger possible finalisers, then rethrow to next higher frame.
           throw;
@@ -1852,23 +1855,6 @@ namespace duktape { namespace detail {
       static constexpr type configurable = (DUK_DEFPROP_CONFIGURABLE);
       static constexpr type defaults = (DUK_DEFPROP_ENUMERABLE);
     };
-
-  private:
-
-    /**
-     * Tracks the call recursion level.
-     */
-    struct call_recursion_guard
-    {
-      explicit call_recursion_guard(typename api_type::context_t ctx, long& l) noexcept : ctx_(ctx), level_(l)
-      { ++level_; }
-
-      ~call_recursion_guard() noexcept
-      { if((--level_) <= 0) { level_ = 0; ::duk_set_top(ctx_, 0); } }
-
-      typename api_type::context_t ctx_;
-      long& level_;
-    };
     // </editor-fold>
 
   public:
@@ -1877,7 +1863,7 @@ namespace duktape { namespace detail {
     /**
      * c' tor
      */
-    explicit basic_engine() : stack_(), define_flags_(defflags::defaults), call_recursion_level_(0), mutex_()
+    explicit basic_engine() : stack_(), define_flags_(defflags::defaults), mutex_()
     { clear(); }
 
     /**
@@ -1937,10 +1923,13 @@ namespace duktape { namespace detail {
     {
       lock_guard_type lck(mutex_);
       define_flags_ = defflags::defaults;
-      call_recursion_level_ = 0;
       if(ctx()) ::duk_destroy_heap(ctx());
-      stack_.ctx(::duk_create_heap(0, 0, 0, 0, 0));
+      stack().ctx(::duk_create_heap(0, 0, 0, 0, 0));
       if(!ctx()) throw engine_error("Failed to create context");
+      stack().push_heap_stash();
+      stack().push_pointer(this);
+      stack().put_prop_string(-2, "_engine_");
+      stack().top(0);
     }
     // </editor-fold>
 
@@ -1992,7 +1981,6 @@ namespace duktape { namespace detail {
     ReturnType eval(std::string&& code, std::string file="(eval)")
     {
       lock_guard_type lck(mutex_);
-      call_recursion_guard crg(ctx(), call_recursion_level_);
       stack_guard_type sg(ctx(), true);
       stack().require_stack(2);
       stack().push_string(std::move(code));
@@ -2001,7 +1989,8 @@ namespace duktape { namespace detail {
       try {
         ok = (stack().eval_raw(0, 0, DUK_COMPILE_EVAL | DUK_COMPILE_SAFE | DUK_COMPILE_SHEBANG) == 0);
       } catch(const exit_exception&) {
-        stack().gc(); // trigger sweep for possible finalizers
+        stack().top(0);
+        stack().gc();
         throw;
       }
       if(!ok) {
@@ -2019,7 +2008,6 @@ namespace duktape { namespace detail {
           stack().pop();
           throw script_error(std::move(msg), std::move(callstack));
         } else {
-          //  Should not happen at all
           throw script_error(std::string("Unspecified exception evaluating code."));
         }
       } else if(std::is_void<ReturnType>::value) {
@@ -2061,7 +2049,6 @@ namespace duktape { namespace detail {
     ReturnType call(std::string funct, Args ...args)
     {
       lock_guard_type lck(mutex_);
-      call_recursion_guard crg(ctx(), call_recursion_level_);
       stack_guard_type sg(ctx(), true);
       stack().require_stack(6);
       if(!stack().select(funct)) {
@@ -2092,7 +2079,6 @@ namespace duktape { namespace detail {
           stack().pop();
           throw script_error(std::move(msg), std::move(callstack));
         } else {
-          //  Should not happen at all
           throw script_error(std::string("Unspecified exception calling function '") + funct + "");
         }
       } else if(std::is_void<ReturnType>::value) {
@@ -2100,6 +2086,7 @@ namespace duktape { namespace detail {
       } else if(!Strict) {
         return conv<ReturnType>::to(ctx(), -1);
       } else if(!conv<ReturnType>::is(ctx(), -1)) {
+        stack().top(0);
         throw script_error(
           std::string("Called '") + funct + "' with expected return type '" +
           conv<ReturnType>::ecma_name() + "' (--> '" + conv<ReturnType>::cc_name() + "'), " +
@@ -2397,7 +2384,6 @@ namespace duktape { namespace detail {
     // <editor-fold desc="instance variables" defaultstate="collapsed">
     api_type stack_;
     typename defflags::type define_flags_;
-    long call_recursion_level_;
     MutexType mutex_;
     // </editor-fold>
   };
