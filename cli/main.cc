@@ -117,7 +117,7 @@ int main(int argc, const char** argv)
   } catch(duktape::exit_exception& e) {
     return e.exit_code();
   } catch(duktape::script_error& e) {
-    cerr << "Error: " << e.what() << endl;
+    cerr << e.callstack() << endl;
     return 1;
   } catch(duktape::engine_error& e) {
     cerr << "Fatal: " << e.what() << endl;
