@@ -255,63 +255,67 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
     }
 
     std::string contents;
-    if(!filter_function) {
-      std::ifstream fis(path.c_str(), binary ? (std::ios::in|std::ios::binary) : (std::ios::in));
-      contents.assign((std::istreambuf_iterator<char>(fis)), std::istreambuf_iterator<char>());
-      if(!fis.good() && !fis.eof()) return 0; // not accessible/existing/read error
-      if(!binary) {
+    try {
+      if(!filter_function) {
+        std::ifstream fis(path.c_str(), binary ? (std::ios::in|std::ios::binary) : (std::ios::in));
+        contents.assign((std::istreambuf_iterator<char>(fis)), std::istreambuf_iterator<char>());
+        if(!fis.good() && !fis.eof()) return 0; // not accessible/existing/read error
+        if(!binary) {
+          stack.push(contents);
+          return 1;
+        } else {
+          char* buffer = reinterpret_cast<char*>(stack.push_array_buffer(contents.length(), true));
+          if(!buffer) return 0;
+          if(contents.length() > 0) std::copy(contents.begin(), contents.end(), buffer);
+          return 1;
+        }
+      } else {
+        std::ifstream fis(path.c_str());
+        if(!fis.good() && !fis.eof()) return 0;
+        std::string line;
+        std::string contents;
+        stack.require_stack_top(5);
+        bool islast = false;
+        while(fis.good()) {
+          if(!std::getline(fis, line).good()) {
+            if(!fis.eof()) break; // io error
+            if(line.empty()) break; // eof and nothing more to do
+            islast = true;
+          }
+          // if(line.empty()) continue; .... no, it is possible that someone counts the lines in the callback
+          stack.dup(filter_function);
+          stack.push(line);
+          stack.call(1);
+          if(stack.is<std::string>(-1)) {
+            // 1. Filter returns a string: Means a modified version of the line shall be added.
+            contents += stack.to<std::string>(-1);
+            if(!islast) contents += '\n';
+          } else if(stack.is<bool>(-1)) {
+            if(stack.get<bool>(-1)) {
+              // 2. Filter returns true: Means, yes, add this line.
+              contents += line;
+              if(!islast) contents += '\n';
+            } else {
+              // 3. Filter returns true: Means, no, don't want this line.
+            }
+          } else if(stack.is_undefined(-1) || stack.is_null(-1)) {
+              // 4. Filter returns undefined: Means, no, don't want this line,
+              //    similar to false, but covers the context that there is a
+              //    string or object somewhere accessible from the filter function
+              //    where the line data are stored somehow, and the file reading
+              //    function output is ignored anyway after it returns.
+              //
+          } else {
+            stack.throw_exception("The file reading filter function must return a string, true/false or nothing (undefined).");
+            return 0;
+          }
+          stack.pop();
+        }
         stack.push(contents);
         return 1;
-      } else {
-        char* buffer = reinterpret_cast<char*>(stack.push_array_buffer(contents.length(), true));
-        if(!buffer) return 0;
-        if(contents.length() > 0) std::copy(contents.begin(), contents.end(), buffer);
-        return 1;
       }
-    } else {
-      std::ifstream fis(path.c_str());
-      if(!fis.good() && !fis.eof()) return 0;
-      std::string line;
-      std::string contents;
-      stack.require_stack_top(5);
-      bool islast = false;
-      while(fis.good()) {
-        if(!std::getline(fis, line).good()) {
-          if(!fis.eof()) break; // io error
-          if(line.empty()) break; // eof and nothing more to do
-          islast = true;
-        }
-        // if(line.empty()) continue; .... no, it is possible that someone counts the lines in the callback
-        stack.dup(filter_function);
-        stack.push(line);
-        stack.call(1);
-        if(stack.is<std::string>(-1)) {
-          // 1. Filter returns a string: Means a modified version of the line shall be added.
-          contents += stack.to<std::string>(-1);
-          if(!islast) contents += '\n';
-        } else if(stack.is<bool>(-1)) {
-          if(stack.get<bool>(-1)) {
-            // 2. Filter returns true: Means, yes, add this line.
-            contents += line;
-            if(!islast) contents += '\n';
-          } else {
-            // 3. Filter returns true: Means, no, don't want this line.
-          }
-        } else if(stack.is_undefined(-1) || stack.is_null(-1)) {
-            // 4. Filter returns undefined: Means, no, don't want this line,
-            //    similar to false, but covers the context that there is a
-            //    string or object somewhere accessible from the filter function
-            //    where the line data are stored somehow, and the file reading
-            //    function output is ignored anyway after it returns.
-            //
-        } else {
-          stack.throw_exception("The file reading filter function must return a string, true/false or nothing (undefined).");
-          return 0;
-        }
-        stack.pop();
-      }
-      stack.push(contents);
-      return 1;
+    } catch(const std::exception& e) {
+      return 0; // Return undefined on error.
     }
     return 0; // invalid execution path.
   }
@@ -349,11 +353,16 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
     } else {
       data = stack.to<std::string>(1);
     }
-    std::ofstream fos(path.c_str(), mode);
-    if(!fos.good()) { stack.push(false); return 1; }
-    fos << data;
-    stack.push(fos.good());
-    return 1;
+    try {
+      std::ofstream fos(path.c_str(), mode);
+      if(!fos.good()) { stack.push(false); return 1; }
+      fos << data;
+      stack.push(fos.good());
+      return 1;
+    } catch(const std::exception& e) {
+      stack.push(false);
+      return 1;
+    }
   }
   // </editor-fold>
 
@@ -1076,7 +1085,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     DWORD fa;
     stack.push((stack.is<std::string>(0))
       && ((fa=::GetFileAttributesA(PathAccessor::to_sys(stack.to<std::string>(0)).c_str())) != INVALID_FILE_ATTRIBUTES)
-      && ((fa & FILE_ATTRIBUTE_NORMAL) != 0)
+      && ((fa & FILE_ATTRIBUTE_DIRECTORY) == 0)
     );
     return 1;
     #endif
