@@ -867,7 +867,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       index_t optindex = -1;
       if(stack.is_object(0)) {
         optindex = 0;
-        no_exception = stack.get_optional_property<bool>(optindex, "noexcept", false);
+        no_exception = stack.get_prop_string<bool>(optindex, "noexcept", false);
         if(stack.top() > 1) {
           if(!no_exception) stack.throw_exception("exec(): When passing an object as first argument means that this must be the only argument containing all information.");
           return 0;
@@ -884,7 +884,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
           arguments = stack.req<std::vector<std::string>>(1);
         } else if(stack.is_object(1)) {
           optindex = 1;
-          no_exception = stack.get_optional_property<bool>(optindex, "noexcept", false);
+          no_exception = stack.get_prop_string<bool>(optindex, "noexcept", false);
           if(stack.top() > 2) {
             if(!no_exception) stack.throw_exception("exec(): After the option object (here argument 2) no further arguments can follow.");
             return 0;
@@ -901,15 +901,15 @@ namespace duktape { namespace detail { namespace system { namespace exec {
           return 0;
         } else {
           optindex = 2;
-          no_exception = stack.get_optional_property<bool>(optindex, "noexcept", false);
+          no_exception = stack.get_prop_string<bool>(optindex, "noexcept", false);
         }
       }
 
       if(optindex >= 0) {
         // flags
-        without_path_search = stack.get_optional_property<bool>(optindex, "nopath", false);
-        noenv = stack.get_optional_property<bool>(optindex, "noenv", false);
-        timeout_ms = stack.get_optional_property<int>(optindex, "timeout", -1);
+        without_path_search = stack.get_prop_string<bool>(optindex, "nopath", false);
+        noenv = stack.get_prop_string<bool>(optindex, "noenv", false);
+        timeout_ms = stack.get_prop_string<int>(optindex, "timeout", -1);
 
         // program path/name (in $PATH)
         if(stack.get_prop_string(optindex, "program")) {

@@ -1834,10 +1834,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace enhanced
       if(stack.is<std::string>(1)) {
         pattern = stack.to<std::string>(1);
       } else if(stack.is_object(1)) {
-        pattern = stack.get_optional_property<std::string>(1, "name");
-        ftype = stack.get_optional_property<std::string>(1, "type");
-        depth = stack.get_optional_property<int>(1, "depth", depth);
-        logical_find = stack.get_optional_property<bool>(1, "logical", true);
+        pattern = stack.get_prop_string<std::string>(1, "name", std::string());
+        ftype = stack.get_prop_string<std::string>(1, "type", std::string());
+        depth = stack.get_prop_string<int>(1, "depth", depth);
+        logical_find = stack.get_prop_string<bool>(1, "logical", true);
         if(!ftype.empty()) {
           if(ftype.find('l') != ftype.npos) mode |= S_IFLNK;
           if(ftype.find('d') != ftype.npos) mode |= S_IFDIR;
@@ -2064,7 +2064,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace enhanced
     bool recursive = false;
     if(!stack.is_undefined(2)) {
       if(stack.is_object(2)) {
-        recursive = stack.get_optional_property<bool>(2, "recursive", false);
+        recursive = stack.get_prop_string<bool>(2, "recursive", false);
       } else if(stack.is_string(2)) {
         std::string s = stack.get_string(2);
         if(s == "r" || s == "R" || s == "-r" || s == "-R") {
@@ -2173,7 +2173,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace enhanced
     bool recursive = false;
     if(!stack.is_undefined(1)) {
       if(stack.is_object(1)) {
-        recursive = stack.get_optional_property<bool>(1, "recursive", false);
+        recursive = stack.get_prop_string<bool>(1, "recursive", false);
       } else if(stack.is_string(1)) {
         std::string s = stack.get_string(1);
         if(s == "r" || s == "-r") {

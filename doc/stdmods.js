@@ -1,9 +1,3 @@
-/**
- * File system object containing functions
- * for basic file and operations and queries.
- * @var Object
- */
-var fs = {};
 
 /**
  * Reads a file, returns the contents or undefined on error.
@@ -639,6 +633,19 @@ sys.uname = function() {};
  * @return bool
  */
 sys.sleep = function(seconds) {};
+
+
+/**
+ * File object constructor, creates a fs.file object when
+ * invoked with the `new` keyword. Optionally, path and openmode
+ * can be specified to directly open the file. See `File.open()`
+ * for details.
+ *
+ * @param undefined|String path
+ * @param undefined|String openmode
+ * @return fs.File
+ */
+fs.file = function(path, openmode) {};
 
 
 /**
