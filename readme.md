@@ -159,8 +159,8 @@ int main(int argc, const char** argv)
 ## Notes, development context, road map, todo's, etc ...
 
 - This project does not intend to be a base for another nodejs
-  or the like. The focus is set to fast integration. Main application
-  have been up to now:
+  or the like. The focus is set on fast integration. Main application
+  fields have been up to now:
 
     - Implementing scriptable testing applications for libraries
       written in c++.
@@ -169,23 +169,22 @@ int main(int argc, const char** argv)
 
     - Adding scripting hooks/callbacks to C++ applications.
 
-- Duktape was a great help for me testing functionality in embedded
-  systems. During the evaluation and of this class template set,
-  especially the modules, it turned out that a sequential script
-  execution and avoiding exceptions did lead to small and well
-  understandable script codes. Therefore the module functions
-  avoid to throw and indicate success or problems e.g. via boolean
-  return (such as `if(!fs.chmod(file, mode)) handleit();`).
+- Duktape was a great help for me when testing functionality in
+  embedded systems. During the development and evaluation of this
+  class template set (especially the modules) it turned out that
+  a sequential script execution did lead to small and well understandable
+  script codes.
 
-- According to conversions of types between JS and C++, the intension
-  is to stick with the STL and adding traits for modules only where
-  it is needed (but in the modules, not the main duktape.hh). Traits
+- About conversions of types between JS and C++: The intension is
+  to stick with the STL and adding traits for modules only where it
+  is needed (but in the modules, not the main duktape.hh). Traits
   should be generally there for
 
     - [x] Numeric types
     - [x] `std::string`       -> String
     - [x] `std::vector<...>`  -> Array
-    - [ ] `std::map<...>`,`std::unordered_map<...>`  -> Object
+    - [ ] `std::map<...>`,`std::unordered_map<...>`  -> Object. This
+          is still a point of discussion if this makes sense.
 
 - Missing list
 
@@ -196,7 +195,7 @@ int main(int argc, const char** argv)
 
     - [ ] Wrapping of C++ classes as JS objects: Maybe one day. It currently
       looks simpler and more straight forward to use the Duktape-API-way when
-      defining constructors.
+      defining constructors and dealing with object properties.
 
     - [ ] The test cases are yet somewhat rudimentary and cover only the main
       cases. Randomly generated inputs for better coverage are on the list.

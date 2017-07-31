@@ -571,7 +571,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
     auto readpipe = [errstr](HANDLE& hpipe, std::string& data, bool ignored) {
       if(!hpipe) return;
       for(;;) {
-        char buffer[4096];
+        char buffer[4096+1];
         DWORD n_read=0, size=0;
         if(!::PeekNamedPipe(hpipe, nullptr, 0, nullptr, &size, nullptr)) {
           switch(::GetLastError()) {
@@ -615,7 +615,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
         } else if(!n_read) {
           return;
         } else if(!ignored) {
-          buffer[n_read] = 0;
+          buffer[n_read] = 0; // should have no effect on string copy creation, only for safety in doubt.
           data += std::string(buffer, buffer+n_read);
         }
       }

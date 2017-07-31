@@ -8,6 +8,7 @@
  * @requires duk_config.h duktape.h duktape.c >= v2.1
  * @requires Duktape CFLAGS -DDUK_USE_CPP_EXCEPTIONS
  * @cxxflags -std=c++11 -W -Wall -Wextra -pedantic -fstrict-aliasing
+ * @requires WIN32 CXXFLAGS -D_WIN32_WINNT>=0x0601 -DWINVER>=0x0601 -D_WIN32_IE>=0x0900
  *
  * -----------------------------------------------------------------------------
  *
