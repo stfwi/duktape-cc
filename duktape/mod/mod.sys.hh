@@ -384,6 +384,64 @@ namespace duktape { namespace detail { namespace system {
     }
     return 1;
   }
+
+  #if(0 && JSDOC)
+  /**
+   * Returns the time in seconds (with sub seconds) of a selected
+   * time/clock source:
+   *
+   *  - "r": Real time clock (value same as Date object, maybe
+   *         higher resolution)
+   *  - "b": Boot time (if available, otherwise equal to "m" source)
+   *
+   *  - "m": Monotonic time, starts at zero when the function
+   *         is first called.
+   *
+   * Returns NaN on error or when a source is not supported on the
+   * current platform.
+   *
+   * @param String clock_source
+   * @return Number seconds
+   */
+  sys.clock = function(clock_source) {};
+  #endif
+  template <typename=void>
+  int clock_seconds(duktape::api& stack)
+  {
+    char c = 'm';
+    {
+      std::string s = stack.get<std::string>(0);
+      if(!s.empty()) c = s[0];
+    }
+    double t = std::numeric_limits<double>::quiet_NaN();
+    #ifdef __linux
+    switch(c) {
+      case 'r':
+      case 'b': {
+        static ::timespec ts;
+        if(::clock_gettime(c=='b' ? CLOCK_BOOTTIME : CLOCK_REALTIME, &ts) == 0) {
+          t = double(ts.tv_sec) + double(ts.tv_nsec) * 1e-9;
+        }
+        break;
+      }
+      default: {
+        static double t0= std::numeric_limits<double>::quiet_NaN();
+        static ::timespec ts;
+        if(::clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
+          t = double(ts.tv_sec) + double(ts.tv_nsec) * 1e-9;
+          if(std::isnan(t0)) t0 = t;
+          t -= t0;
+        }
+        break;
+      }
+    }
+    #else
+    // Leave NaN for not supported platforms
+    (void)c;
+    #endif
+    stack.push(t);
+    return 1;
+  }
   // </editor-fold>
 
 }}}
@@ -406,6 +464,7 @@ namespace duktape { namespace mod { namespace system {
     js.define("sys.group", getgroup<>, 1);
     js.define("sys.uname", getuname<>, 0);
     js.define("sys.sleep", sleep_seconds<>, 1);
+    js.define("sys.clock", clock_seconds<>, 1);
   }
   // </editor-fold>
 
