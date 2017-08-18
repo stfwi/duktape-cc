@@ -2,6 +2,7 @@
 #include <duktape/mod/mod.stdio.hh>
 #include <duktape/mod/mod.stdlib.hh>
 #include <duktape/mod/mod.fs.hh>
+#include <duktape/mod/mod.fs.file.hh>
 #include <duktape/mod/mod.sys.hh>
 #include <duktape/mod/mod.sys.exec.hh>
 #include <exception>
@@ -14,7 +15,7 @@
 #endif
 
 #ifndef PROGRAM_VERSION
-  #define PROGRAM_VERSION "v0.9"
+  #define PROGRAM_VERSION "v1.0"
 #endif
 
 using namespace std;
@@ -61,9 +62,12 @@ int main(int argc, const char** argv)
                << "EXIT CODE" << endl << endl
                << "  0=success, other codes indicate an error, either from a script exception or " << endl
                << "                       from binary program error." << endl << endl
-               << PROGRAM_NAME << " " << PROGRAM_VERSION << ", stfwi 2015" << endl
+               << (PROGRAM_NAME) << " " << (PROGRAM_VERSION) << ", (CC) stfwi 2015-2017, lic: MIT" << endl
                ;;
           return 1;
+        } else if(arg == "-V" || arg == "--version") {
+          cout << "program: " << PROGRAM_NAME << endl << "version: " << PROGRAM_VERSION << endl;
+          return 0;
         } else if(arg == "-e" || arg == "--eval") {
           if((++i >= argc) || (!argv[i]) || ((arg=argv[i]) == "--")) {
             cerr << "No code after '-e/--eval'" << endl;
@@ -86,6 +90,7 @@ int main(int argc, const char** argv)
     duktape::mod::filesystem::generic::define_in(js);
     duktape::mod::filesystem::basic::define_in(js);
     duktape::mod::filesystem::enhanced::define_in(js);
+    duktape::mod::filesystem::fileobject::define_in(js);
     duktape::mod::system::define_in(js);
     duktape::mod::system::exec::define_in(js);
     js.define("sys.args", args);

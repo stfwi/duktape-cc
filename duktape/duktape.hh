@@ -180,6 +180,40 @@ struct aux
   }
 };
 
+
+/**
+ * define(....) : Defines are done using these flags (DUK_DEFPROP_HAVE_... will be
+ * automatically added). The default is defining sealed, frozen - means not writable,
+ * not configurable, but enumerable.
+ */
+template <typename T=unsigned>
+struct defprop_flags
+{
+  using type = T;
+  static constexpr type restricted = 0;
+  static constexpr type writable = (DUK_DEFPROP_WRITABLE);
+  static constexpr type enumerable = (DUK_DEFPROP_ENUMERABLE);
+  static constexpr type configurable = (DUK_DEFPROP_CONFIGURABLE);
+  static constexpr type defaults = (DUK_DEFPROP_ENUMERABLE);
+
+  /**
+   * Handles/converts the flags needed for def_prop() from the simplified
+   * `defflags::*` constants.
+   *
+   * @param typename type
+   * @return unsigned
+   */
+  static unsigned convert(type flags) noexcept
+  {
+    return (((unsigned)0) | DUK_DEFPROP_FORCE | DUK_DEFPROP_HAVE_VALUE
+      | DUK_DEFPROP_HAVE_WRITABLE | ((flags & writable) ? DUK_DEFPROP_WRITABLE:0)
+      | DUK_DEFPROP_HAVE_CONFIGURABLE | ((flags & configurable) ? DUK_DEFPROP_CONFIGURABLE:0)
+      | DUK_DEFPROP_HAVE_ENUMERABLE | ((flags & enumerable) ? DUK_DEFPROP_ENUMERABLE:0)
+    );
+  }
+};
+
+
 }}}
 // </editor-fold>
 
@@ -473,6 +507,18 @@ namespace duktape { namespace detail {
 
     bool get_prop_string(index_t obj_index, const std::string& key) const
     { return duk_get_prop_lstring(ctx_, obj_index, key.c_str(), key.size()) != 0; }
+
+    /**
+     * Get a value from an object or a default if not existing.
+     */
+    template <typename T>
+    T get_prop_string(index_t object_index, const char* property_name, T default_value) const
+    {
+      if(!has_prop_string(object_index, property_name)) return default_value;
+      if(get_prop_string(object_index, property_name)) default_value = get<T>(-1);
+      pop();
+      return default_value;
+    }
 
     void get_prop_desc(index_t obj_index, unsigned flags) const
     { duk_get_prop_desc(ctx_, obj_index, duk_uint_t(flags)); }
@@ -1072,15 +1118,53 @@ namespace duktape { namespace detail {
     }
 
     /**
-     * Get a value from an object or a default if not existing.
+     * Like put_prop_string(obj_index, key), except that the property
+     * is not accessible from the ECMA engine. Uses `def_prop()` with
+     * not-enumerable,not-writable,not-configurable and prepends "\xff_"
+     * to the key.
+     *
+     * @param index_t obj_index
+     * @param std::string key
+     * @return bool
      */
-    template <typename T>
-    T get_optional_property(index_t object_index, const char* property_name, T default_value=T()) const
+    bool put_prop_string_hidden(index_t obj_index, std::string key) const
     {
-      if(!has_prop_string(object_index, property_name)) return default_value;
-      if(get_prop_string(object_index, property_name)) default_value = get<T>(-1);
-      pop();
-      return default_value;
+      if(key.empty() || (!is_object(obj_index))) return false;
+      require_stack(1);
+      push_string(std::string("\xff_") + key);
+      swap(-1,-2);
+      def_prop(obj_index, defprop_flags<>::convert(defprop_flags<>::restricted));
+      return true;
+    }
+
+    /**
+     * Like get_prop_string(obj_index, key), except that a hidden property
+     * (key prepended with "\xff_") is retrieved. Uses `get_prop_string()`.
+     *
+     * @param index_t obj_index
+     * @param const std::string& key
+     * @return bool
+     */
+    bool get_prop_string_hidden(index_t obj_index, const std::string& key) const
+    { return get_prop_string(obj_index, std::string("\xff_") + key); }
+
+    /**
+     * Like del_prop_string(obj_index, key), except that a hidden property
+     * (key prepended with "\xff_") is removed. Uses `del_prop_string()`.
+     *
+     * @param index_t obj_index
+     * @param const std::string& key
+     * @return bool
+     */
+    bool del_prop_string_hidden(index_t obj_index, const std::string& key) const
+    { return del_prop_string(obj_index, std::string("\xff_") + key); }
+
+    template <typename T>
+    T get_prop_string_hidden(index_t object_index, std::string key, T default_value) const
+    {
+      if(key.empty()) return default_value;
+      key = std::string("\xff_") + key;
+      return get_prop_string(object_index, key, default_value);
     }
 
     /**
@@ -1840,21 +1924,7 @@ namespace duktape { namespace detail {
     using api_type = ::duktape::api;
     using stack_guard_type = ::duktape::stack_guard;
     using lock_guard_type = std::lock_guard<MutexType>;
-
-    /**
-     * define(....) : Defines are done using these flags (DUK_DEFPROP_HAVE_... will be
-     * automatically added). The default is defining sealed, frozen - means not writable,
-     * not configurable, but enumerable.
-     */
-    struct defflags
-    {
-      using type = unsigned;
-      static constexpr type restricted = 0;
-      static constexpr type writable = (DUK_DEFPROP_WRITABLE);
-      static constexpr type enumerable = (DUK_DEFPROP_ENUMERABLE);
-      static constexpr type configurable = (DUK_DEFPROP_CONFIGURABLE);
-      static constexpr type defaults = (DUK_DEFPROP_ENUMERABLE);
-    };
+    using defflags = defprop_flags<>;
     // </editor-fold>
 
   public:
@@ -2172,7 +2242,7 @@ namespace duktape { namespace detail {
       name = define_base(name);
       stack().push_string(name);
       stack().push_c_function(fn, nargs >= 0 ? nargs : DUK_VARARGS);
-      stack().def_prop(-3, convert_define_flags(define_flags_));
+      stack().def_prop(-3, defflags::convert(define_flags_));
     }
 
     /**
@@ -2213,11 +2283,11 @@ namespace duktape { namespace detail {
       name = define_base(name);
       stack().push_string(name);
       stack().push_c_function(function_proxy<int, api_type&>::func, nargs >= 0 ? nargs : DUK_VARARGS); ///@sw: replace these template params with auto det
-      stack().def_prop(-3, convert_define_flags(define_flags_));
+      stack().def_prop(-3, defflags::convert(define_flags_));
       stack().get_prop_string(-1, name);
       stack().push_string("\xff_fp");
       stack().push_pointer((void*)fn); //@sw: double check / alternative: fn pointer vs data pointers size.
-      stack().def_prop(-3, convert_define_flags(define_flags_));
+      stack().def_prop(-3, defflags::convert(define_flags_));
     }
 
     /**
@@ -2241,11 +2311,11 @@ namespace duktape { namespace detail {
       name = define_base(name);
       stack().push_string(name);
       stack().push_c_function(function_proxy<R, Args...>::func, sizeof...(Args));
-      stack().def_prop(-3, convert_define_flags(define_flags_));
+      stack().def_prop(-3, defflags::convert(define_flags_));
       stack().get_prop_string(-1, name);
       stack().push_string("\xff_fp");
       stack().push_pointer((void*)fn); //@sw: double check / alternative: fn pointer vs data pointers size.
-      stack().def_prop(-3, convert_define_flags(define_flags_));
+      stack().def_prop(-3, defflags::convert(define_flags_));
     }
 
     /**
@@ -2289,7 +2359,7 @@ namespace duktape { namespace detail {
       name = define_base(name);
       stack().push_string(name);
       conv<T>::push(stack().ctx(), value);
-      stack().def_prop(-3, convert_define_flags(define_flags_));
+      stack().def_prop(-3, defflags::convert(define_flags_));
     }
 
     // </editor-fold>
@@ -2334,7 +2404,7 @@ namespace duktape { namespace detail {
             if(!stack().has_prop_string(-1, s.c_str())) {
               stack().push_string(s);
               stack().push_object();
-              stack().def_prop(-3, convert_define_flags(define_flags_));
+              stack().def_prop(-3, defflags::convert(define_flags_));
               stack().get_prop_string(-1, s);
             } else {
               stack().get_prop_string(-1, s);
@@ -2354,28 +2424,12 @@ namespace duktape { namespace detail {
         if(!stack().has_prop_string(-1, s.c_str())) {
           stack().push_string(s);
           stack().push_object();
-          stack().def_prop(-3, convert_define_flags(define_flags_));
+          stack().def_prop(-3, defflags::convert(define_flags_));
           stack().get_prop_string(-1, s);
         } else {
           stack().get_prop_string(-1, s);
         }
       }
-    }
-
-    /**
-     * Handles/converts the flags needed for def_prop() from the simplified
-     * `defflags::*` constants.
-     *
-     * @param typename defflags::type
-     * @return unsigned
-     */
-    static unsigned convert_define_flags(typename defflags::type flags) noexcept
-    {
-      return (((unsigned)0) | DUK_DEFPROP_FORCE | DUK_DEFPROP_HAVE_VALUE
-        | DUK_DEFPROP_HAVE_WRITABLE | ((flags & defflags::writable) ? DUK_DEFPROP_WRITABLE:0)
-        | DUK_DEFPROP_HAVE_CONFIGURABLE | ((flags & defflags::configurable) ? DUK_DEFPROP_CONFIGURABLE:0)
-        | DUK_DEFPROP_HAVE_ENUMERABLE | ((flags & defflags::enumerable) ? DUK_DEFPROP_ENUMERABLE:0)
-      );
     }
     // </editor-fold>
 

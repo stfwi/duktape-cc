@@ -1,9 +1,3 @@
-/**
- * File system object containing functions
- * for basic file and operations and queries.
- * @var Object
- */
-var fs = {};
 
 /**
  * Reads a file, returns the contents or undefined on error.
@@ -615,6 +609,15 @@ sys.group = function(gid) {};
 
 
 /**
+ * Returns path ("realpath") of the executable where the ECMA script is
+ * called from (or undefined on error or if not allowed).
+ *
+ * @return String|undefined
+ */
+sys.apppath = function() {};
+
+
+/**
  * Returns a plain object containing information about the operating system
  * running on, `undefined` on error. The object looks like:
  *
@@ -639,6 +642,287 @@ sys.uname = function() {};
  * @return bool
  */
 sys.sleep = function(seconds) {};
+
+
+/**
+ * Returns the time in seconds (with sub seconds) of a selected
+ * time/clock source:
+ *
+ *  - "r": Real time clock (value same as Date object, maybe
+ *         higher resolution)
+ *  - "b": Boot time (if available, otherwise equal to "m" source)
+ *
+ *  - "m": Monotonic time, starts at zero when the function
+ *         is first called.
+ *
+ * Returns NaN on error or when a source is not supported on the
+ * current platform.
+ *
+ * @param String clock_source
+ * @return Number seconds
+ */
+sys.clock = function(clock_source) {};
+
+
+/**
+ * Returns true if the descriptor given as string
+ * is an interactive TTY or false otherwise, e.g.
+ * when connected to a pipe / file source. Valid
+ * descriptors are:
+ *
+ *  - "stdin"  or "i": STDIN  (standard input read with confirm, prompt etc)
+ *  - "stdout" or "o": STDOUT (standard output fed by print())
+ *  - "stderr" or "e": STDERR (standard error output, e.g. fed by alert())
+ *
+ * The function returns undefined if not implemented on the
+ * platform or if the descriptor name is incorrect.
+ *
+ * @param String descriptorName
+ * @return Boolean
+ */
+sys.isatty = function(descriptorName) {};
+
+
+/**
+ * File object constructor, creates a fs.file object when
+ * invoked with the `new` keyword. Optionally, path and openmode
+ * can be specified to directly open the file. See `File.open()`
+ * for details.
+ *
+ * @constructor
+ * @param undefined|String path
+ * @param undefined|String openmode
+ * @return fs.file
+ */
+fs.file = function(path, openmode) {};
+
+
+/**
+ * Opens a file given the path and corresponding "open mode". The
+ * mode is a string defining flags from adding or omitting characters,
+ * where the characters are (with exception of mode "a+") compliant
+ * to the ANSI C `fopen()` options. Additional characters enable
+ * further file operations and functionality. The options are:
+ *
+ * - "r": Open for `r`eading. The file must exist. Set the position
+ *        to the beginning of the file (ANSI C).
+ *
+ * - "w": Open for `w`riting. Create if the file is not existing yet,
+ *        truncate the file (discard contents). Start position is the
+ *        beginning of the file. (ANSI C).
+ *
+ * - "a": Open for `a`ppending. Create if the file is not existing yet,
+ *        set the write position to the end of the file. (ANSI C).
+ *
+ * - "r+": Open for `r`eading and writing, the file must exist. The
+ *        read/write position is set to the beginning of the file
+ *        (ANSI C).
+ *
+ * - "w+": Open for `w`riting and reading. Create if the file is not
+ *        existing yet, truncate the file (discard contents). Start
+ *        position is the beginning of the file. (ANSI C).
+ *
+ * - "a+": Open for `a`ppending and reading. Create if the file is not
+ *        existing yet. Start position is the beginning of the file.
+ *        Warning: The write position is guaranteed to be the end of
+ *        the file, but ANSI C specifies that the read position is
+ *        separately handled from the write position, and the write
+ *        position is implicitly always the end of the file. This is
+ *        NOT guaranteed in this implementation. When reading you must
+ *        `seek()` to the read position yourself.
+ *
+ * - "b": Optional flag: Open to read/write `b`inary. Reading will return
+ *        a `Buffer` in this case. Writing a `Buffer` will write binary
+ *        data.
+ *
+ * - "t": Optional flag: Open to read/write `t`ext (in contrast to binary,
+ *        this is already the default and only accepted because it is
+ *        known on some platforms).
+ *
+ * - "x": Optional flag: E`x`clusive creation. This causes opening for write
+ *        to fail with an exception if the file already exists. You can
+ *        use this to prevent accidentally overwriting existing files.
+ *
+ * - "e": Optional flag: Open `e`xisting files only. This is similar to "r+"
+ *        and can be used for higher verbosity or ensuring that no file will
+ *        be created. The open() call fails with an exception if the file
+ *        does not exist.
+ *
+ * - "c": Optional flag: `C`reate file if not existing. This is the explicit
+ *        specification of the default open for write/append behaviour. This
+ *        flag implicitly resets the `e` flag.
+ *
+ * - "p": Optional flag: `P`reserve file contents. This is an explicit order
+ *        that opening for write does not discard the current file contents.
+ *
+ * - "s": Optional flag: `S`ync. Means that file operations are implicitly
+ *        forced to be read from / written to the disk or device. Ignored if
+ *        the platform does not support it.
+ *
+ * - "n": Optional flag: `N`onblocking. Means that read/write operations that
+ *        would cause the function to "sleep" until data are available return
+ *        directly with empty return value. Ignored if the platform does not
+ *        support it (or not implemented for the platform).
+ *
+ * The flags (characters) are not case sensitive, so `file.open(path, "R")` and
+ * `file.open(path, "r")` are identical.
+ *
+ * Although the ANSI open flags are supported it is at a second glance more explicit
+ * to use the optional flags in combination with "r" and "w" or "a", e.g.
+ *
+ * - `file.open(path, "rwcx")`         --> open for read/write, create if not yet existing,
+ *                                         and only if not yet existing.
+ *
+ * - `file.open(path, "wep")`          --> open for write, only existing, preserve contents.
+ *
+ * - `file.open("/dev/cdev", "rwens")` --> open a character device for read/write, must exist,
+ *                                         nonblocking, sync.
+ *
+ * The function returns the reference to `this`.
+ *
+ * @param undefined|String path
+ * @param undefined|String openmode
+ * @return fs.file
+ */
+fs.file.open = function(path, openmode) {};
+
+
+/**
+ * Closes a file. Returns `this` reference.
+ *
+ * @return fs.file
+ */
+fs.file.close = function() {};
+
+
+/**
+ * Returns true if a file is closed.
+ *
+ * @return Boolean
+ */
+fs.file.closed = function() {};
+
+
+/**
+ * Returns true if a file is opened.
+ *
+ * @return Boolean
+ */
+fs.file.opened = function() {};
+
+
+/**
+ * Reads data from a file, where the maximum number of bytes
+ * to read can be specified. If `max_size` is not specified,
+ * then as many bytes as possible are read (until EOF, until
+ * error or until the operation would block).
+ *
+ * @param Number|undefined max_bytes
+ * @return String|Buffer
+ */
+fs.file.read = function(max_size) {};
+
+
+/**
+ * Write data to a file, returns the number of bytes written.
+ * Normally all bytes are written, except if nonblocking i/o
+ * was specified when opening the file.
+ *
+ * @param String|Buffer data
+ * @return Number
+ */
+fs.file.write = function(data) {};
+
+
+/**
+ * Returns the current file position.
+ *
+ * @return Number
+ */
+fs.file.tell = function() {};
+
+
+/**
+ * Sets the new file position (read and write). Returns the
+ * actual position (from the beginning of the file) after the
+ * position was set. The parameter whence specifies from where
+ * the position shall be set:
+ *
+ *  - "begin" (or "set"): From the beginning of the file (SEEK_SET)
+ *  - "end"             : From the end of the file backward (SEEK_END)
+ *  - "current" ("cur") : From the current position forward (SEEK_CUR)
+ *
+ * @param Number position
+ * @param String whence
+ * @return Number
+ */
+fs.file.seek = function(position, whence) {};
+
+
+/**
+ * Returns the current file size in bytes.
+ *
+ * @return Number
+ */
+fs.file.size = function() {};
+
+
+/**
+ * Returns details about the file including path, size, mode
+ * etc. @see fs.stat() for details.
+ *
+ * @return Object
+ */
+fs.file.stat = function() {};
+
+
+/**
+ * Flushes the file write buffer. Ignored on platforms where this
+ * is not required. Returns reference to `this`.
+ *
+ * @return fs.file
+ */
+fs.file.flush = function() {};
+
+
+/**
+ * Forces the operating system to write the file to a remote device
+ * or block device (disk). This is a Linux/UNIX explicit variant of
+ * flush. However, flush is not sync, and sync is only needed in
+ * special situations. On operating systems that cannot sync this
+ * function is an alias of `fs.flush()`. Returns reference to `this`.
+ *
+ * The optional argument `no_metadata` specifies (when true) that
+ * only the contents of the file shall be synced, but not the file
+ * system meta information.
+ *
+ * @param Boolean|undefined no_metadata
+ * @return fs.file
+ */
+fs.file.sync = function() {};
+
+
+/**
+ * Locks the file. By default exclusively, means no other process
+ * can read or write. Optionally the file can be locked exclusively
+ * or shared depending on the `access` argument:
+ *
+ *  - "x", "" : Exclusive lock
+ *  - "s"     : Shared lock
+ *
+ * @param string access
+ * @return fs.file
+ */
+fs.file.lock = function(access) {};
+
+
+/**
+ * Unlocks a previously locked file. Ignored if the platform does not
+ * support locking.
+ *
+ * @return fs.file
+ */
+fs.file.unlock = function() {};
 
 
 /**

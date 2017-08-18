@@ -7,8 +7,8 @@ capabilities into native applications (for details please refer to
 [https://github.com/svaarala/duktape](https://github.com/svaarala/duktape)).
 
 
-The set of templates in this repository facilitates embedding this ECMA
-script engine in C++ applications by providing
+The set of templates in this repository facilitates embedding the Duktape
+ECMA script engine into C++ applications by providing
 
   - a thin wrapper around the C-API of Duktape (`duktape::api` class),
 
@@ -65,17 +65,12 @@ A good starting point is to take a look at the Makefile, the CLI application
           └── [...]
 
 Build notes:
+
 - `duk_config.h`, `duktape.h` and `duktape.c` are the required release
   source code files of the Duktape project (other files in the package
-  omitted in this file tree). These files are not included in this
-  C++ wrapper this repository, therefore the Makefile uses `wget` and
-  `tar` to get and extract them first.
-- On Windows machines you have `tar` and `wget` tools if `GIT` is installed
-  globally. Make has to be downloaded (GNU make, version at least v4.0).
-  On Linux/*nix the programs should be already there. If it does not work
-  out download the package form `duktape.org` and put them in the right
-  place.
-- On BSD: `gmake` it is, not `pmake` (might work, too but no guarantees).
+  omitted in this file tree). These files are now included in this
+  repository to facilitate building under Windows (without the need of
+  missing UNIX tools like wget and xz).
 
 Invoking `make` produces the CLI application as default target:
 
@@ -156,11 +151,11 @@ int main(int argc, const char** argv)
 }
 ```
 
-## Notes, development context, road map, todo's, etc ...
+## Notes, development context, road map, etc ...
 
-- This project does not intend to be a base for another nodejs
-  or the like. The focus is set to fast integration. Main application
-  have been up to now:
+- This project does not intend to be a base for another node.js
+  or the like. The focus is set on fast integration. Main application
+  fields have been up to now:
 
     - Implementing scriptable testing applications for libraries
       written in c++.
@@ -169,23 +164,26 @@ int main(int argc, const char** argv)
 
     - Adding scripting hooks/callbacks to C++ applications.
 
-- Duktape was a great help for me testing functionality in embedded
-  systems. During the evaluation and of this class template set,
-  especially the modules, it turned out that a sequential script
-  execution and avoiding exceptions did lead to small and well
-  understandable script codes. Therefore the module functions
-  avoid to throw and indicate success or problems e.g. via boolean
-  return (such as `if(!fs.chmod(file, mode)) handleit();`).
+- Duktape was a great help for me when testing functionality in
+  embedded systems. During the development and evaluation of this
+  class template set (especially the modules) it turned out that
+  sequential script execution (which stands in big contrast to e.g.
+  node.js and browser ECMA) did lead to small and well readable
+  script codes - which is for "tool control language" use cases
+  ideal. Also colleagues in the C/C++/Java world like it because
+  the basic "code layout" (curly braces, brackets etc) looks similar
+  to the latter languages - hence, "it has become our TCL or LUA".
 
-- According to conversions of types between JS and C++, the intension
-  is to stick with the STL and adding traits for modules only where
-  it is needed (but in the modules, not the main duktape.hh). Traits
+- About conversions of types between JS and C++: The intension is
+  to stick with the STL and adding traits for modules only where it
+  is needed (but in the modules, not the main duktape.hh). Traits
   should be generally there for
 
     - [x] Numeric types
     - [x] `std::string`       -> String
     - [x] `std::vector<...>`  -> Array
-    - [ ] `std::map<...>`,`std::unordered_map<...>`  -> Object
+    - [ ] `std::map<...>`,`std::unordered_map<...>`  -> Object. This
+          is still a point of discussion if this makes sense.
 
 - Missing list
 
@@ -196,7 +194,7 @@ int main(int argc, const char** argv)
 
     - [ ] Wrapping of C++ classes as JS objects: Maybe one day. It currently
       looks simpler and more straight forward to use the Duktape-API-way when
-      defining constructors.
+      defining constructors and dealing with object properties.
 
     - [ ] The test cases are yet somewhat rudimentary and cover only the main
       cases. Randomly generated inputs for better coverage are on the list.

@@ -12,6 +12,7 @@ CXXFLAGS+=-Iduktape
 DUKOPTS+=-std=c++11 -fstrict-aliasing -fdata-sections -ffunction-sections -Os -DDUK_USE_CPP_EXCEPTIONS
 DUKTAPE_VERSION=2.1.0
 DUKTAPE_ARCHIVE=duktape/duktape-releases/duktape-$(DUKTAPE_VERSION).tar.xz
+GIT_COMMIT_VERSION:=$(shell git log --pretty=format:%h -1)
 
 #---------------------------------------------------------------------------------------------------
 
@@ -39,6 +40,7 @@ endif
 ifeq ($(OS),win)
 BINARY_EXTENSION=.exe
 LDSTATIC+=-static -Os -s -static-libgcc
+CXXFLAGS+=-D_WIN32_WINNT=0x0601 -DWINVER=0x0601 -D_WIN32_IE=0x0900
 BINARY=js$(BINARY_EXTENSION)
 LIBS+=-ladvapi32
 else
@@ -67,7 +69,7 @@ MAIN_TESTJS:=$(wildcard main.js)
 .PHONY: clean all binary bininfo run tests test test-run documentation jsdoc dev mrproper
 
 binary: cli/$(BINARY)
-all: clean binary bininfo test documentation jsdoc dev
+all: clean binary bininfo test documentation jsdoc
 
 ifeq ($(OS),win)
 run: cli/$(BINARY)	; cli/$(BINARY) $(MAIN_TESTJS)
@@ -95,7 +97,7 @@ cli/$(BINARY): cli/main.o duktape/duktape.o
 
 cli/main.o: cli/main.cc $(HEADER_DEPS) $(TEST_SOURCES)
 	@echo "[c++ ] $<  $@"
-	@$(CXX) -c -o $@ $< $(CXXFLAGS) $(OPTS) -I.
+	$(CXX) -c -o $@ $< $(CXXFLAGS) $(OPTS) -I. -DPROGRAM_VERSION='"""$(GIT_COMMIT_VERSION)"""'
 
 #---------------------------------------------------------------------------------------------------
 # Duktape base compilation

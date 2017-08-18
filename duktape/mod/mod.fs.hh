@@ -8,6 +8,7 @@
  * @requires duk_config.h duktape.h duktape.c >= v2.1
  * @requires Duktape CFLAGS -DDUK_USE_CPP_EXCEPTIONS
  * @cxxflags -std=c++11 -W -Wall -Wextra -pedantic -fstrict-aliasing
+ * @requires WIN32 CXXFLAGS -D_WIN32_WINNT>=0x0601 -DWINVER>=0x0601 -D_WIN32_IE>=0x0900
  *
  * -----------------------------------------------------------------------------
  *
@@ -47,14 +48,14 @@
 #include <streambuf>
 #include <sstream>
 #include <string>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <limits.h>
-#include <unistd.h>
 #if defined(__MINGW32__) || defined(__MINGW64__)
   #ifndef WINDOWS
     #define WINDOWS
   #endif
+  #include <sys/stat.h>
+  #include <sys/types.h>
+  #include <limits.h>
+  #include <unistd.h>
   #define DIRECTORY_SEPARATOR "\\"
   #define S_ISLNK(X) (false)
   #define S_IFLNK (0)
@@ -68,11 +69,16 @@
   #include <dirent.h>
   #include <Lmcons.h>
   #include <Shlobj.h>
+  #include <fileapi.h>
   #include <io.h>
   #include "accctrl.h"
   #include "aclapi.h"
 #else
   #define DIRECTORY_SEPARATOR "/"
+  #include <sys/stat.h>
+  #include <sys/types.h>
+  #include <limits.h>
+  #include <unistd.h>
   #include <fnmatch.h>
   #include <fts.h>
   #include <glob.h>
@@ -84,6 +90,7 @@
   #include <utime.h>
   #if defined(__linux__)
     #include <wait.h>
+    #include <sys/file.h>
     #include <sys/sendfile.h>
     #include <fcntl.h>
   #elif defined __APPLE__ & __MACH__
@@ -786,23 +793,11 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    */
   fs.stat = function(path) {};
   #endif
-  template <typename PathAccessor, bool LinkStat>
-  int filestat(duktape::api& stack)
+
+  template <typename PathAccessor, typename StatType>
+  int push_filestat(duktape::api& stack, StatType st, std::string path)
   {
-    if(!stack.is<std::string>(0)) return 0;
-    std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
-    struct ::stat st;
-    if(LinkStat) {
-      #ifndef WINDOWS
-      if(::lstat(path.c_str(), &st) != 0) return 0;
-      #else
-      if(::stat(path.c_str(), &st) != 0) return 0;
-      #endif
-    } else {
-      if(::stat(path.c_str(), &st) != 0) return 0;
-    }
     stack.require_stack_top(5);
-    stack.pop();
     stack.push_object();
     stack.set("path", PathAccessor::to_js(path));
     stack.set("size", st.st_size);
@@ -842,6 +837,25 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     stack.set("modeval", st.st_mode);
     #endif
     return 1;
+  }
+
+  template <typename PathAccessor, bool LinkStat>
+  int filestat(duktape::api& stack)
+  {
+    if(!stack.is<std::string>(0)) return 0;
+    std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
+    struct ::stat st;
+    if(LinkStat) {
+      #ifndef WINDOWS
+      if(::lstat(path.c_str(), &st) != 0) return 0;
+      #else
+      if(::stat(path.c_str(), &st) != 0) return 0;
+      #endif
+    } else {
+      if(::stat(path.c_str(), &st) != 0) return 0;
+    }
+    stack.pop();
+    return push_filestat<PathAccessor>(stack, st, path);
   }
 
   #if(0 && JSDOC)
@@ -1834,10 +1848,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace enhanced
       if(stack.is<std::string>(1)) {
         pattern = stack.to<std::string>(1);
       } else if(stack.is_object(1)) {
-        pattern = stack.get_optional_property<std::string>(1, "name");
-        ftype = stack.get_optional_property<std::string>(1, "type");
-        depth = stack.get_optional_property<int>(1, "depth", depth);
-        logical_find = stack.get_optional_property<bool>(1, "logical", true);
+        pattern = stack.get_prop_string<std::string>(1, "name", std::string());
+        ftype = stack.get_prop_string<std::string>(1, "type", std::string());
+        depth = stack.get_prop_string<int>(1, "depth", depth);
+        logical_find = stack.get_prop_string<bool>(1, "logical", true);
         if(!ftype.empty()) {
           if(ftype.find('l') != ftype.npos) mode |= S_IFLNK;
           if(ftype.find('d') != ftype.npos) mode |= S_IFDIR;
@@ -2064,7 +2078,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace enhanced
     bool recursive = false;
     if(!stack.is_undefined(2)) {
       if(stack.is_object(2)) {
-        recursive = stack.get_optional_property<bool>(2, "recursive", false);
+        recursive = stack.get_prop_string<bool>(2, "recursive", false);
       } else if(stack.is_string(2)) {
         std::string s = stack.get_string(2);
         if(s == "r" || s == "R" || s == "-r" || s == "-R") {
@@ -2173,7 +2187,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace enhanced
     bool recursive = false;
     if(!stack.is_undefined(1)) {
       if(stack.is_object(1)) {
-        recursive = stack.get_optional_property<bool>(1, "recursive", false);
+        recursive = stack.get_prop_string<bool>(1, "recursive", false);
       } else if(stack.is_string(1)) {
         std::string s = stack.get_string(1);
         if(s == "r" || s == "-r") {
