@@ -609,6 +609,15 @@ sys.group = function(gid) {};
 
 
 /**
+ * Returns path ("realpath") of the executable where the ECMA script is
+ * called from (or undefined on error or if not allowed).
+ *
+ * @return String|undefined
+ */
+sys.apppath = function() {};
+
+
+/**
  * Returns a plain object containing information about the operating system
  * running on, `undefined` on error. The object looks like:
  *
@@ -633,6 +642,45 @@ sys.uname = function() {};
  * @return bool
  */
 sys.sleep = function(seconds) {};
+
+
+/**
+ * Returns the time in seconds (with sub seconds) of a selected
+ * time/clock source:
+ *
+ *  - "r": Real time clock (value same as Date object, maybe
+ *         higher resolution)
+ *  - "b": Boot time (if available, otherwise equal to "m" source)
+ *
+ *  - "m": Monotonic time, starts at zero when the function
+ *         is first called.
+ *
+ * Returns NaN on error or when a source is not supported on the
+ * current platform.
+ *
+ * @param String clock_source
+ * @return Number seconds
+ */
+sys.clock = function(clock_source) {};
+
+
+/**
+ * Returns true if the descriptor given as string
+ * is an interactive TTY or false otherwise, e.g.
+ * when connected to a pipe / file source. Valid
+ * descriptors are:
+ *
+ *  - "stdin"  or "i": STDIN  (standard input read with confirm, prompt etc)
+ *  - "stdout" or "o": STDOUT (standard output fed by print())
+ *  - "stderr" or "e": STDERR (standard error output, e.g. fed by alert())
+ *
+ * The function returns undefined if not implemented on the
+ * platform or if the descriptor name is incorrect.
+ *
+ * @param String descriptorName
+ * @return Boolean
+ */
+sys.isatty = function(descriptorName) {};
 
 
 /**

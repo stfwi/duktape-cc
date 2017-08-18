@@ -321,6 +321,54 @@ namespace duktape { namespace detail { namespace system {
     #endif
   }
 
+  #if(0 && JSDOC)
+  /**
+   * Returns path ("realpath") of the executable where the ECMA script is
+   * called from (or undefined on error or if not allowed).
+   *
+   * @return String|undefined
+   */
+  sys.apppath = function() {};
+  #endif
+  template <typename=void>
+  std::string application_path()
+  {
+    char app_path[PATH_MAX];
+    memset(app_path, 0, sizeof(app_path));
+    #if !defined(_WIN32) && !defined(_MSC_VER)
+      char lnk_path[PATH_MAX];
+      memset(lnk_path, 0, sizeof(lnk_path));
+      #if defined (__linux__)
+      ::strncpy(lnk_path, "/proc/self/exe", sizeof(lnk_path)-1);
+      #elif defined (__NetBSD__)
+      ::strncpy(lnk_path, "/proc/curproc/exe", sizeof(lnk_path)-1);
+      #elif defined (__FreeBSD__) || defined (__OpenBSD__)
+      int ic[4];
+      ic[0] = CTL_KERN; ic[1] = KERN_PROC; ic[2] = KERN_PROC_PATHNAME; ic[3] = -1;
+      size_t sz = sizeof(lnk_path)-1;
+      if(sysctl(ic, 4, lnk_path, &sz, NULL, 0)) lnk_path[0] = '\0';
+      #elif defined (__DragonFly__)
+      ::strncpy(lnk_path, "/proc/curproc/file", sizeof(lnk_path)-1);
+      #elif defined (__APPLE__) && __MACH__
+      uint32_t sz = sizeof(lnk_path);
+      if(_NSGetExecutablePath(lnk_path, &sz)) lnk_path[0] = '\0';
+      #endif
+      if(!::realpath(lnk_path, app_path)) return ""; // error
+    #else
+      if(::GetModuleFileNameA(nullptr, app_path, sizeof(app_path)) <= 0) return ""; // error
+    #endif
+    app_path[sizeof(app_path)-1] = '\0';
+    return std::string(app_path);
+  }
+
+  template <typename=void>
+  int app_path(duktape::api& stack)
+  {
+    std::string path = application_path();
+    if(path.empty()) return 0;
+    stack.push(path);
+    return 1;
+  }
   // </editor-fold>
 
   // <editor-fold desc="platform information" defaultstate="collapsed">
@@ -360,7 +408,7 @@ namespace duktape { namespace detail { namespace system {
   }
   // </editor-fold>
 
-  // <editor-fold desc="misc" defaultstate="collapsed">
+  // <editor-fold desc="time functions" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Makes the thread sleep for the given time in seconds (with sub seconds).
@@ -415,6 +463,7 @@ namespace duktape { namespace detail { namespace system {
     }
     double t = std::numeric_limits<double>::quiet_NaN();
     #ifdef __linux
+    // Separate case because we have explicit boot time here
     switch(c) {
       case 'r':
       case 'b': {
@@ -436,10 +485,99 @@ namespace duktape { namespace detail { namespace system {
       }
     }
     #else
-    // Leave NaN for not supported platforms
-    (void)c;
+    using namespace std::chrono;
+    switch(c) {
+      case 'r': {
+        t = double(duration_cast<microseconds>(system_clock::now().time_since_epoch()).count()) * 1e-6;
+        break;
+      }
+      default: {
+        static double t0 = std::numeric_limits<double>::quiet_NaN();
+        t = double(duration_cast<std::chrono::microseconds>(steady_clock::now().time_since_epoch()).count()) * 1e-6;
+        if(std::isnan(t0)) t0 = t;
+        t -= t0;
+        break;
+      }
+    }
     #endif
     stack.push(t);
+    return 1;
+  }
+  // </editor-fold>
+
+  // <editor-fold desc="misc" defaultstate="collapsed">
+  #if(0 && JSDOC)
+  /**
+   * Returns true if the descriptor given as string
+   * is an interactive TTY or false otherwise, e.g.
+   * when connected to a pipe / file source. Valid
+   * descriptors are:
+   *
+   *  - "stdin"  or "i": STDIN  (standard input read with confirm, prompt etc)
+   *  - "stdout" or "o": STDOUT (standard output fed by print())
+   *  - "stderr" or "e": STDERR (standard error output, e.g. fed by alert())
+   *
+   * The function returns undefined if not implemented on the
+   * platform or if the descriptor name is incorrect.
+   *
+   * @param String descriptorName
+   * @return Boolean
+   */
+  sys.isatty = function(descriptorName) {};
+  #endif
+  template <typename=void>
+  int isatty_by_name(duktape::api& stack)
+  {
+    enum { ckin, ckout, ckerr } check;
+    bool r = false;
+    {
+      std::string s = stack.get<std::string>(0);
+      if(s.find_first_of("Ii") != s.npos) {
+        check = ckin;
+      } else if(s.find_first_of("Oo") != s.npos) {
+        check = ckout;
+      } else if(s.find_first_of("Ee") != s.npos) {
+        check = ckerr;
+      } else {
+        return 0; // undefined
+      }
+    }
+    #if defined(__linux) || defined(__unix)
+    switch(check) {
+      case ckin : r = ::isatty(STDIN_FILENO ) != 0; break;
+      case ckout: r = ::isatty(STDOUT_FILENO) != 0; break;
+      case ckerr: r = ::isatty(STDERR_FILENO) != 0; break;
+      default: return 0;
+    }
+    #elif defined(WIN32) || defined(__MINGW32__) || defined(__MINGW64__)
+    {
+      switch(check) {
+        case ckin: {
+          DWORD mode;
+          r = ::GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), &mode) != 0;
+          break;
+        }
+        case ckout: {
+          CONSOLE_SCREEN_BUFFER_INFO sbi;
+          r = GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &sbi) != 0;
+          break;
+        }
+        case ckerr: {
+          CONSOLE_SCREEN_BUFFER_INFO sbi;
+          r = GetConsoleScreenBufferInfo(GetStdHandle(STD_ERROR_HANDLE), &sbi) != 0;
+          break;
+        }
+        default:
+          return 0;
+      }
+    }
+    #else
+    // Leave NaN for not supported platforms
+    #warning "sys.isatty() not implemented, returns undefined"
+    (void)check;
+    return 0;
+    #endif
+    stack.push(r);
     return 1;
   }
   // </editor-fold>
@@ -465,6 +603,8 @@ namespace duktape { namespace mod { namespace system {
     js.define("sys.uname", getuname<>, 0);
     js.define("sys.sleep", sleep_seconds<>, 1);
     js.define("sys.clock", clock_seconds<>, 1);
+    js.define("sys.isatty", isatty_by_name, 1);
+    js.define("sys.executable", app_path, 0);
   }
   // </editor-fold>
 
