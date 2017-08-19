@@ -2,6 +2,7 @@
 #include <duktape/mod/mod.stdio.hh>
 #include <duktape/mod/mod.stdlib.hh>
 #include <duktape/mod/mod.fs.hh>
+#include <duktape/mod/mod.fs.ext.hh>
 #include <duktape/mod/mod.fs.file.hh>
 #include <duktape/mod/mod.sys.hh>
 #include <duktape/mod/mod.sys.exec.hh>
@@ -89,7 +90,7 @@ int main(int argc, const char** argv)
     duktape::mod::stdio::define_in(js);
     duktape::mod::filesystem::generic::define_in(js);
     duktape::mod::filesystem::basic::define_in(js);
-    duktape::mod::filesystem::enhanced::define_in(js);
+    duktape::mod::filesystem::extended::define_in(js);
     duktape::mod::filesystem::fileobject::define_in(js);
     duktape::mod::system::define_in(js);
     duktape::mod::system::exec::define_in(js);

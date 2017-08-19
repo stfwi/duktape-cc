@@ -3,6 +3,7 @@
 #include <mod/mod.stdio.hh>
 #include <mod/mod.sys.hh>
 #include <mod/mod.fs.hh>
+#include <mod/mod.fs.ext.hh>
 using namespace std;
 // </editor-fold>
 
@@ -391,7 +392,7 @@ void test(duktape::engine& js)
   duktape::mod::system::define_in<>(js);
   duktape::mod::filesystem::generic::define_in<>(js);
   duktape::mod::filesystem::basic::define_in<>(js);
-  duktape::mod::filesystem::enhanced::define_in<>(js);
+  duktape::mod::filesystem::extended::define_in<>(js);
   js.define("testdir", test_path());
   test_mkfiletree();
 
