@@ -39,12 +39,222 @@
 
 // <editor-fold desc="preprocessor" defaultstate="collapsed">
 #include "mod.fs.hh" /* All settings and definitions of fs apply */
+#include <regex>
 #define return_false { stack.push(false); return 1; }
 #define return_true { stack.push(true); return 1; }
 #define return_undefined { return 0; }
 // </editor-fold>
 
 namespace duktape { namespace detail { namespace filesystem { namespace extended {
+
+  // <editor-fold desc="native auxilliary find functions" defaultstate="collapsed">
+  template<typename FileCallback, typename ErrorCallback>
+  bool recurse_directory(
+    std::string path,
+    const std::string& pattern,
+    const std::string& ftype,
+    const int depth,
+    const bool no_outside,
+    const bool case_sensitive,
+    FileCallback fcallback,
+    ErrorCallback ecallback,
+    int recursion_level = 0
+  )
+  {
+    if(recursion_level > depth) return true;
+    bool f_lnk = ftype.find('l') != ftype.npos;
+    bool f_dir = ftype.find('d') != ftype.npos;
+    bool f_reg = ftype.find('f') != ftype.npos;
+    bool f_fifo = ftype.find('p') != ftype.npos;
+    bool f_cdev = ftype.find('c') != ftype.npos;
+    bool f_bdev = ftype.find('b') != ftype.npos;
+    bool f_sock = ftype.find('s') != ftype.npos;
+    bool f_hidden = ftype.find('h') != ftype.npos;
+    if(ftype.empty() || ftype=="h") {
+      f_lnk = f_dir = f_reg = f_fifo = f_cdev = f_bdev = f_sock = true;
+    }
+
+    // fnmatch on win32 and maybe other platforms missing or differnt,
+    // threrfore we use regex for all. That also allows case sensitive
+    // and case insensitive search
+    std::regex re;
+    if(pattern.empty()) {
+      re = std::regex(".*");
+    } else {
+      std::string pt = "^";
+      for(auto e:pattern) {
+        switch(e) {
+          case '?': pt += "."; break;
+          case '*': pt += ".*"; break;
+          case '.': case '\\':
+          case '(': case ')':
+          case '[': case ']':
+          case '{': case '}':
+          case '^': case '$':
+          case '+': case '|':
+            pt += "\\";
+          default: pt += e;
+        }
+      }
+      pt += "$";
+      re = case_sensitive ? std::regex(pt,re.ECMAScript|re.nosubs) : std::regex(pt, re.ECMAScript|re.nosubs|re.icase);
+    }
+
+    #if defined(__linux)
+    // <editor-fold desc="linux" defaultstate="collapsed">
+    // struct only to ensure that the fts is closed when
+    // leaving the function scope.
+    struct fts_guard {
+      ::FTS* ptr;
+      explicit fts_guard() noexcept : ptr(nullptr) {}
+      ~fts_guard() noexcept { if(ptr) ::fts_close(ptr); }
+    };
+
+    auto fts_entcmp = [](const ::FTSENT **a, const ::FTSENT **b) {
+      return ::strcmp((*a)->fts_name, (*b)->fts_name);
+    };
+
+    mode_t mode = 0;
+    (void) f_hidden; // note: hidden has no effect for linux
+    if(!ftype.empty()) {
+      if(f_lnk)  mode |= S_IFLNK;
+      if(f_dir)  mode |= S_IFDIR;
+      if(f_reg)  mode |= S_IFREG;
+      if(f_fifo) mode |= S_IFIFO;
+      if(f_cdev) mode |= S_IFCHR;
+      if(f_bdev) mode |= S_IFBLK;
+      if(f_sock) mode |= S_IFSOCK;
+    } else {
+      mode = S_IFLNK|S_IFDIR|S_IFREG|S_IFIFO|S_IFCHR|S_IFBLK|S_IFSOCK;
+    }
+
+    fts_guard tree;
+    ::FTSENT *f;
+    {
+      char apath[PATH_MAX];
+      memset(apath, 0, sizeof(apath));
+      std::copy(path.begin(), path.end(), apath);
+      char *ppath[] = { apath, nullptr };
+      if(!(tree.ptr = ::fts_open(ppath, FTS_NOCHDIR|FTS_PHYSICAL, fts_entcmp))) {
+        ecallback(strerror(errno));
+        return 0;
+      }
+    }
+
+    errno = 0;
+    while((f=::fts_read(tree.ptr))) {
+      switch(f->fts_info) {
+        case FTS_DNR:
+        case FTS_ERR:
+        case FTS_NS:
+        case FTS_DC:  // recursion warning list?
+          // Add to skipped list ?
+          continue;
+        case FTS_DOT:
+        case FTS_DP:
+          continue;
+        default:
+          if((no_outside && (f->fts_level < 0)) || (f->fts_level > depth)) {
+            // respect max depth, do not include parent directories.
+            continue;
+          } else if(!f->fts_statp || !(f->fts_statp->st_mode & mode)) {
+            // no mode match.
+            continue;
+          } else if(
+            (S_ISLNK(f->fts_statp->st_mode) && (!f_lnk)) ||
+            (S_ISREG(f->fts_statp->st_mode) && !(S_ISLNK(f->fts_statp->st_mode)) && (!f_reg))
+          ) {
+            // symlinks are regular files, therefore explicit check
+            continue;
+          } else if(!pattern.empty() && (::fnmatch(pattern.c_str(), f->fts_name, FNM_PERIOD) != 0)) {
+            // No detailed pattern match
+            continue;
+          } else if(!fcallback(std::string(f->fts_path))) {
+            // callback said break
+            break;
+          } else {
+            // no match
+          }
+      }
+    }
+    ::fts_close(tree.ptr);
+    tree.ptr = nullptr;
+    return (!errno);
+    // </editor-fold>
+    #elif defined(WINDOWS)
+    // <editor-fold desc="win32" defaultstate="collapsed">
+    (void) no_outside; (void) f_lnk; (void) f_fifo; (void) f_cdev; (void) f_bdev; (void) f_sock;
+
+    auto errstr = [&]() -> std::string {
+      DWORD e = ::GetLastError();
+      if(!e) return std::string();
+      std::string s(256u, '\0');
+      size_t sz = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, e, MAKELANGID(
+                                 LANG_NEUTRAL, SUBLANG_NEUTRAL), (LPSTR)&s[0], (DWORD)s.size(), nullptr);
+      s.resize(sz);
+      return s;
+    };
+
+    struct hfind_guard {
+      HANDLE h;
+      explicit hfind_guard() noexcept : h(INVALID_HANDLE_VALUE) {}
+      explicit hfind_guard(HANDLE h_) noexcept : h(h_) {}
+      ~hfind_guard() noexcept { if(h != INVALID_HANDLE_VALUE) ::FindClose(h); }
+    };
+
+    WIN32_FIND_DATA ffd;
+    bool ok = true;
+    path += "\\";
+    if(path.size() > MAX_PATH) { ecallback("Path too long"); return false; }
+    hfind_guard hnd(::FindFirstFileA((path+"*").c_str(), &ffd));
+    if(hnd.h == INVALID_HANDLE_VALUE) {
+      if(!recursion_level) {
+        ecallback(errstr());
+        return false;
+      } else {
+        return true;
+      }
+    }
+    do {
+      if((ffd.cFileName[0] == '.') && (!ffd.cFileName[1])) {
+        ;
+      } else if((ffd.cFileName[0] == '.') && (ffd.cFileName[1] == '.') && (!ffd.cFileName[2])) {
+        ;
+      } else if((!f_hidden) && (ffd.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN)) {
+        ;
+      } else {
+        if((f_dir && (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) || (f_reg && (!(ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)))) {
+          if(pattern.empty() || std::regex_match(ffd.cFileName, re)) {
+            ok = fcallback(path+ffd.cFileName);
+          }
+        }
+        if(ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+          ok = recurse_directory(
+            path+ffd.cFileName, pattern, ftype, depth, no_outside, case_sensitive,
+            fcallback, ecallback, recursion_level+1
+          );
+        }
+      }
+    } while((::FindNextFileA(hnd.h, &ffd) != 0) && ok);
+
+    auto e = ::GetLastError();
+    switch(e) {
+      case NO_ERROR:
+      case ERROR_NO_MORE_FILES:
+      case ERROR_NOT_SAME_DEVICE:
+      case ERROR_ACCESS_DENIED:
+        break;
+      default:
+        ecallback(errstr());
+        return false;
+    }
+    return ok;
+    // </editor-fold>
+    #else
+      #error "recurse_directory not implemented"
+    #endif
+  }
+  // </editor-fold>
 
   // <editor-fold desc="find" defaultstate="collapsed">
   #if(0 && JSDOC)
@@ -68,15 +278,13 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
    *          - "s": Socket
    *          - "c": Character device (like /dev/tty)
    *          - "b": Block device (like /dev/sda)
+   *          - "h": Include hidden files (Win: hidden flag, Linux/Unix: no effect, intentionally
+   *                 not applied to files with a leading dot, which are normal files, dirs etc).
    *
    *      - depth: [Number] Maximum directory recursion depth. `0` lists nothing, `1` the contents of the
    *               root directory, etc.
    *
-   *      - logical: [Boolean] Default is `true`. This affects symbolic links. Normally people are interested
-   *                 in the files that links refer to rather than the links themselves. Therefore the logical
-   *                 search is default. In contrast, a physical search will refer to the links themselves
-   *                 (set `logical:false`) and not to the files pointed to.
-   *                 THAT IS ESPESIALLY IMPORTANT IF YOU WANT TO DELETE FILES BASED ON A FIND SEARCH.
+   *      - icase: [Boolean] File name matching is not case sensitive (Linux/Unix: default false, Win32: default true)
    *
    *      - filter: [Function A callback invoked for each file that was not yet filtered out with the
    *                criteria listed above. The callback gets the file path as first argument. With that
@@ -106,9 +314,12 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
     std::string pattern, ftype;
     int depth = std::numeric_limits<int>::max();
-    bool logical_find = true;
     bool no_outside = true;
-    mode_t mode = 0;
+    #ifdef WINDOWS
+    bool case_sensitive = false;
+    #else
+    bool case_sensitive = true;
+    #endif
     duktape::api::index_t filter_function = 0;
 
     if(!stack.is_undefined(1)) {
@@ -118,16 +329,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         pattern = stack.get_prop_string<std::string>(1, "name", std::string());
         ftype = stack.get_prop_string<std::string>(1, "type", std::string());
         depth = stack.get_prop_string<int>(1, "depth", depth);
-        logical_find = stack.get_prop_string<bool>(1, "logical", true);
-        if(!ftype.empty()) {
-          if(ftype.find('l') != ftype.npos) mode |= S_IFLNK;
-          if(ftype.find('d') != ftype.npos) mode |= S_IFDIR;
-          if(ftype.find('f') != ftype.npos) mode |= S_IFREG;
-          if(ftype.find('p') != ftype.npos) mode |= S_IFIFO;
-          if(ftype.find('c') != ftype.npos) mode |= S_IFCHR;
-          if(ftype.find('b') != ftype.npos) mode |= S_IFBLK;
-          if(ftype.find('s') != ftype.npos) mode |= S_IFSOCK;
-        }
+        case_sensitive = !stack.get_prop_string<bool>(1, "icase", !case_sensitive);
+        no_outside = stack.get_prop_string<bool>(1, "notoutside", no_outside); // find better name then add documentation
         if(stack.has_prop_string(1, "filter")) {
           stack.get_prop_string(1, "filter");
           if(stack.is_function(-1)) {
@@ -138,120 +341,61 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
           }
         }
       } else {
-        stack.throw_exception("Invalid configuration for find function.");
-        return 0;
+        return stack.throw_exception("Invalid configuration for find function.");
       }
     }
 
-    #ifndef WINDOWS
-    struct fts_guard {
-      ::FTS* ptr;
-      explicit fts_guard() noexcept : ptr(nullptr) {}
-      ~fts_guard() noexcept { if(ptr) ::fts_close(ptr); }
-    };
-
-    auto fts_entcmp = [](const ::FTSENT **a, const ::FTSENT **b) {
-      return ::strcmp((*a)->fts_name, (*b)->fts_name);
-    };
-
-    fts_guard tree;
-    ::FTSENT *f;
-    {
-      char apath[PATH_MAX];
-      memset(apath, 0, sizeof(apath));
-      std::copy(path.begin(), path.end(), apath);
-      char *ppath[] = { apath, nullptr };
-      if(!(tree.ptr = ::fts_open(ppath, (logical_find ? FTS_LOGICAL:FTS_PHYSICAL) | ((!mode) ? FTS_NOSTAT:0), fts_entcmp))) return 0;
+    if(ftype.find_first_not_of("dflpscbh") != ftype.npos) {
+      return stack.throw_exception("Invalid file type filter character.");
     }
-    errno = 0;
+
     duktape::api::array_index_t array_item_index=0;
     auto array_stack_index = stack.push_array();
-    while((f=::fts_read(tree.ptr))) {
-      switch(f->fts_info) {
-        case FTS_DNR:
-        case FTS_ERR:
-        case FTS_NS: // Add to skipped list
-          continue;
-        case FTS_DOT:
-        case FTS_DP:
-          continue;
-        default:
-          if(0
-          || (no_outside && (f->fts_level < 0)) || (f->fts_level > depth) // respect max depth, do not include parent directories.
-          // array address, never nullptr : || (!f->fts_name) || (!f->fts_path) // pointer checks
-          ) {
-            continue;
-          } else if(mode) {
-            if(!f->fts_statp || !(f->fts_statp->st_mode & mode)) {
-              continue;
+    if(recurse_directory(
+      path, pattern, ftype, depth, no_outside, case_sensitive,
+      [&](std::string&& path) -> bool {
+        if(filter_function) {
+          stack.dup(filter_function);
+          stack.push(path);
+          stack.call(1);
+          if(stack.is<std::string>(-1)) {
+            // 1. Filter returns a string: Means a modified version of the path shall be added.
+            path = stack.to<std::string>(-1);
+          } else if(stack.is<bool>(-1)) {
+            if(stack.get<bool>(-1)) {
+              // 2. Filter returns true: add.
             } else {
-              // optimise!
-              mode_t m = f->fts_statp->st_mode;
-              if(!(0
-                || (S_ISREG(m) && (ftype.find('f') != ftype.npos))
-                || (S_ISDIR(m) && (ftype.find('d') != ftype.npos))
-                || (S_ISLNK(m) && (ftype.find('l') != ftype.npos))
-                || (S_ISFIFO(m) && (ftype.find('p') != ftype.npos))
-                || (S_ISCHR(m) && (ftype.find('c') != ftype.npos))
-                || (S_ISBLK(m) && (ftype.find('b') != ftype.npos))
-                || (S_ISSOCK(m) && (ftype.find('s') != ftype.npos))
-              )) {
-                continue;
-              };
+              // 3. Filter returns false: don't add.
+              path.clear();
             }
-          }
-          std::string item(f->fts_path);
-          if(pattern.empty() || ::fnmatch(pattern.c_str(), f->fts_name, FNM_PERIOD) == 0) {
-            if(filter_function) {
-              stack.dup(filter_function);
-              stack.push(f->fts_path);
-              stack.call(1);
-              if(stack.is<std::string>(-1)) {
-                // 1. Filter returns a string: Means a modified version of the path shall be added.
-                item = stack.to<std::string>(-1);
-              } else if(stack.is<bool>(-1)) {
-                if(stack.get<bool>(-1)) {
-                  // 2. Filter returns true: add.
-                } else {
-                  // 3. Filter returns false: don't add.
-                  item.clear();
-                }
-              } else if(stack.is_undefined(-1) || stack.is_null(-1)) {
-                  // 4. Filter returns undefined: Means, don't add, the callback
-                item.clear();
-              } else {
-                stack.throw_exception("The 'find.filter' function must return a string, true/false or nothing (undefined).");
-                return 0;
-              }
-              stack.pop();
-            }
-            if(!item.empty()) {
-              stack.push(item);
-              if(!stack.put_prop_index(array_stack_index, array_item_index)) return 0;
-              ++array_item_index;
-            }
-          } else if(f->fts_info == FTS_DC) {
-            // recursion warning list?
+          } else if(stack.is_undefined(-1) || stack.is_null(-1)) {
+              // 4. Filter returns undefined: Means, don't add, the callback
+            path.clear();
           } else {
-            // no match
+            stack.throw_exception("The 'find.filter' function must return a string, true/false or nothing (undefined).");
+            return false;
           }
+          stack.pop();
+        }
+        if(!path.empty()) {
+          stack.push(path);
+          if(!stack.put_prop_index(array_stack_index, array_item_index)) return 0;
+          ++array_item_index;
+        }
+        return true;
+      },
+      [&](std::string&& message) {
+        stack.throw_exception(message);
       }
+    )) {
+      return 1;
+    } else {
+      return 0;
     }
-    ::fts_close(tree.ptr);
-    tree.ptr = nullptr;
-    return (!errno);
-    #else
-    /// @todo: implement findfiles for windows
-    (void) path;
-    (void) logical_find;
-    (void) no_outside;
-    return 0;
-    #endif
   }
-
   // </editor-fold>
 
-  // <editor-fold desc="auxiliary execution" defaultstate="collapsed">
+  // <editor-fold desc="native auxiliary execution" defaultstate="collapsed">
   namespace {
     /**
      * Executes args[0], passing args as arguments. Optionally passes
@@ -364,7 +508,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     if(src.empty() || dst.empty() || src == dst) return_false;
 
     #ifndef WINDOWS
-    // Composition of args, invoke POSIX cp
+    // Composition of args, invoke POSIX cp. Upside is: The copy
+    // will be done exactly as cp does (permissions error checks
+    // etc). Downside: Does not work when chroot is applied and
+    // /bin/cp does not exist.
     std::vector<std::string> args;
     args.emplace_back("/bin/cp");
     std::string ops = "-f";

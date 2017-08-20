@@ -95,6 +95,7 @@ int main(int argc, const char** argv)
     duktape::mod::system::define_in(js);
     duktape::mod::system::exec::define_in(js);
     js.define("sys.args", args);
+    js.define("sys.script", script_path);
     vector<string>().swap(args);
 
     if(script_path == "-") {

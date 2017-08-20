@@ -479,15 +479,13 @@ fs.glob = function(pattern) {};
  *          - "s": Socket
  *          - "c": Character device (like /dev/tty)
  *          - "b": Block device (like /dev/sda)
+ *          - "h": Include hidden files (Win: hidden flag, Linux/Unix: no effect, intentionally
+ *                 not applied to files with a leading dot, which are normal files, dirs etc).
  *
  *      - depth: [Number] Maximum directory recursion depth. `0` lists nothing, `1` the contents of the
  *               root directory, etc.
  *
- *      - logical: [Boolean] Default is `true`. This affects symbolic links. Normally people are interested
- *                 in the files that links refer to rather than the links themselves. Therefore the logical
- *                 search is default. In contrast, a physical search will refer to the links themselves
- *                 (set `logical:false`) and not to the files pointed to.
- *                 THAT IS ESPESIALLY IMPORTANT IF YOU WANT TO DELETE FILES BASED ON A FIND SEARCH.
+ *      - icase: [Boolean] File name matching is not case sensitive (Linux/Unix: default false, Win32: default true)
  *
  *      - filter: [Function A callback invoked for each file that was not yet filtered out with the
  *                criteria listed above. The callback gets the file path as first argument. With that
