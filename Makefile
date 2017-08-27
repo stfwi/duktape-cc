@@ -42,7 +42,7 @@ BINARY_EXTENSION=.exe
 LDSTATIC+=-static -Os -s -static-libgcc
 CXXFLAGS+=-D_WIN32_WINNT=0x0601 -DWINVER=0x0601 -D_WIN32_IE=0x0900
 BINARY=js$(BINARY_EXTENSION)
-LIBS+=-ladvapi32
+LIBS+=-ladvapi32 -lshell32
 else
 BINARY_EXTENSION=.elf
 BINARY=js
@@ -50,6 +50,10 @@ LIBS+=-lrt
 ifdef STATIC
   LDSTATIC+=-static -Os -s -static-libgcc
 endif
+endif
+
+ifeq ($(WITH_EXPERIMENTAL),1)
+  CXXFLAGS+=-DWITH_EXPERIMENTAL
 endif
 
 DEVBINARY=dev$(BINARY_EXTENSION)
@@ -97,7 +101,7 @@ cli/$(BINARY): cli/main.o duktape/duktape.o
 
 cli/main.o: cli/main.cc $(HEADER_DEPS) $(TEST_SOURCES)
 	@echo "[c++ ] $<  $@"
-	$(CXX) -c -o $@ $< $(CXXFLAGS) $(OPTS) -I. -DPROGRAM_VERSION='"""$(GIT_COMMIT_VERSION)"""'
+	@$(CXX) -c -o $@ $< $(CXXFLAGS) $(OPTS) -I. -DPROGRAM_VERSION='"""$(GIT_COMMIT_VERSION)"""'
 
 #---------------------------------------------------------------------------------------------------
 # Duktape base compilation

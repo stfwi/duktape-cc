@@ -40,6 +40,9 @@
 // <editor-fold desc="preprocessor" defaultstate="collapsed">
 #include "mod.fs.hh" /* All settings and definitions of fs apply */
 #include <regex>
+#ifdef WINDOWS
+#include <Shellapi.h>
+#endif
 #define return_false { stack.push(false); return 1; }
 #define return_true { stack.push(true); return 1; }
 #define return_undefined { return 0; }
@@ -47,7 +50,66 @@
 
 namespace duktape { namespace detail { namespace filesystem { namespace extended {
 
-  // <editor-fold desc="native auxilliary find functions" defaultstate="collapsed">
+  // <editor-fold desc="native auxilliary functions" defaultstate="collapsed">
+  #ifdef WINDOWS
+  namespace {
+
+    template <typename=void>
+    std::string win32errstr(DWORD e)
+    {
+      if(!e) return std::string();
+      std::string s(256, '\0');
+      size_t sz = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, e, MAKELANGID(
+                                 LANG_NEUTRAL, SUBLANG_NEUTRAL), (LPSTR)&s[0], (DWORD)s.size(), nullptr);
+      s.resize(sz);
+      while(!s.empty() && (!s.back() || std::isspace(s.back()))) s.pop_back();
+      return s;
+    }
+
+    template <typename=void>
+    std::string win32errstr()
+    { return win32errstr(::GetLastError()); }
+
+    template <typename=void>
+    std::string win32_match_special_folder(std::string path)
+    {
+      auto getspecialfolder = [](int csidl) {
+        char cpath[MAX_PATH+1];
+        ::memset(cpath,0,sizeof(cpath));
+        if(SUCCEEDED(::SHGetFolderPathA(nullptr, csidl, nullptr, 0, cpath))) {
+          std::string spath = cpath;
+          while(!spath.empty() && spath.back() == '\\') spath.pop_back();
+          return spath;
+        } else {
+          return std::string();
+        }
+      };
+      auto lower = [](std::string path) -> std::string { for(auto& e:path) e = std::tolower(e); return path; };
+      const std::vector<int> ids { CSIDL_ADMINTOOLS, CSIDL_APPDATA, CSIDL_COMMON_ADMINTOOLS,
+        CSIDL_COMMON_APPDATA, CSIDL_COMMON_DOCUMENTS, CSIDL_COOKIES, CSIDL_HISTORY,
+        CSIDL_INTERNET_CACHE, CSIDL_LOCAL_APPDATA, CSIDL_MYPICTURES, CSIDL_PERSONAL,
+        CSIDL_PROGRAM_FILES, CSIDL_PROGRAM_FILES_COMMON, CSIDL_SYSTEM, CSIDL_WINDOWS
+      };
+      for(auto e:ids) {
+        if(lower(path) == lower(getspecialfolder(e))) {
+          return getspecialfolder(e);
+        }
+      }
+      return std::string();
+    }
+
+    template <typename=void>
+    std::string win32_fullpath(std::string path)
+    {
+      char s[PATH_MAX+1]; ::memset(s,0,sizeof(s));
+      if(!::GetFullPathNameA(path.c_str(), PATH_MAX, s, nullptr)) return std::string();
+      return std::string(s);
+    }
+  }
+  #endif
+  // </editor-fold>
+
+  // <editor-fold desc="native recurse_directory()" defaultstate="collapsed">
   template<typename FileCallback, typename ErrorCallback>
   bool recurse_directory(
     std::string path,
@@ -72,6 +134,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     bool f_hidden = ftype.find('h') != ftype.npos;
     if(ftype.empty() || ftype=="h") {
       f_lnk = f_dir = f_reg = f_fifo = f_cdev = f_bdev = f_sock = true;
+    }
+
+    if(path.empty()) {
+      path = ".";
     }
 
     // fnmatch on win32 and maybe other platforms missing or differnt,
@@ -185,16 +251,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     // <editor-fold desc="win32" defaultstate="collapsed">
     (void) no_outside; (void) f_lnk; (void) f_fifo; (void) f_cdev; (void) f_bdev; (void) f_sock;
 
-    auto errstr = [&]() -> std::string {
-      DWORD e = ::GetLastError();
-      if(!e) return std::string();
-      std::string s(256u, '\0');
-      size_t sz = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, e, MAKELANGID(
-                                 LANG_NEUTRAL, SUBLANG_NEUTRAL), (LPSTR)&s[0], (DWORD)s.size(), nullptr);
-      s.resize(sz);
-      return s;
-    };
-
     struct hfind_guard {
       HANDLE h;
       explicit hfind_guard() noexcept : h(INVALID_HANDLE_VALUE) {}
@@ -209,7 +265,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     hfind_guard hnd(::FindFirstFileA((path+"*").c_str(), &ffd));
     if(hnd.h == INVALID_HANDLE_VALUE) {
       if(!recursion_level) {
-        ecallback(errstr());
+        ecallback(win32errstr());
         return false;
       } else {
         return true;
@@ -245,7 +301,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
       case ERROR_ACCESS_DENIED:
         break;
       default:
-        ecallback(errstr());
+        ecallback(win32errstr(e));
         return false;
     }
     return ok;
@@ -256,146 +312,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
   }
   // </editor-fold>
 
-  // <editor-fold desc="find" defaultstate="collapsed">
-  #if(0 && JSDOC)
-  /**
-   * Recursive directory walking. The argument `path` specifies the root directory
-   * of the file search - that is not a pattern with wildcards, but a absolute or
-   * relative path. The second argument `options` can be
-   *
-   *  - a string: then it is the pattern to filter by the file name.
-   *
-   *  - a plain object with one or more of the properties:
-   *
-   *      - name: [String] Filter by file name match pattern (fnmatch based, means with '*','?', etc).
-   *
-   *      - type: [String] Filter by file type, where
-   *
-   *          - "d": Directory
-   *          - "f": Regular file
-   *          - "l": Symbolic link
-   *          - "p": Fifo (pipe)
-   *          - "s": Socket
-   *          - "c": Character device (like /dev/tty)
-   *          - "b": Block device (like /dev/sda)
-   *          - "h": Include hidden files (Win: hidden flag, Linux/Unix: no effect, intentionally
-   *                 not applied to files with a leading dot, which are normal files, dirs etc).
-   *
-   *      - depth: [Number] Maximum directory recursion depth. `0` lists nothing, `1` the contents of the
-   *               root directory, etc.
-   *
-   *      - icase: [Boolean] File name matching is not case sensitive (Linux/Unix: default false, Win32: default true)
-   *
-   *      - filter: [Function A callback invoked for each file that was not yet filtered out with the
-   *                criteria listed above. The callback gets the file path as first argument. With that
-   *                you can:
-   *
-   *                  - Add it to the output by returning `true`.
-   *
-   *                  - Not add it to the output list by returning `false`, `null`, or `undefined`. That is
-   *                    useful e.g. if you don't want to list any files, but process them instead, or update
-   *                    global/local accessible variables depending on the file paths you get.
-   *
-   *                  - Add a modified path or other string by returning a String. That is really useful
-   *                    e.g. if you want to directly return the contents of files, or checksums etc etc etc.
-   *                    You get a path, and specify the output yourself.
-   *
-   *
-   * @param String path
-   * @param String|Object options
-   * @return Array|undefined
-   */
-  fs.find = function(path, options) {};
-  #endif
-  template <typename PathAccessor>
-  int findfiles(duktape::api& stack)
-  {
-    if(!stack.is<std::string>(0)) return 0;
-    std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
-    std::string pattern, ftype;
-    int depth = std::numeric_limits<int>::max();
-    bool no_outside = true;
-    #ifdef WINDOWS
-    bool case_sensitive = false;
-    #else
-    bool case_sensitive = true;
-    #endif
-    duktape::api::index_t filter_function = 0;
-
-    if(!stack.is_undefined(1)) {
-      if(stack.is<std::string>(1)) {
-        pattern = stack.to<std::string>(1);
-      } else if(stack.is_object(1)) {
-        pattern = stack.get_prop_string<std::string>(1, "name", std::string());
-        ftype = stack.get_prop_string<std::string>(1, "type", std::string());
-        depth = stack.get_prop_string<int>(1, "depth", depth);
-        case_sensitive = !stack.get_prop_string<bool>(1, "icase", !case_sensitive);
-        no_outside = stack.get_prop_string<bool>(1, "notoutside", no_outside); // find better name then add documentation
-        if(stack.has_prop_string(1, "filter")) {
-          stack.get_prop_string(1, "filter");
-          if(stack.is_function(-1)) {
-            filter_function = stack.top()-1;
-          } else {
-            stack.throw_exception("The filter setting for reading a directory must be a function.");
-            return 0;
-          }
-        }
-      } else {
-        return stack.throw_exception("Invalid configuration for find function.");
-      }
-    }
-
-    if(ftype.find_first_not_of("dflpscbh") != ftype.npos) {
-      return stack.throw_exception("Invalid file type filter character.");
-    }
-
-    duktape::api::array_index_t array_item_index=0;
-    auto array_stack_index = stack.push_array();
-    if(recurse_directory(
-      path, pattern, ftype, depth, no_outside, case_sensitive,
-      [&](std::string&& path) -> bool {
-        if(filter_function) {
-          stack.dup(filter_function);
-          stack.push(path);
-          stack.call(1);
-          if(stack.is<std::string>(-1)) {
-            // 1. Filter returns a string: Means a modified version of the path shall be added.
-            path = stack.to<std::string>(-1);
-          } else if(stack.is<bool>(-1)) {
-            if(stack.get<bool>(-1)) {
-              // 2. Filter returns true: add.
-            } else {
-              // 3. Filter returns false: don't add.
-              path.clear();
-            }
-          } else if(stack.is_undefined(-1) || stack.is_null(-1)) {
-              // 4. Filter returns undefined: Means, don't add, the callback
-            path.clear();
-          } else {
-            stack.throw_exception("The 'find.filter' function must return a string, true/false or nothing (undefined).");
-            return false;
-          }
-          stack.pop();
-        }
-        if(!path.empty()) {
-          stack.push(path);
-          if(!stack.put_prop_index(array_stack_index, array_item_index)) return 0;
-          ++array_item_index;
-        }
-        return true;
-      },
-      [&](std::string&& message) {
-        stack.throw_exception(message);
-      }
-    )) {
-      return 1;
-    } else {
-      return 0;
-    }
-  }
-  // </editor-fold>
-
-  // <editor-fold desc="native auxiliary execution" defaultstate="collapsed">
+  // <editor-fold desc="native shell execution" defaultstate="collapsed">
   namespace {
     /**
      * Executes args[0], passing args as arguments. Optionally passes
@@ -459,6 +376,230 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
   }
   // </editor-fold>
 
+}}}}
+
+namespace duktape { namespace detail { namespace filesystem { namespace extended {
+
+  // <editor-fold desc="find" defaultstate="collapsed">
+  #if(0 && JSDOC)
+  /**
+   * Recursive directory walking. The argument `path` specifies the root directory
+   * of the file search - that is not a pattern with wildcards, but a absolute or
+   * relative path. The second argument `options` can be
+   *
+   *  - a string: then it is the pattern to filter by the file name.
+   *
+   *  - a plain object with one or more of the properties:
+   *
+   *      - name: {string} Filter by file name match pattern (fnmatch based, means with '*','?', etc).
+   *
+   *      - type: {string} Filter by file type, where
+   *
+   *          - "d": Directory
+   *          - "f": Regular file
+   *          - "l": Symbolic link
+   *          - "p": Fifo (pipe)
+   *          - "s": Socket
+   *          - "c": Character device (like /dev/tty)
+   *          - "b": Block device (like /dev/sda)
+   *          - "h": Include hidden files (Win: hidden flag, Linux/Unix: no effect, intentionally
+   *                 not applied to files with a leading dot, which are normal files, dirs etc).
+   *
+   *      - depth: {number} Maximum directory recursion depth. `0` lists nothing, `1` the contents of the
+   *               root directory, etc.
+   *
+   *      - icase: {boolean} File name matching is not case sensitive (Linux/Unix: default false, Win32: default true)
+   *
+   *      - filter: [Function A callback invoked for each file that was not yet filtered out with the
+   *                criteria listed above. The callback gets the file path as first argument. With that
+   *                you can:
+   *
+   *                  - Add it to the output by returning `true`.
+   *
+   *                  - Not add it to the output list by returning `false`, `null`, or `undefined`. That is
+   *                    useful e.g. if you don't want to list any files, but process them instead, or update
+   *                    global/local accessible variables depending on the file paths you get.
+   *
+   *                  - Add a modified path or other string by returning a String. That is really useful
+   *                    e.g. if you want to directly return the contents of files, or checksums etc etc etc.
+   *                    You get a path, and specify the output yourself.
+   *
+   * @throws {Error}
+   * @param {string} path
+   * @param {string|Object} [options]
+   * @returns {array|undefined}
+   */
+  fs.find = function(path, options) {};
+  #endif
+  template <typename PathAccessor>
+  int findfiles(duktape::api& stack)
+  {
+    if(!stack.is<std::string>(0)) return stack.throw_exception("No directory given to search");
+    std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
+    std::string pattern, ftype;
+    int depth = std::numeric_limits<int>::max();
+    bool no_outside = true;
+    #ifdef WINDOWS
+    bool case_sensitive = false;
+    #else
+    bool case_sensitive = true;
+    #endif
+    duktape::api::index_t filter_function = 0;
+
+    if(path.empty()) {
+      return stack.throw_exception("No directory given to search");
+    } else if(!stack.is_undefined(1)) {
+      if(stack.is<std::string>(1)) {
+        pattern = stack.to<std::string>(1);
+      } else if(stack.is_object(1)) {
+        pattern = stack.get_prop_string<std::string>(1, "name", std::string());
+        ftype = stack.get_prop_string<std::string>(1, "type", std::string());
+        depth = stack.get_prop_string<int>(1, "depth", depth);
+        case_sensitive = !stack.get_prop_string<bool>(1, "icase", !case_sensitive);
+        no_outside = stack.get_prop_string<bool>(1, "notoutside", no_outside); // find better name then add documentation
+        if(stack.has_prop_string(1, "filter")) {
+          stack.get_prop_string(1, "filter");
+          if(stack.is_function(-1)) {
+            filter_function = stack.top()-1;
+          } else {
+            stack.throw_exception("The filter setting for reading a directory must be a function");
+            return 0;
+          }
+        }
+      } else {
+        return stack.throw_exception("Invalid configuration for find function");
+      }
+    }
+
+    if(ftype.find_first_not_of("dflpscbh") != ftype.npos) {
+      return stack.throw_exception("Invalid file type filter character");
+    }
+
+    duktape::api::array_index_t array_item_index=0;
+    auto array_stack_index = stack.push_array();
+    if(recurse_directory(
+      path, pattern, ftype, depth, no_outside, case_sensitive,
+      [&](std::string&& path) -> bool {
+        if(filter_function) {
+          stack.dup(filter_function);
+          stack.push(path);
+          stack.call(1);
+          if(stack.is<std::string>(-1)) {
+            // 1. Filter returns a string: Means a modified version of the path shall be added.
+            path = stack.to<std::string>(-1);
+          } else if(stack.is<bool>(-1)) {
+            if(stack.get<bool>(-1)) {
+              // 2. Filter returns true: add.
+            } else {
+              // 3. Filter returns false: don't add.
+              path.clear();
+            }
+          } else if(stack.is_undefined(-1) || stack.is_null(-1)) {
+              // 4. Filter returns undefined: Means, don't add, the callback
+            path.clear();
+          } else {
+            stack.throw_exception("The 'find.filter' function must return a string, true/false or nothing (undefined)");
+            return false;
+          }
+          stack.pop();
+        }
+        if(!path.empty()) {
+          stack.push(path);
+          if(!stack.put_prop_index(array_stack_index, array_item_index)) return 0;
+          ++array_item_index;
+        }
+        return true;
+      },
+      [&](std::string&& message) {
+        stack.throw_exception(message);
+      }
+    )) {
+      return 1;
+    } else {
+      return 0;
+    }
+  }
+  // </editor-fold>
+
+  // <editor-fold desc="move" defaultstate="collapsed">
+  #if(0 && JSDOC)
+  /**
+   * Moves a file or directory from one location `source_path` to another (`target_path`),
+   * similar to the `mv` shell command. File are NOT moved accross disks (method will fail).
+   *
+   * @throws {Error}
+   * @param {string} source_path
+   * @param {string} target_path
+   * @returns {boolean}
+   */
+  fs.move = function(source_path, target_path) {};
+  #endif
+  template <typename PathAccessor>
+  int movefile(duktape::api& stack)
+  {
+    if(stack.is_undefined(0)) return stack.throw_exception("No move source path specified");
+    if(stack.is_undefined(1)) return stack.throw_exception("No move destination path specified");
+    if(!stack.is_string(0) && !stack.is_number(0)) return stack.throw_exception("Invalid source path data type");
+    if(!stack.is_string(1) && !stack.is_number(1)) return stack.throw_exception("Invalid destination path data type");
+    std::string src = PathAccessor::to_sys(stack.to<std::string>(0));
+    std::string dst = PathAccessor::to_sys(stack.to<std::string>(1));
+    if(src.empty()) return stack.throw_exception("No move source path specified");
+    if(dst.empty()) return stack.throw_exception("No move destination path specified");
+    if(src.find_first_of("*?") != src.npos) return stack.throw_exception("Wildcards not allowed, iterate and move separately, please");
+    if(dst.find_first_of("*?") != dst.npos) return stack.throw_exception("Wildcards not allowed in destination path");
+    if(src.find_first_of("'\"") != src.npos) return stack.throw_exception("Invalid characters in the destination path");
+    if(dst.find_first_of("'\"") != dst.npos) return stack.throw_exception("Invalid characters in the destination path");
+    #ifndef WINDOWS
+    if(::access(src.c_str(), F_OK) != 0) return stack.throw_exception(std::string("Source path to move does not exist: '") + src + "'");
+    // Composition of args, invoke POSIX mv
+    std::vector<std::string> args;
+    args.emplace_back("/bin/mv");
+    args.emplace_back("--");
+    args.emplace_back(src);
+    args.emplace_back(dst);
+    switch(sysexec<>(std::move(args))) {
+      case 0: return_true;
+      default:
+        return stack.throw_exception(std::string("Failed to move '") + src + "' to '" + dst + "'");
+    }
+    #else
+    std::string src_path = win32_fullpath(src);
+    std::string dst_path = win32_fullpath(dst);
+    if(src_path.empty()) {
+      return stack.throw_exception("Source path does not exist or is not accessible");
+    }
+    if(!dst_path.empty()) {
+      // If dst is a directory, move in that directory, means append the source basename
+      struct ::stat st;
+      if((::stat(dst.c_str(), &st) == 0) && S_ISDIR(st.st_mode)) {
+        std::string bsrc = src;
+        char *bn = basename(&bsrc.front());
+        if(!bn) return_false;
+        dst += std::string("\\") + bn;
+        if((::stat(dst.c_str(), &st) == 0)) {
+          return stack.throw_exception(std::string("Destination path already exists: '") + dst + "'");
+        }
+      }
+    }
+    {
+      std::string match = win32_match_special_folder(src_path);
+      if(!match.empty()) {
+        return stack.throw_exception(std::string("Refusing to move special folder '") + match + "'");
+      }
+    }
+    #ifdef WITH_EXPERIMENTAL
+    if(!::MoveFileExA(src.c_str(), dst.c_str(), MOVEFILE_WRITE_THROUGH|MOVEFILE_COPY_ALLOWED)) {
+      return stack.throw_exception(std::string("Moving '") + src_path + "' to '" + dst_path + "' failed: " + win32errstr());
+    } else {
+      return_true;
+    }
+    #else
+    return stack.throw_exception(std::string("Experimental win32 recursive move disabled for safety (src='") + src_path + "', dst='" + dst_path + "')");
+    #endif
+    #endif
+  }
+  // </editor-fold>
+
   // <editor-fold desc="copy" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
@@ -467,16 +608,17 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
    * the key-value pairs
    *
    *    {
-   *      "recursive": Boolean (default false)
+   *      "recursive": {boolean}=false
    *    }
    *
    * Optionally, it is possible to specify the string 'r' or '-r' instead of
    * `{recursive:true}` as third argument.
    *
-   * @param String source_path
-   * @param String target_path
-   * @param undefined|Object options
-   * @return Boolean
+   * @throws {Error}
+   * @param {string} source_path
+   * @param {string} target_path
+   * @param {object} [options]
+   * @returns {boolean}
    */
   fs.copy = function(source_path, target_path, options) {};
   #endif
@@ -492,21 +634,24 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         recursive = stack.get_prop_string<bool>(2, "recursive", false);
       } else if(stack.is_string(2)) {
         std::string s = stack.get_string(2);
-        if(s == "r" || s == "R" || s == "-r" || s == "-R") {
+        for(auto& e:s) e = ::tolower(e);
+        if((s == "r") || (s == "-r")) {
           recursive = true;
         } else if(!s.empty()) {
-          stack.throw_exception("String options can be only 'r' for recursive copying.");
+          stack.throw_exception("String options can be only 'r' for recursive copying");
           return 0;
         }
       } else {
-        stack.throw_exception("Invalid configuration for copy function (must be plain object or string).");
+        stack.throw_exception("Invalid configuration for copy function (must be plain object or string)");
         return 0;
       }
     }
 
     // Empty / identical paths check
-    if(src.empty() || dst.empty() || src == dst) return_false;
-
+    if(src.empty()) return stack.throw_exception("Cannot copy, no source file specified");
+    if(dst.empty()) return stack.throw_exception("Cannot copy, no destionation file/directory specified");
+    if(src.find_first_of("'\"") != src.npos) return stack.throw_exception("Invalid characters in the destination path");
+    if(dst.find_first_of("'\"") != dst.npos) return stack.throw_exception("Invalid characters in the destination path");
     #ifndef WINDOWS
     // Composition of args, invoke POSIX cp. Upside is: The copy
     // will be done exactly as cp does (permissions error checks
@@ -520,56 +665,113 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     args.emplace_back("--");
     args.emplace_back(src);
     args.emplace_back(dst);
-    stack.push(sysexec<>(std::move(args)) == 0);
+    switch(sysexec<>(std::move(args))) {
+      case 0: return_true;
+      default:
+        return stack.throw_exception(std::string("Failed to move '") + src + "' to '" + dst + "'");
+    }
+    #else
+    // According to https://msdn.microsoft.com/en-us/library/windows/desktop/bb762164
+    // we have to be careful about the paths, they have to be double 0-terminated,
+    // and must be full paths (or risk of undefined behaviour). Furtherly, the
+    // API call might recursively create parent directories, which is not intended
+    // here (parent directory must exist). Because wildcards may appear in the
+    // file name we cannot use getfullpath directly. Hence, source and destination
+    // paths have to be analysed explicitly (only by the string data).
+    auto path_parent_directory = [](std::string path) -> std::string {
+      while((path.size() > 1) && path.back()=='\\') path.pop_back();
+      if(path == "\\") {
+        // it's the root directory of the current disk
+      } else {
+        auto p = path.rfind('\\');
+        if(p == path.npos) {
+          if(path.back() != ':') path = "."; // no directory sepatator, it's the current directory.
+        } else if(p == 0) {
+          path = "\\";
+        } else {
+          path.resize(p);
+        }
+        if(path.back() == ':') {
+          path.push_back('\\'); // it's the disk root, a \ has to be added
+        }
+      }
+      {
+        char s[PATH_MAX+1]; ::memset(s,0,sizeof(s));
+        if(!::GetFullPathNameA(path.c_str(), PATH_MAX, s, nullptr)) s[0] = '\0';
+        path = std::string(s);
+      }
+      while((path.size() > 1) && (path.back()=='\\')) path.pop_back(); // for disk root a tailing \ is returned
+      return path;
+    };
+    auto path_file = [](std::string path) -> std::string {
+      while((path.size() > 0) && path.back()=='\\') path.pop_back();
+      if(path.empty()) return std::string(); // there is no file or directory given
+      auto p = path.rfind('\\');
+      if(p == path.npos) {
+        return path;
+      } else {
+        return path.substr(p+1);
+      }
+    };
+    auto filetype = [](const std::string& path) -> char {
+      auto attr = ::GetFileAttributesA(path.c_str());
+      if(attr == INVALID_FILE_ATTRIBUTES) return '%';
+      if(attr & FILE_ATTRIBUTE_DIRECTORY) return 'd';
+      if(attr & FILE_ATTRIBUTE_DEVICE) return 'b'; // yea.. block device
+      return 'f';
+    };
+    auto lower = [](std::string path) -> std::string {
+      for(auto& e:path) e = std::tolower(e);
+      return path;
+    };
+    std::string src_dir = path_parent_directory(src);
+    std::string src_file = path_file(src);
+    std::string dst_dir = path_parent_directory(dst);
+    std::string dst_file = path_file(dst);
+    char src_type = filetype(src);
+    char src_dir_type = filetype(src_dir);
+    char dst_type = filetype(dst);
+    char dst_dir_type = filetype(dst_dir);
+    src = src_dir + "\\" + src_file;
+    dst = dst_dir + "\\" + dst_file;
+    if(src_dir.find_first_of("*?") != src.npos) {
+      return stack.throw_exception("Wildcards may only appear in the copy source file name, not the directory");
+    } else if(dst.find_first_of("*?") != dst.npos) {
+      return stack.throw_exception("Wildcards may not appear in the copy destination path");
+    } else if((src_file.find_first_of("*?") != src.npos) && (src_dir_type != 'd')) {
+      return stack.throw_exception("Copy source (pattern) parent directory does not exist or not accessible");
+    } else if((src_file.find_first_of("*?") == src.npos) && (src_type == '%')) {
+      return stack.throw_exception("Copy source file does not exist or not accessible");
+    } else if((dst_type != 'd') && (dst_type != '%')) {
+      return stack.throw_exception("Copy destination path already exists");
+    } else if(dst_dir_type != 'd') {
+      return stack.throw_exception("Copy destination parent directory does not exist or is not accessible");
+    } else if(lower(src) == lower(dst)) {
+      return stack.throw_exception("Copy source and destination are identical");
+    } else if(!recursive && (src_type == 'd')) { // there are voids here because of patterns
+      return stack.throw_exception("Cannot recursively copy source directory because the recursive option is not set");
+    }
+
+    #ifdef WITH_EXPERIMENTAL
+    src.append(4,'\0');
+    dst.append(4,'\0');
+    ::SHFILEOPSTRUCTA sfos = ::SHFILEOPSTRUCTA();
+    sfos.hwnd = nullptr;
+    sfos.wFunc = FO_COPY;
+    sfos.fFlags = FOF_SILENT|FOF_NOERRORUI|FOF_NOCONFIRMMKDIR|FOF_NO_UI | (recursive ? 0x0000 : FOF_NORECURSION);
+    sfos.pTo = dst.c_str();
+    sfos.pFrom = src.c_str();
+    ::SHFileOperationA(&sfos);
+    if(sfos.fAnyOperationsAborted) {
+      return stack.throw_exception("Not all files could by copied");
+    }
+    stack.push(true);
     return 1;
     #else
-    /// @ŧodo implement copyfile for windows
-    (void) stack;
-    (void) recursive;
-
-    return 0;
+    return stack.throw_exception(std::string("Experimental win32 recursive copy disabled for safety (src='") + src + "', dst='" + dst + "')");
+    #endif
     #endif
   }
-
-  // </editor-fold>
-
-  // <editor-fold desc="move" defaultstate="collapsed">
-  #if(0 && JSDOC)
-  /**
-   * Moves a file or directory from one location `source_path` to another (`target_path`),
-   * similar to the `mv` shell command.
-   *
-   * @param String source_path
-   * @param String target_path
-   * @return Boolean
-   */
-  fs.move = function(source_path, target_path) {};
-  #endif
-  template <typename PathAccessor>
-  int movefile(duktape::api& stack)
-  {
-    if(!stack.is<std::string>(0) || !stack.is<std::string>(1)) return_false;
-    std::string src = PathAccessor::to_sys(stack.to<std::string>(0));
-    std::string dst = PathAccessor::to_sys(stack.to<std::string>(1));
-
-    // Empty / identical paths check
-    if(src.empty() || dst.empty() || src == dst) return_false;
-
-    #ifndef WINDOWS
-    // Composition of args, invoke POSIX cp
-    std::vector<std::string> args;
-    args.emplace_back("/bin/mv");
-    args.emplace_back("--");
-    args.emplace_back(src);
-    args.emplace_back(dst);
-    stack.push(sysexec<>(std::move(args)) == 0);
-    return 1;
-    #else
-    /// @ŧodo implement movefile for windows
-    return 0;
-    #endif
-  }
-
   // </editor-fold>
 
   // <editor-fold desc="remove" defaultstate="collapsed">
@@ -579,7 +781,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
    * command. The argument `options` can  encompass the key-value pairs
    *
    *    {
-   *      "recursive": Boolean (default false)
+   *      "recursive": {boolean}=false
    *    }
    *
    * Optionally, it is possible to specify the string 'r' or '-r' instead of
@@ -587,16 +789,18 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
    *
    * Removing is implicitly forced (like "rm -f").
    *
-   * @param String target_path
-   * @param undefined|Object options
-   * @return Boolean
+   * @throws {Error}
+   * @param {string} target_path
+   * @param {string|object} [options]
+   * @returns {boolean}
    */
   fs.remove = function(target_path, options) {};
   #endif
   template <typename PathAccessor>
   int removefile(duktape::api& stack)
   {
-    if(!stack.is<std::string>(0)) return_false;
+    if(stack.is_undefined(0)) return stack.throw_exception("No path given to remove");
+    if((!stack.is<std::string>(0)) && (!stack.is_number(0))) return stack.throw_exception("Invalid path to remove given (not string nor number)");
     std::string dst = PathAccessor::to_sys(stack.to<std::string>(0));
     bool recursive = false;
     if(!stack.is_undefined(1)) {
@@ -604,40 +808,100 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         recursive = stack.get_prop_string<bool>(1, "recursive", false);
       } else if(stack.is_string(1)) {
         std::string s = stack.get_string(1);
-        if(s == "r" || s == "-r") {
+        for(auto& e:s) e = ::tolower(e);
+        if((s == "r") || (s == "-r")) {
           recursive = true;
         } else if(!s.empty()) {
-          stack.throw_exception("String options can be only 'r' for recursive removing.");
+          stack.throw_exception("String options can be only 'r' for recursive removing");
           return 0;
         }
       } else {
-        stack.throw_exception("Invalid configuration for remove function (must be plain object or string).");
+        stack.throw_exception("Invalid configuration for remove function (must be plain object or string)");
         return 0;
       }
     }
-
-    // Empty / identical paths check
-    if(dst.empty()) return_false;
-
+    if(dst.empty()) return stack.throw_exception("No file specified to remove");
+    if(dst.find_first_of("*?") != dst.npos) return stack.throw_exception("Wildcards not allowed for remove");
+    if(dst.find_first_of("'\"") != dst.npos) return stack.throw_exception("Invalid characters in the path to remove");
     #ifndef WINDOWS
-    // Composition of args, invoke POSIX rm
-    std::vector<std::string> args;
-    args.emplace_back("/bin/rm");
-    std::string ops = "-f";
-    if(recursive) ops += 'r';
-    args.emplace_back(std::move(ops));
-    args.emplace_back("--");
-    args.emplace_back(dst);
-    stack.push(sysexec<>(std::move(args)) == 0);
-    return 1;
+    struct ::stat st;
+    if(::stat(dst.c_str(), &st) != 0) {
+      return stack.throw_exception(std::string("Failed to remove '") + dst + "': " + ::strerror(errno));
+    } else if(S_ISDIR(st.st_mode)) {
+      if(::rmdir(dst.c_str()) == 0) {
+        return_true;
+      } else if(!recursive) {
+        switch(errno) {
+          case ENOTEMPTY: return stack.throw_exception(std::string("Failed to remove '") + dst + "': Directory not empty and recursive removal option not set");
+          default: return stack.throw_exception(std::string("Failed to remove '") + dst + "': " + ::strerror(errno));
+        }
+      } else {
+        // Composition of args, invoke POSIX rm
+        std::vector<std::string> args;
+        args.emplace_back("/bin/rm");
+        args.emplace_back("-rf");
+        args.emplace_back("--");
+        args.emplace_back(dst);
+        if(sysexec<>(std::move(args)) != 0) {
+          return stack.throw_exception(std::string("Failed to remove '") + dst + "'");
+        } else {
+          return_true;
+        }
+      }
+    } else if(::unlink(dst.c_str()) != 0) {
+      return stack.throw_exception(std::string("Failed to remove '") + dst + "': " + ::strerror(errno));
+    } else {
+      return_true;
+    }
     #else
-    /// @ŧodo implement removefile for windows
-    (void) stack;
-    (void) recursive;
-    return 0;
+    auto filetype = [](const std::string& path) -> char {
+      auto attr = ::GetFileAttributesA(path.c_str());
+      if(attr == INVALID_FILE_ATTRIBUTES) return '%';
+      if(attr & FILE_ATTRIBUTE_DIRECTORY) return 'd';
+      if(attr & FILE_ATTRIBUTE_DEVICE) return 'b'; // yea.. block device
+      return 'f';
+    };
+    while(!dst.empty() && (dst.back() == '\\')) dst.pop_back();
+    if((dst.size() == 2) && (dst[1]==':')) return stack.throw_exception("Deleting a disk is not permitted");
+    char dst_type = filetype(dst);
+    if((dst_type == '%')) {
+      return stack.throw_exception(std::string("Failed to delete '") + dst + "': No such file or directory");
+    } else if(dst_type == 'f') {
+      if(::unlink(dst.c_str()) == 0) return_true;
+      return stack.throw_exception(std::string("Failed to delete file '") + dst + "': " + ::strerror(errno));
+    } else if((dst_type == 'd') && (!recursive)) {
+      if(::rmdir(dst.c_str()) == 0) return_true;
+      if(errno == ENOTEMPTY) {
+        return stack.throw_exception(std::string("Failed to delete directory '") + dst + "': It is not empty and recursive delete option is not set");
+      } else {
+        return stack.throw_exception(std::string("Failed to delete directory '") + dst + "': " + ::strerror(errno));
+      }
+    } else {
+      std::string path = win32_fullpath(dst);
+      if(path.empty()) return stack.throw_exception(std::string("Failed to delete '") + dst + "': Not existing or not accessible");
+      {
+        std::string match = win32_match_special_folder(path);
+        if(!match.empty()) return stack.throw_exception(std::string("Refusing to delete special folder '") + match + "'");
+      }
+      #ifdef WITH_EXPERIMENTAL
+      path.append(4,'\0');
+      ::SHFILEOPSTRUCTA sfos = ::SHFILEOPSTRUCTA();
+      sfos.hwnd = nullptr;
+      sfos.wFunc = FO_DELETE;
+      sfos.fFlags = FOF_SILENT|FOF_NOERRORUI|FOF_NOCONFIRMMKDIR|FOF_NO_UI | (recursive ? 0x0000 : FOF_NORECURSION);
+      sfos.pTo = nullptr;
+      sfos.pFrom = path.c_str();
+      ::SHFileOperationA(&sfos);
+      if(sfos.fAnyOperationsAborted) {
+        return stack.throw_exception("Not all files could by copied");
+      }
+      return_true;
+      #else
+      return stack.throw_exception(std::string("Experimental win32 recursive remove disabled for safety (path is '")+path+"')");
+      #endif
+    }
     #endif
   }
-
   // </editor-fold>
 
 }}}}

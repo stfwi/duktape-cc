@@ -181,7 +181,7 @@ namespace duktape { namespace detail { namespace system {
   /**
    * Returns the ID of the current process or `undefined` on error.
    *
-   * @return Number|undefined
+   * @returns {number|undefined}
    */
   sys.pid = function() {};
   #endif
@@ -203,7 +203,7 @@ namespace duktape { namespace detail { namespace system {
   /**
    * Returns the ID of the current user or `undefined` on error.
    *
-   * @return Number|undefined
+   * @returns {number|undefined}
    */
   sys.uid = function() {};
   #endif
@@ -226,7 +226,7 @@ namespace duktape { namespace detail { namespace system {
   /**
    * Returns the ID of the current group or `undefined` on error.
    *
-   * @return Number|undefined
+   * @returns {number|undefined}
    */
   sys.gid = function() {};
   #endif
@@ -251,8 +251,8 @@ namespace duktape { namespace detail { namespace system {
    * If the user ID is not specified (called without arguments), the ID of the current user is
    * used.
    *
-   * @param undefined|Number uid
-   * @return String|undefined
+   * @param {number} [uid]
+   * @returns {string|undefined}
    */
   sys.user = function(uid) {};
   #endif
@@ -291,8 +291,8 @@ namespace duktape { namespace detail { namespace system {
    * If the group ID is not specified (called without arguments), the group ID of the
    * current user is used.
    *
-   * @param undefined|Number gid
-   * @return String|undefined
+   * @param {number} [gid]
+   * @returns {string|undefined}
    */
   sys.group = function(gid) {};
   #endif
@@ -326,7 +326,7 @@ namespace duktape { namespace detail { namespace system {
    * Returns path ("realpath") of the executable where the ECMA script is
    * called from (or undefined on error or if not allowed).
    *
-   * @return String|undefined
+   * @returns {string|undefined}
    */
   sys.apppath = function() {};
   #endif
@@ -384,7 +384,7 @@ namespace duktape { namespace detail { namespace system {
    *   version: String, // e.g. "#1 SMP Debian 3.16.7-ckt20-1+deb8u3 (2016-01-17)"
    * }
    *
-   * @return Object|undefined
+   * @returns {object|undefined}
    */
   sys.uname = function() {};
   #endif
@@ -415,8 +415,8 @@ namespace duktape { namespace detail { namespace system {
    * Note that this function blocks the complete thread until the time has
    * expired or sleeping is interrupted externally.
    *
-   * @param Number seconds
-   * @return bool
+   * @param {number} seconds
+   * @returns {boolean}
    */
   sys.sleep = function(seconds) {};
   #endif
@@ -448,8 +448,8 @@ namespace duktape { namespace detail { namespace system {
    * Returns NaN on error or when a source is not supported on the
    * current platform.
    *
-   * @param String clock_source
-   * @return Number seconds
+   * @param {string} clock_source
+   * @returns {number} seconds
    */
   sys.clock = function(clock_source) {};
   #endif
@@ -520,8 +520,8 @@ namespace duktape { namespace detail { namespace system {
    * The function returns undefined if not implemented on the
    * platform or if the descriptor name is incorrect.
    *
-   * @param String descriptorName
-   * @return Boolean
+   * @param {string} descriptorName
+   * @returns {boolean}
    */
   sys.isatty = function(descriptorName) {};
   #endif

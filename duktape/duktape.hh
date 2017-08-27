@@ -1706,7 +1706,7 @@ namespace duktape { namespace detail {
       auto array_index = stack.push_array();
       auto i = api::index_t(0);
       if(!stack.check_stack(4)) {
-        stack.throw_exception("Not enough stack space (to push an array).");
+        stack.throw_exception("Not enough stack space (to push an array)");
         return;
       }
       for(const auto& e : val) {
@@ -1725,7 +1725,7 @@ namespace duktape { namespace detail {
     {
       api stack(ctx);
       if(!stack.check_stack(4)) {
-        stack.throw_exception("Not enough stack space (to get an array).");
+        stack.throw_exception("Not enough stack space (to get an array)");
         return type();
       } else if(!stack.is_array(index)) {
         stack.throw_exception("Property is no array.");
@@ -1861,7 +1861,7 @@ namespace duktape { namespace detail { namespace {
         stack.throw_exception("Invalid number of arguments.");
         return 0;
       } else if(!fn) {
-        stack.throw_exception("Invalid function definition (bug in JS subsystem!).");
+        stack.throw_exception("Invalid function definition (bug in JS subsystem!)");
         return 0;
       } else if((!is_byref_api) && stack.is_constructor_call()) {
         stack.throw_exception("The called function cannot be a constructor.");

@@ -212,9 +212,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
    *       // is not relevant.
    *     });
    *
-   * @param String path
-   * @param undefined|String|function conf
-   * @return String|Buffer
+   * @param {string} path
+   * @param {string|function} [conf]
+   * @returns {string|buffer}
    */
   fs.readfile = function(path, conf) {};
   #endif
@@ -313,7 +313,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
               //    function output is ignored anyway after it returns.
               //
           } else {
-            stack.throw_exception("The file reading filter function must return a string, true/false or nothing (undefined).");
+            stack.throw_exception("The file reading filter function must return a string, true/false or nothing (undefined)");
             return 0;
           }
           stack.pop();
@@ -333,10 +333,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
   /**
    * Writes data into a file Reads a file and returns the contents as text.
    *
-   * @param String path
-   * @param String|Buffer|Number|Boolean|Object data
-   * @param String|Object flags
-   * @return Boolean
+   * @param {string} path
+   * @param {string|buffer|number|boolean|object} data
+   * @param {string|object} [flags]
+   * @returns {boolean}
    */
   fs.filewrite = function(path, data, flags) {};
   #endif
@@ -349,10 +349,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
     if(Append) mode |= std::ios::app;
     std::string data;
     if(stack.is_undefined(1)) {
-      stack.throw_exception("The file write function needs a data argument (2nd argument).");
+      stack.throw_exception("The file write function needs a data argument (2nd argument)");
       return 0;
     } else if(stack.is_function(1)) {
-      stack.throw_exception("The file write function cannot use functions as data argument.");
+      stack.throw_exception("The file write function cannot use functions as data argument");
       return 0;
     } else if(stack.is_buffer(1)) {
       data = stack.get_buffer<std::string>(1);
@@ -413,7 +413,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns the current working directory or `undefined` on error.
    * Does strictly not accept arguments.
    *
-   * @return String | undefined
+   * @returns {string|undefined}
    */
   fs.cwd = function() {};
   #endif
@@ -432,7 +432,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns the temporary directory or `undefined` on error.
    * Does strictly not accept arguments.
    *
-   * @return String | undefined
+   * @returns {string|undefined}
    */
   fs.tmpdir = function() {};
   #endif
@@ -463,8 +463,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * created it.
    * Accepts one optional argument, the file prefix.
    *
-   * @param undefined|String prefix
-   * @return String | undefined
+   * @param {string} [prefix]
+   * @returns {string|undefined}
    */
   fs.tempnam = function(prefix) {};
   #endif
@@ -494,7 +494,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns the home directory of the current used or `undefined` on error.
    * Does strictly not accept arguments.
    *
-   * @return String | undefined
+   * @returns {string|undefined}
    */
   fs.home = function() {};
   #endif
@@ -530,8 +530,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * on error or if the file does not exist.
    * Does strictly require one String argument (the path).
    *
-   * @param String path
-   * @return String | undefined
+   * @param {string} path
+   * @returns {string|undefined}
    */
   fs.realpath = function(path) {};
   #endif
@@ -593,8 +593,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * or `undefined` on error.
    * Does strictly require one String argument (the path).
    *
-   * @param String path
-   * @return String | undefined
+   * @param {string} path
+   * @returns {string|undefined}
    */
   fs.dirname = function(path) {};
   #endif
@@ -616,8 +616,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * or `undefined` on error.
    * Does strictly require one String argument (the path).
    *
-   * @param String path
-   * @return String | undefined
+   * @param {string} path
+   * @returns {string|undefined}
    */
   fs.basename = function(path) {};
   #endif
@@ -648,9 +648,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    *  flags == 'l' (long)     : returns a string like 'rwxrwxrwx', like `ls -l` but without preceeding file type character.
    *  flags == 'e' (extended) : output like `ls -l` ('d'=directory, 'c'=character device, 'p'=pipe, ...)
    *
-   * @param Number mode
-   * @param String flags [optional]
-   * @return String | undefined
+   * @param {number} mode
+   * @param {string} [flags]
+   * @returns {string|undefined}
    */
   fs.mod2str = function(mode, flags='') {};
   #endif
@@ -716,8 +716,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * will be reinterpreted as string, so that 755 is NOT the bit mask 0x02f3, but seen
    * as 0755 octal.
    *
-   * @param String mode
-   * @return Number | undefined
+   * @param {string} mode
+   * @returns {number|undefined}
    */
   fs.str2mod = function(mode) {};
   #endif
@@ -788,8 +788,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    *    modeval: Number // Numeric file mode bitmask, use `fs.mod2str(mode)` to convert to a string like 'drwxr-xr-x'.
    * }
    *
-   * @param String path
-   * @return Object | undefined
+   * @param {string} path
+   * @returns {object|undefined}
    */
   fs.stat = function(path) {};
   #endif
@@ -863,8 +863,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns the file size in bytes of a given file path, or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Number | undefined
+   * @param {string} path
+   * @returns {number|undefined}
    */
   fs.size = function(path) {};
   #endif
@@ -884,8 +884,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns the name of the file owner of a given file path, or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return String | undefined
+   * @param {string} path
+   * @returns {string|undefined}
    */
   fs.owner = function(path) {};
   #endif
@@ -939,8 +939,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns the group name of a given file path, or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return String | undefined
+   * @param {string} path
+   * @returns {string|undefined}
    */
   fs.group = function(path) {};
   #endif
@@ -971,8 +971,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns last modified time a given file path, or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Date | undefined
+   * @param {string} path
+   * @returns {Date|undefined}
    */
   fs.mtime = function(path) {};
   #endif
@@ -998,8 +998,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns last access time a given file path, or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Date | undefined
+   * @param {string} path
+   * @returns {Date|undefined}
    */
   fs.atime = function(path) {};
   #endif
@@ -1025,8 +1025,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns creation time a given file path, or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Date | undefined
+   * @param {string} path
+   * @returns {Date|undefined}
    */
   fs.ctime = function(path) {};
   #endif
@@ -1053,8 +1053,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * false otherwise or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.exists = function(path) {};
   #endif
@@ -1083,8 +1083,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns true if a given path points to a regular file, false otherwise or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.isfile = function(path) {};
   #endif
@@ -1110,8 +1110,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns true if a given path points to a directory, false otherwise or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.isdir = function(path) {};
   #endif
@@ -1137,8 +1137,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns true if a given path points to a link, false otherwise or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.islink = function(path) {};
   #endif
@@ -1158,8 +1158,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns true if a given path points to a fifo (named pipe), false otherwise or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.isfifo = function(path) {};
   #endif
@@ -1181,8 +1181,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * false otherwise or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.iswritable = function(path) {};
   #endif
@@ -1204,8 +1204,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * false otherwise or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.isreadable = function(path) {};
   #endif
@@ -1227,8 +1227,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * false otherwise or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.isexecutable = function(path) {};
   #endif
@@ -1251,8 +1251,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Does strictly require one String argument (the path).
    * Note: Windows: returns undefined, not implemented.
    *
-   * @param String path
-   * @return String | undefined
+   * @param {string} path
+   * @returns {string|undefined}
    */
   fs.readlink = function(path) {};
   #endif
@@ -1281,8 +1281,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Switches the current working directory to the specified path. Returns true on success, false on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.chdir = function(path) {};
   #endif
@@ -1302,9 +1302,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * creation of the directory or a parent directory fails, the function returns false.
    * Note that it is possible that the path might be only partially created in this case.
    *
-   * @param String path
-   * @param String options
-   * @return Boolean
+   * @param {string} path
+   * @param {string} [options]
+   * @returns {boolean}
    */
   fs.mkdir = function(path, options) {};
   #endif
@@ -1374,8 +1374,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Does strictly require one String argument (the input path).
    * Note that the function also fails if the directory is not empty (no recursion),
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.rmdir = function(path) {};
   #endif
@@ -1392,8 +1392,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Does strictly require one String argument (the input path).
    * Note that the function also fails if the given path is a directory. Use `fs.rmdir()` in this case.
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.unlink = function(path) {};
   #endif
@@ -1410,10 +1410,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Does strictly require three argument: The input path (String), the last-modified time (Date) and the last
    * access time (Date).
    *
-   * @param String path
-   * @param Date mtime
-   * @param Date atime
-   * @return Boolean
+   * @param {string} path
+   * @param {Date} [mtime]
+   * @param {Date} [atime]
+   * @returns {boolean}
    */
   fs.utime = function(path, mtime, atime) {};
   #endif
@@ -1454,9 +1454,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Note that this is a basic filesystem i/o function that fails if the parent directory,
    * or the new file does already exist.
    *
-   * @param String path
-   * @param String new_path
-   * @return Boolean
+   * @param {string} path
+   * @param {string} new_path
+   * @returns {boolean}
    */
   fs.rename = function(path, new_path) {};
   #endif
@@ -1474,9 +1474,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   /**
    * Creates a symbolic link, returns true on success, false on error.
    *
-   * @param String path
-   * @param String link_path
-   * @return Boolean
+   * @param {string} path
+   * @param {string} link_path
+   * @returns {boolean}
    */
   fs.symlink = function(path, link_path) {};
   #endif
@@ -1488,7 +1488,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
       // "shortcuts" should not be available. Hence, here we throw to
       // clearify that actual symlinking is meant, not .lnk files.
       #if !defined(_WIN32_WINNT) || (_WIN32_WINNT < 0x0601)
-      stack.throw_exception("Your windows version does not support symlinks (this is not creating .lnk files).");
+      stack.throw_exception("Your windows version does not support symlinks (this is not creating .lnk files)");
       return 0;
       #else
       if(!stack.is<std::string>(0) || !stack.is<std::string>(1)) { stack.push(false); return 1; }
@@ -1511,9 +1511,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   /**
    * Creates a (hard) link, returns true on success, false on error.
    *
-   * @param String path
-   * @param String link_path
-   * @return Boolean
+   * @param {string} path
+   * @param {string} link_path
+   * @returns {boolean}
    */
   fs.hardlink = function(path, link_path) {};
   #endif
@@ -1537,9 +1537,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   /**
    * Creates a (hard) link, returns true on success, false on error.
    *
-   * @param String path
-   * @param String|Number mode
-   * @return Boolean
+   * @param {string} path
+   * @param {string|number} [mode]
+   * @returns {boolean}
    */
   fs.chmod = function(path, mode) {};
   #endif
@@ -1609,8 +1609,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Lists the contents of a directory (basenames only), undefined if the function failed to open the directory
    * for reading. Results are unsorted.
    *
-   * @param String path
-   * @return Array|undefined
+   * @param {string} path
+   * @returns {array|undefined}
    */
   fs.readdir = function(path) {};
   #endif
@@ -1661,8 +1661,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   /**
    * File pattern (fnmatch) based listing of files.
    *
-   * @param String pattern
-   * @return Array|undefined
+   * @param {string} pattern
+   * @returns {array|undefined}
    */
   fs.glob = function(pattern) {};
   #endif

@@ -66,35 +66,39 @@ struct stdio
 
 public:
 
+  #if(0 && JSDOC)
   /**
-   * print(a,b,c, ...). Writes to the `out_stream` set in this class (default: std::cout).
-   * Buffers are printed as binary stream.
+   * print(a,b,c, ...). Writes data stringifyed to STDOUT.
    *
-   * @param duktape::api& stack
-   * @return int
+   * @param {...*} args
    */
+  print = function(args) {}
+  #endif
   static int print(duktape::api& stack)
   { return print_to(stack, out_stream); }
 
+  #if(0 && JSDOC)
   /**
-   * alert(a,b,c, ...). Writes to the `err_stream` set in this class (default: std::cerr).
-   * Buffers are printed as binary stream.
+   * alert(a,b,c, ...). Writes data stringifyed to STDERR.
    *
-   * @param duktape::api& stack
-   * @return int
+   * @param {...*} args
    */
+  alert = function(args) {}
+  #endif
   static int alert(duktape::api& stack)
   { return print_to(stack, err_stream); }
 
+  #if(0 && JSDOC)
   /**
-   * Returns a first character entered as string. First program argument
+   * Returns a first character entered as string. First function argument
    * is a text that is printed before reading the input stream (without newline,
-   * "?" or ":"). The stream read from is defined as `in_stream` of this class,
-   * default is std::cin).
+   * "?" or ":"). The input is read from STDIN.
    *
-   * @param duktape::api& stack
-   * @return int
+   * @param {string} text
+   * @returns {string}
    */
+  confirm = function(text) {}
+  #endif
   static int confirm(duktape::api& stack)
   {
     if(!in_stream) return 0;
@@ -112,12 +116,14 @@ public:
     return 1;
   }
 
+  #if(0 && JSDOC)
   /**
-   * Returns a line entered via the input stream (default std::cin).
+   * Returns a line entered via the input stream STDIN.
    *
-   * @param duktape::api& stack
-   * @return int
+   * @returns {string}
    */
+  prompt = function() {};
+  #endif
   static int prompt(duktape::api& stack)
   {
     if(!in_stream) return 0;
@@ -132,23 +138,34 @@ public:
     return 1;
   }
 
+  #if(0 && JSDOC)
+  /**
+   * Console object known from various JS implementations.
+   */
+  console = {};
+  #endif
+
+  #if(0 && JSDOC)
   /**
    * Writes a line to the log stream (automatically appends a newline).
-   * The default log stream is stderr, but it can be redefined in (class variable).
+   * The default log stream is STDERR.
    *
-   * @param duktape::api& stack
-   * @return int
+   * @param {...*} args
    */
+  console.log = function(args) {};
+  #endif
   static int console_log(duktape::api& stack)
   { return print_to(stack, log_stream); }
 
+  #if(0 && JSDOC)
   /**
-   * Write to STDOUT without any conversion, whitespaces between arguments given,
+   * Write to STDOUT without any conversion, whitespaces between the given arguments,
    * and without newline at the end.
    *
-   * @param duktape::api& stack
-   * @return int
+   * @param {...*} args
    */
+  console.write = function(args) {};
+  #endif
   static int console_write(duktape::api& stack)
   {
     if(!out_stream) return 0;
@@ -168,12 +185,31 @@ public:
     return 0;
   }
 
+  #if(0 && JSDOC)
   /**
-   * Read from stdin until EOF.
+   * Read from STDIN until EOF. Using the argument `arg` it is possible
+   * to use further functionality:
    *
-   * @param duktape::api& stack
-   * @return int
+   *  - By default (if `arg` is undefined or not given) the function
+   *    returns a string when all data are read.
+   *
+   *  - If `arg` is boolean and `true`, then the input is read into
+   *    a buffer variable, not a string. The function returns when
+   *    all data are read.
+   *
+   * - If `arg` is a function, then a string is read line by line,
+   *   and each line passed to this callback function. If the function
+   *   returns `true`, then the line is added to the output. The
+   *   function may also preprocess line and return a String. In this
+   *   case the returned string is added to the output.
+   *   Otherwise, if `arg` is not `true` and no string, the line is
+   *   skipped.
+   *
+   * @param {function|boolean} arg
+   * @returns {string|buffer}
    */
+  console.read = function(arg) {};
+  #endif
   static int console_read(duktape::api& stack)
   {
     if(!in_stream) return 0;
@@ -187,10 +223,14 @@ public:
         stack.dup(0);
         stack.push_string(s);
         stack.call(1);
-        bool use = stack.get<bool>(-1);
-        stack.pop();
-        if(use) ss << s << std::endl;
+        if(stack.is_string(-1)) {
+          ss << stack.get_string(-1) << std::endl;
+        } else if(stack.get<bool>(-1)) {
+          ss << s << std::endl;
+        }
+        stack.top(1);
       }
+      stack.top(0);
       stack.push(ss.str());
       return 1;
     } else {

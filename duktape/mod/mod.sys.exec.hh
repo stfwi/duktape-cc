@@ -725,52 +725,52 @@ namespace duktape { namespace detail { namespace system { namespace exec {
    *
    *    {
    *      // Plain object for environment variables to set.
-   *      env     : [Object]={},
+   *      env     : {object}={},
    *
    *      // Optional text that is passed to the program via stdin piping.
-   *      stdin   : [String]="",
+   *      stdin   : {String}="",
    *
    *      // If true the output is an object containing the fetched output in the property `stdout`.
    *      // The exit code is then stored in the property `exitcode`.
    *      // If it is a function, see callbacks below.
-   *      stdout  : [Boolean|Function]=false,
+   *      stdout  : {boolean|function}=false,
    *
    *      // If true the output is an object containing the fetched output in the property `stderr`.
    *      // The exit code is then stored in the property `exitcode`.
    *      // If the value is "stdout", then the stderr output is redirected to stdout, and the
    *      // option `stdout` is implicitly set to `true` if it was `false`.
    *      // If it is a function, see callbacks below.
-   *      stderr  : [Boolean|Function|"stdout"]=false,
+   *      stderr  : {boolean|function|"stdout"}=false,
    *
    *      // Normally the user environment is also available for the executed child process. That
    *      // might cause issues, e.g. with security. To prevent passing through the current environment,
    *      // set this property to `true`.
-   *      noenv   : [Boolean]=false,
+   *      noenv   : {boolean}=false,
    *
    *      // Normally the execution also uses the search path variable ($PATH) to determine which
    *      // program to run - Means setting the `program` to `env` or `/usr/bin/env` is pretty much
    *      // the same. However, you might not want that programs are searched. By setting this option
    *      // to true, you must use `/usr/bin/env`.
-   *      nopath  : [Boolean]=false,
+   *      nopath  : {boolean}=false,
    *
    *      // Normally the function throws exceptions on execution errors.
    *      // If that is not desired, set this option to `true`, and the function will return
    *      // `undefined` on errors. However, it is possible that invalid arguments or script
    *      // engine errors still throw.
-   *      noexcept: [Boolean]=false,
+   *      noexcept: {boolean}=false,
    *
    *      // The function can be called like `fs.exec( {options} )` (options 1st argument). In this
    *      // case the program to execute can be specified using the `program` property.
-   *      program : [String],
+   *      program : {string},
    *
    *      // The function can also be called with the options as first or second argument. In both
    *      // cases the command line arguments to pass on to the execution can be passed as the `args`
    *      // property.
-   *      args    : [Array],
+   *      args    : {array},
    *
    *      // Process run timeout in ms, the process will be terminated (and SIGKILL killed later if
    *      // not terminating itself) if it runs longer than this timeout.
-   *      timeout : [Number]
+   *      timeout : {number}
    *
    *    }
    *
@@ -781,18 +781,18 @@ namespace duktape { namespace detail { namespace system { namespace exec {
    *    - a plain object if any fetching is enabled:
    *
    *        {
-   *          exitcode: [Number],
-   *          stdout: [String],
-   *          stderr: [String]
+   *          exitcode: {number},
+   *          stdout  : {string},
+   *          stderr  : {string}
    *        }
    *
    *    - `undefined` if exec exceptions are disabled and an error occurs.
    *
-   * @throw Error
-   * @param String program
-   * @param undefined|Array arguments
-   * @param undefined|Object options
-   * @return Number|Object
+   * @throws {Error}
+   * @param {string} program
+   * @param {array} [arguments]
+   * @param {object} [options]
+   * @returns {number|object}
    */
   sys.exec = function(program, arguments, options) {};
   #endif
@@ -890,14 +890,14 @@ namespace duktape { namespace detail { namespace system { namespace exec {
             return 0;
           }
         } else if(!stack.is_undefined(1)) {
-          if(!no_exception) stack.throw_exception("exec(): Program arguments must be passed as array (2nd argument invalid).");
+          if(!no_exception) stack.throw_exception("exec(): Program arguments must be passed as array (2nd argument invalid)");
           return 0;
         }
       }
 
       if(stack.top() > 2) {
         if(!stack.is_object(2)) {
-          if(!no_exception) stack.throw_exception(std::string("exec(): Program execution options must be passed as object."));
+          if(!no_exception) stack.throw_exception(std::string("exec(): Program execution options must be passed as object"));
           return 0;
         } else {
           optindex = 2;
@@ -1115,9 +1115,9 @@ namespace duktape { namespace detail { namespace system { namespace exec {
    * command itself. The command passed to the shell is intentionally
    * NOT escaped (no "'" to "\'" and no "\" to "\\").
    *
-   * @throw Error
-   * @param String command
-   * @return String
+   * @throws {Error}
+   * @param {string} command
+   * @returns {string}
    */
   sys.shell = function(command) {};
   #endif

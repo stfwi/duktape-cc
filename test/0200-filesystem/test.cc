@@ -3,68 +3,15 @@
 #include <mod/mod.stdio.hh>
 #include <mod/mod.sys.hh>
 #include <mod/mod.fs.hh>
-#include <mod/mod.fs.ext.hh>
 using namespace std;
-// </editor-fold>
-
-// <editor-fold desc="auxiliary fs test functions" defaultstate="collapsed">
-void test_rmfiletree()
-{
-  if(::chdir(test_path().c_str()) == 0) {
-    char s[PATH_MAX+2];
-    s[PATH_MAX+1] = '\0';
-    if((::getcwd(s, PATH_MAX) == 0) && (::strncmp(s, test_path().c_str(), PATH_MAX) == 0)) {
-      sysexec(string("rm -rf *"));
-    }
-  }
-}
-
-void test_mkfiletree()
-{
-  test_comment("(Re)building test temporary file tree '" << test_path() << "'");
-  #ifndef WINDOWS
-    test_expect(::chdir("/tmp") == 0);
-    sysexec(string("rm -rf ") + test_path() + "\\*");
-    sysexec(string("mkdir -p ") + test_path());
-    if(!exists(test_path()) || (::chdir(test_path().c_str()) != 0)) {
-      test_fail("Test base temp directory does not exist or failed to chdir into it.");
-      throw std::runtime_error("Aborted due to failed test assertion.");
-    }
-    sysexec(string("mkdir -p ") + test_path("a"));
-    sysexec(string("mkdir -p ") + test_path("b"));
-    test_mkfile("null");
-    test_mkfile("undefined");
-    test_mkfile("z");
-    test_mkfile("a/y");
-    test_mkfile("b/x");
-    sysexec(string("ln -s '") + test_path("a/y") + "' '" + test_path("ly") + "'");
-    sysexec(string("ln -s '") + test_path("a") + "' '" + test_path("b/la") + "'");
-  #else
-    if(!test_expect_cond(::chdir(test_path().c_str()) == 0)) {
-      throw std::runtime_error("Aborted due to failed test assertion: Test directory not existing.");
-    }
-    test_rmfiletree();
-    if(!exists(test_path()) || (::chdir(test_path().c_str()) != 0)) {
-      test_fail("Test base temp directory does not exist or failed to chdir into it.");
-      throw std::runtime_error("Aborted due to failed test assertion.");
-    }
-    ::mkdir("a");
-    ::mkdir("b");
-    test_mkfile("null");
-    test_mkfile("undefined");
-    test_mkfile("z");
-    test_mkfile("a\\y");
-    test_mkfile("b\\x");
-  #endif
-}
-
+using namespace testenv;
 // </editor-fold>
 
 // <editor-fold desc="test_informational_functions" defaultstate="collapsed">
 void test_informational_functions(duktape::engine& js)
 {
   test_comment("test_informational_functions");
-  test_mkfiletree();
+  test_makefiletree();
   test_comment( "fs.cwd() = " << js.eval<string>("fs.cwd()") );
   test_comment( "fs.home() = " << js.eval<string>("fs.home()") );
   test_expect( js.eval<bool>("typeof fs.cwd() == 'string'") );
@@ -97,7 +44,7 @@ void test_informational_functions(duktape::engine& js)
 void test_mkdir(duktape::engine& js)
 {
   test_comment("test_mkdir");
-  test_mkfiletree();
+  test_makefiletree();
   test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
   test_expect( js.eval<bool>("fs.mkdir() === false; // no arg" ) );
   test_expect( js.eval<bool>("fs.mkdir(111) === false; // not string") );
@@ -134,7 +81,7 @@ void test_mkdir(duktape::engine& js)
 void test_stat_functions(duktape::engine& js)
 {
   test_comment("test_stat_functions");
-  test_mkfiletree();
+  test_makefiletree();
   test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
   test_expect( js.eval<bool>("typeof fs.stat(testdir) === 'object';") );
   test_expect( js.eval<bool>("fs.stat() === undefined; // not string") );
@@ -172,7 +119,7 @@ void test_stat_functions(duktape::engine& js)
 void test_filemod_functions(duktape::engine& js)
 {
   test_comment("test_filemod_functions");
-  test_mkfiletree();
+  test_makefiletree();
   test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
   test_expect( js.eval<bool>("fs.mod2str() === undefined") );
   test_expect( js.eval<bool>("fs.mod2str('127') === undefined") );
@@ -200,7 +147,7 @@ void test_filemod_functions(duktape::engine& js)
 void test_readfile_writefile(duktape::engine& js)
 {
   test_comment("test_readfile_writefile");
-  test_mkfiletree();
+  test_makefiletree();
   test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
   test_expect( js.eval<bool>("fs.writefile('testfile', 'testfiletext') === true") );
   test_expect( js.eval<bool>("fs.readfile('testfile') === 'testfiletext'") );
@@ -236,7 +183,7 @@ void test_readfile_writefile(duktape::engine& js)
 void test_chmod_functions(duktape::engine& js)
 {
   test_comment("test_chmod_functions");
-  test_mkfiletree();
+  test_makefiletree();
   test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
   test_expect( js.eval<bool>("fs.writefile('testfile', 'test') === true") );
   if(js.eval<bool>("fs.isfile('testfile')")) {
@@ -263,7 +210,7 @@ void test_chmod_functions(duktape::engine& js)
 void test_readdir_function(duktape::engine& js)
 {
   test_comment("test_readdir_function");
-  test_mkfiletree();
+  test_makefiletree();
   #ifndef WINDOWS
   test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
   test_expect( js.eval<bool>("fs.mkdir('readdirtest') === true") );
@@ -301,88 +248,10 @@ void test_readdir_function(duktape::engine& js)
 void test_unsafe_functions(duktape::engine& js)
 {
   test_comment("test_unsafe_functions");
-  test_mkfiletree();
+  test_makefiletree();
   test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
   test_comment( "fs.tempnam('blaaa') = " << js.eval<string>("fs.tempnam('blaaa')") );
   test_expect( js.eval<bool>("fs.tempnam('blaaa') !== undefined") );
-}
-// </editor-fold>
-
-// <editor-fold desc="test_copy_function" defaultstate="collapsed">
-void test_copy_function(duktape::engine& js)
-{
-  test_comment("test_copy_function");
-  test_mkfiletree();
-  test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
-  // file copy: file only
-  test_expect( js.eval<bool>("fs.copy(testdir+'/z', testdir+'/CP')") && exists(test_path("CP")) );
-  test_expect( js.eval<bool>("fs.copy('z','CP2')") && exists(test_path("CP2")) );
-
-  // file copy: not recursive
-  test_expect( !js.eval<bool>("fs.copy(testdir+'/a', testdir+'/DIR')") && !exists(test_path("DIR")) );
-  test_expect( !js.eval<bool>("fs.copy('a','DIR')") && !exists(test_path("DIR")) );
-
-  // file copy: copy into directory
-  test_expect( js.eval<bool>("fs.copy('CP','a')") && exists(test_path("a/CP")) );
-
-  // file copy: recursive copy
-  test_expect( !js.eval<bool>("fs.copy('a','b')") && !exists(test_path("a/b")) );
-  test_expect( js.eval<bool>("fs.copy('a','b/',{recursive:true})") && exists(test_path("b/a")) );
-
-  // file copy: recursive, explicit new target file name
-  test_expect( js.eval<bool>("fs.copy('a','b/a/d',{recursive:true})") && exists(test_path("b/a/d")) );
-  test_expect( js.eval<bool>("fs.copy(testdir+'/b',testdir+'/a/','r')") && exists(test_path("a/b")) );
-
-  // option masking
-  test_expect( js.eval<bool>("fs.copy('z','-K')") && exists(test_path("-K")) );
-}
-// </editor-fold>
-
-// <editor-fold desc="test_move_function" defaultstate="collapsed">
-void test_move_function(duktape::engine& js)
-{
-  test_comment("test_move_function");
-  test_mkfiletree();
-  test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
-  test_expect( js.eval<bool>("fs.move(testdir+'/z', testdir+'/ZZ') // rename file") && exists(test_path("ZZ")) && !exists(test_path("z")) );
-  test_expect( js.eval<bool>("fs.move('ZZ', 'z') // rename file") && !exists(test_path("ZZ")) && exists(test_path("z")) );
-  test_expect( js.eval<bool>("fs.move(testdir+'/a/y', testdir+'/b') // move file to dir") && exists(test_path("b/y")) && !exists(test_path("a/y")) );
-  test_expect( js.eval<bool>("fs.move('b/y', '.') // move file to dir") && exists(test_path("y")) && !exists(test_path("b/y")) );
-  test_expect( js.eval<bool>("fs.move('b', 'a') // move dir recursively to dir") && exists(test_path("a/b")) && !exists(test_path("b")) );
-  test_expect( js.eval<bool>("fs.isfile('z') ") && exists(test_path("z")) );
-  test_expect( !js.eval<bool>("fs.move() ") && exists(test_path("z")) );
-  test_expect( !js.eval<bool>("fs.move(undefined, undefined) ") && exists(test_path("z")) );
-  test_expect( !js.eval<bool>("fs.move(null, undefined) ") && exists(test_path("z")) );
-  test_expect( !js.eval<bool>("fs.move('z') ") && exists(test_path("z")) );
-  test_expect( !js.eval<bool>("fs.move('', '') ") && exists(test_path("z")) );
-  test_expect( !js.eval<bool>("fs.move('', 'z') ") && exists(test_path("z")) );
-  test_expect( !js.eval<bool>("fs.move('z', '') ") && exists(test_path("z")) );
-  test_expect( !js.eval<bool>("fs.move('z', null) ") && exists(test_path("z")) );
-  test_expect( !js.eval<bool>("fs.move('*', 'a') // no shell escaping") && exists(test_path("z")) );
-  test_expect( !js.eval<bool>("fs.move(testdir+'/*', 'a') // no shell escaping") && exists(test_path("z")) );
-  test_expect( js.eval<bool>("fs.move('z', \"'z'\") // no shell escaping") && exists(test_path("'z'")) );
-}
-// </editor-fold>
-
-// <editor-fold desc="test_remove_function" defaultstate="collapsed">
-void test_remove_function(duktape::engine& js)
-{
-  test_comment("test_remove_function");
-  test_mkfiletree();
-  test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
-  test_expect( !js.eval<bool>("fs.remove()") );
-  test_expect( !js.eval<bool>("fs.remove('')") );
-  test_expect( !js.eval<bool>("fs.remove(undefined)") && exists(test_path("undefined")) );
-  test_expect( !js.eval<bool>("fs.remove(null)") && exists(test_path("null")) );
-  test_expect( js.eval<bool>("fs.remove(testdir+'/z')") && !exists(test_path("z")) );
-  test_expect( js.eval<bool>("fs.remove(testdir+'/z') // remove not existing file is ok") && !exists(test_path("z")) );
-  test_expect( js.eval<bool>("fs.remove('a/y')") && !exists(test_path("a/y")) );
-  test_expect( js.eval<bool>("fs.remove('a/y')") && !exists(test_path("a/y")) );
-  test_expect( !js.eval<bool>("fs.remove(testdir+'/a')") && exists(test_path("a")) );
-  test_expect( !js.eval<bool>("fs.remove('a')") && exists(test_path("a")) );
-  test_expect( js.eval<bool>("fs.remove('a', {recursive:true})") && !exists(test_path("a")) );
-  test_expect( js.eval<bool>("fs.remove('a')") && !exists(test_path("a")) );
-  test_expect( js.eval<bool>("fs.remove(testdir+'/b', '-r')") && !exists(test_path("b")) );
 }
 // </editor-fold>
 
@@ -392,9 +261,8 @@ void test(duktape::engine& js)
   duktape::mod::system::define_in<>(js);
   duktape::mod::filesystem::generic::define_in<>(js);
   duktape::mod::filesystem::basic::define_in<>(js);
-  duktape::mod::filesystem::extended::define_in<>(js);
   js.define("testdir", test_path());
-  test_mkfiletree();
+  test_makefiletree();
 
   try {
     test_informational_functions(js);
@@ -404,11 +272,7 @@ void test(duktape::engine& js)
     test_readdir_function(js);
 #ifndef WINDOWS
     test_filemod_functions(js);
-
-    test_move_function(js);
-    test_remove_function(js);
 #endif
-    test_rmfiletree();
   } catch(...) {
     test_rmfiletree();
     throw;
