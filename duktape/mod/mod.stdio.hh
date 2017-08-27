@@ -39,8 +39,10 @@
 // <editor-fold desc="preprocessor" defaultstate="collapsed">
 #include "../duktape.hh"
 #include <iostream>
-#include <streambuf>
 #include <sstream>
+#include <streambuf>
+#include <algorithm>
+#include <cstdio>
 // </editor-fold>
 
 // <editor-fold desc="duktape::stdio" defaultstate="collapsed">
@@ -49,6 +51,11 @@ namespace duktape { namespace detail {
 template <typename=void>
 struct stdio
 {
+  static std::ostream* out_stream;
+  static std::ostream* err_stream;
+  static std::ostream* log_stream;
+  static std::istream* in_stream;
+
   /**
    * Export main relay. Adds all module functions to the specified engine.
    * @param duktape::engine& js
@@ -62,9 +69,8 @@ struct stdio
     js.define("console.write", console_write);
     js.define("confirm", confirm);
     js.define("prompt", prompt);
+    js.define("printf", printf_stdout);
   }
-
-public:
 
   #if(0 && JSDOC)
   /**
@@ -216,7 +222,7 @@ public:
     int nargs = stack.top();
     if((nargs > 0) && stack.is_callable(0)) {
       // Filtered string from lines
-      std::stringstream ss;
+      std::ostringstream ss;
       while((*in_stream).good()) {
         std::string s;
         std::getline((*in_stream), s);
@@ -224,7 +230,8 @@ public:
         stack.push_string(s);
         stack.call(1);
         if(stack.is_string(-1)) {
-          ss << stack.get_string(-1) << std::endl;
+          s = stack.get<std::string>(-1);
+          ss << s << std::endl;
         } else if(stack.get<bool>(-1)) {
           ss << s << std::endl;
         }
@@ -253,12 +260,166 @@ public:
     }
   }
 
+  #if(0 && JSDOC)
+  /**
+   * C style formatted output to STDOUT. Note that not
+   * all formats can be used like in C/C++ because ECMA
+   * is has no strong type system. E.g. %u, %ul etc does
+   * not make sense because numbers are intrinsically
+   * floating point, and the (data type) size of the number
+   * matters when using %u. If unsupported arguments are
+   * passed the method will throw an exception.
+   *
+   * Supported formatters are:
+   *
+   *  - %d, %ld, %lld: The ECMA number is coerced
+   *    into an integer and printed. Digits and sign
+   *    are supported (%4d, %+06l).
+   *
+   *  - %f, %lf, %g: Floating point format, also with additional
+   *    format specs like %.8f, %+10.5f etc.
+   *
+   *  - %x: Hexadecimal representation of numbers (also %08x
+   *    or %4X etc supported).
+   *
+   *  - %o: Octal representation of numbers (also %08o)
+   *
+   *  - %s: String coercing with optional minimum width (e.g. %10s)
+   *
+   *  - %c: When number given, the ASCII code of the lowest byte
+   *        (e.g. 65=='A'). When string given the first character
+   *        of the string.
+   *
+   * Not supported:
+   *
+   *  - Parameter argument (like "%2$d", the "2$" would apply the
+   *    same format to two arguments passed to the function).
+   *
+   *  - Dynamic width (like "%*f", the "*" would be used to pass
+   *    the output width of the floating point number as argument).
+   *
+   *  - Unsigned %u, %n
+   *
+   * @param {string} format
+   * @param {...*} args
+   */
+  printf = function(format, args) {};
+  #endif
+  static int printf_stdout(duktape::api& stack)
+  { return printf_to(stack, out_stream); }
+
 public:
 
-  static std::ostream* out_stream;
-  static std::ostream* err_stream;
-  static std::ostream* log_stream;
-  static std::istream* in_stream;
+  static int printf_to(duktape::api& stack, std::ostream* stream)
+  {
+    if(!stream) return 0;
+    std::string fmt;
+    if(!stack.is_string(0) || (fmt=stack.get<std::string>(0)).empty()) {
+      return stack.throw_exception("First argument must be the format given as string.");
+    }
+    // we need to carefully pre-check the format before passing then (separated) to snprintf calls.
+    int stack_i = 0;
+    std::string out;
+    while(!fmt.empty()) {
+      auto p = fmt.find('%');
+      if(p == fmt.npos) {
+        // no more formats
+        out += fmt;
+        fmt.clear();
+        continue;
+      } else if(p != 0) {
+        // includes % at begin
+        out += fmt.substr(0, p);
+        fmt = fmt.substr(p);
+        continue;
+      } else if((fmt.size() > 1) && fmt[1] == '%') {
+        // escaped %%
+        out += '%';
+        fmt = fmt.substr(2);
+        continue;
+      } else {
+        ++stack_i;
+        p = fmt.find_first_of("%diufFeEgGxXoscpaAn", 1); // possible ends (type field)
+        if((p == fmt.npos) || (fmt[p] == '%')) return stack.throw_exception("Unterminated printf format (missing type specification character)");
+        std::string curfmt = fmt.substr(0, p+1);
+        fmt = fmt.substr(p+1);
+        if(curfmt.find_first_not_of("%0123456789+-. diufFeEgGxXoscpaAnlL") != curfmt.npos) {
+          // note: most important this excludes * and $
+          return stack.throw_exception("Format contains invalid or unsupported characters");
+        } else if(stack_i >= stack.top()) {
+          return stack.throw_exception("Not enough arguments provided for the given format string");
+        } else if(curfmt.back() == 's') {
+          if((!stack.is_string(stack_i)) && (!stack.is_number(stack_i))) {
+            return stack.throw_exception("No string argument for the format %s given");
+          }
+          std::string ts = stack.to<std::string>(stack_i);
+          if(curfmt == "%s") {
+            out += ts;
+          } else {
+            {
+              // width needs to be double checked to prevent segfault: (e.g. for "%8000s")
+              std::string cks = curfmt;
+              cks.erase(std::remove_if(cks.begin(), cks.end(), [](char c){return c<'0'||c>'9';}), cks.end());
+              while(!cks.empty() && (cks.front() == '0')) cks = cks.erase(0);
+              long l = ::atol(cks.c_str());
+              if(l < 0 || l > 2048) return stack.throw_exception("String format length specification too large");
+            }
+            char o[4096]; ::memset(o, 0, sizeof(o));
+            auto r = ::snprintf(o, 4090, curfmt.c_str(), ts.c_str());
+            if((r < 0) || (size_t(r) >= 4090)) {
+              return stack.throw_exception("Formatting failed");
+            } else {
+              out += o;
+            }
+          }
+        } else if(curfmt.back() == 'c') {
+          char c = 0;
+          if(stack.is_string(stack_i)) {
+            std::string ts = stack.to<std::string>(stack_i);
+            c = ts.empty() ? '\0' : ts[0];
+          } else if(stack.is_number(stack_i)) {
+            unsigned u = stack.to<unsigned>(stack_i);
+            c = char(((unsigned char)u) & 0xff);
+          } else {
+            return stack.throw_exception("No string or number argument for the format %c given");
+          }
+          std::string o(4096, '\0');
+          auto r = ::snprintf(&o[0], o.size()-1, curfmt.c_str(), c);
+          if((r < 0) || (size_t(r) >= o.size()-1)) return stack.throw_exception("Formatting failed");
+          out += o.c_str();
+        } else if(std::string("dixXo").find(curfmt.back()) != std::string::npos) {
+          if(!stack.is_number(stack_i)) return stack.throw_exception(std::string("No number argument for the format %") + curfmt.back() + " given");
+          std::string lc = curfmt;
+          for(auto& e:lc) e = ::tolower(e);
+          std::string o(64, '\0');
+          int r = -1;
+          if(lc.find("ll") != lc.npos) {
+            long long l = stack.to<long long>(stack_i);
+            r = ::snprintf(&o[0], o.size()-1, curfmt.c_str(), l);
+          } else if(lc.find('l') != lc.npos) {
+            long l = stack.to<long>(stack_i);
+            r = ::snprintf(&o[0], o.size()-1, curfmt.c_str(), l);
+          } else {
+            int l = stack.to<long>(stack_i);
+            r = ::snprintf(&o[0], o.size()-1, curfmt.c_str(), l);
+          }
+          if((r < 0) || (size_t(r) >= o.size()-1)) return stack.throw_exception("Formatting failed");
+          out += o.c_str();
+        } else if(std::string("fFeEgGaA").find(curfmt.back()) != std::string::npos) {
+          if(!stack.is_number(stack_i)) return stack.throw_exception(std::string("No number argument for the format %") + curfmt.back() + " given");
+          double d = stack.get<double>(stack_i);
+          std::string o(64, '\0');
+          auto r = ::snprintf(&o[0], o.size()-1, curfmt.c_str(), d);
+          if((r < 0) || (size_t(r) >= o.size()-1)) return stack.throw_exception("Formatting failed");
+          out += o.c_str();
+        } else {
+          return stack.throw_exception(std::string("Unsupported format type '") + curfmt.back() + "'");
+        }
+      }
+    }
+    *stream << out;
+    return 0;
+  }
 
 protected:
 

@@ -84,6 +84,51 @@ console.read = function(arg) {};
 
 
 /**
+ * C style formatted output to STDOUT. Note that not
+ * all formats can be used like in C/C++ because ECMA
+ * is has no strong type system. E.g. %u, %ul etc does
+ * not make sense because numbers are intrinsically
+ * floating point, and the (data type) size of the number
+ * matters when using %u. If unsupported arguments are
+ * passed the method will throw an exception.
+ *
+ * Supported formatters are:
+ *
+ *  - %d, %ld, %lld: The ECMA number is coerced
+ *    into an integer and printed. Digits and sign
+ *    are supported (%4d, %+06l).
+ *
+ *  - %f, %lf, %g: Floating point format, also with additional
+ *    format specs like %.8f, %+10.5f etc.
+ *
+ *  - %x: Hexadecimal representation of numbers (also %08x
+ *    or %4X etc supported).
+ *
+ *  - %o: Octal representation of numbers (also %08o)
+ *
+ *  - %s: String coercing with optional minimum width (e.g. %10s)
+ *
+ *  - %c: When number given, the ASCII code of the lowest byte
+ *        (e.g. 65=='A'). When string given the first character
+ *        of the string.
+ *
+ * Not supported:
+ *
+ *  - Parameter argument (like "%2$d", the "2$" would apply the
+ *    same format to two arguments passed to the function).
+ *
+ *  - Dynamic width (like "%*f", the "*" would be used to pass
+ *    the output width of the floating point number as argument).
+ *
+ *  - Unsigned %u, %n
+ *
+ * @param {string} format
+ * @param {...*} args
+ */
+printf = function(format, args) {};
+
+
+/**
  * Exits the script interpreter with a specified exit code.
  *
  * @param {number} status_code
