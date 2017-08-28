@@ -49,15 +49,14 @@ namespace duktape { namespace detail {
 template <typename=void>
 struct stdlib {
 
+  #if(0 && JSDOC)
   /**
-   * Throws an exit_exception, which is handled in the wrappers
-   * if this file, and eventually thrown out of the invoked
-   * (root) engine function. You have to define this function
-   * in the engine if you like to allow exit() calls in JS.
+   * Exits the script interpreter with a specified exit code.
    *
-   * @param api& stack
-   * @return int === 0
+   * @param {number} status_code
    */
+  exit = function(status_code) {};
+  #endif
   static int exit_js(api& stack)
   { throw exit_exception((stack.top() <= 0) ? 0 : stack.to<int>(-1)); return 0; }
 

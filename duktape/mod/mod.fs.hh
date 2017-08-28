@@ -212,9 +212,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
    *       // is not relevant.
    *     });
    *
-   * @param String path
-   * @param undefined|String|function conf
-   * @return String|Buffer
+   * @param {string} path
+   * @param {string|function} [conf]
+   * @returns {string|buffer}
    */
   fs.readfile = function(path, conf) {};
   #endif
@@ -313,7 +313,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
               //    function output is ignored anyway after it returns.
               //
           } else {
-            stack.throw_exception("The file reading filter function must return a string, true/false or nothing (undefined).");
+            stack.throw_exception("The file reading filter function must return a string, true/false or nothing (undefined)");
             return 0;
           }
           stack.pop();
@@ -333,10 +333,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
   /**
    * Writes data into a file Reads a file and returns the contents as text.
    *
-   * @param String path
-   * @param String|Buffer|Number|Boolean|Object data
-   * @param String|Object flags
-   * @return Boolean
+   * @param {string} path
+   * @param {string|buffer|number|boolean|object} data
+   * @param {string|object} [flags]
+   * @returns {boolean}
    */
   fs.filewrite = function(path, data, flags) {};
   #endif
@@ -349,10 +349,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
     if(Append) mode |= std::ios::app;
     std::string data;
     if(stack.is_undefined(1)) {
-      stack.throw_exception("The file write function needs a data argument (2nd argument).");
+      stack.throw_exception("The file write function needs a data argument (2nd argument)");
       return 0;
     } else if(stack.is_function(1)) {
-      stack.throw_exception("The file write function cannot use functions as data argument.");
+      stack.throw_exception("The file write function cannot use functions as data argument");
       return 0;
     } else if(stack.is_buffer(1)) {
       data = stack.get_buffer<std::string>(1);
@@ -413,7 +413,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns the current working directory or `undefined` on error.
    * Does strictly not accept arguments.
    *
-   * @return String | undefined
+   * @returns {string|undefined}
    */
   fs.cwd = function() {};
   #endif
@@ -432,7 +432,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns the temporary directory or `undefined` on error.
    * Does strictly not accept arguments.
    *
-   * @return String | undefined
+   * @returns {string|undefined}
    */
   fs.tmpdir = function() {};
   #endif
@@ -463,8 +463,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * created it.
    * Accepts one optional argument, the file prefix.
    *
-   * @param undefined|String prefix
-   * @return String | undefined
+   * @param {string} [prefix]
+   * @returns {string|undefined}
    */
   fs.tempnam = function(prefix) {};
   #endif
@@ -494,7 +494,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns the home directory of the current used or `undefined` on error.
    * Does strictly not accept arguments.
    *
-   * @return String | undefined
+   * @returns {string|undefined}
    */
   fs.home = function() {};
   #endif
@@ -530,8 +530,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * on error or if the file does not exist.
    * Does strictly require one String argument (the path).
    *
-   * @param String path
-   * @return String | undefined
+   * @param {string} path
+   * @returns {string|undefined}
    */
   fs.realpath = function(path) {};
   #endif
@@ -593,8 +593,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * or `undefined` on error.
    * Does strictly require one String argument (the path).
    *
-   * @param String path
-   * @return String | undefined
+   * @param {string} path
+   * @returns {string|undefined}
    */
   fs.dirname = function(path) {};
   #endif
@@ -616,8 +616,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * or `undefined` on error.
    * Does strictly require one String argument (the path).
    *
-   * @param String path
-   * @return String | undefined
+   * @param {string} path
+   * @returns {string|undefined}
    */
   fs.basename = function(path) {};
   #endif
@@ -648,9 +648,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    *  flags == 'l' (long)     : returns a string like 'rwxrwxrwx', like `ls -l` but without preceeding file type character.
    *  flags == 'e' (extended) : output like `ls -l` ('d'=directory, 'c'=character device, 'p'=pipe, ...)
    *
-   * @param Number mode
-   * @param String flags [optional]
-   * @return String | undefined
+   * @param {number} mode
+   * @param {string} [flags]
+   * @returns {string|undefined}
    */
   fs.mod2str = function(mode, flags='') {};
   #endif
@@ -716,8 +716,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * will be reinterpreted as string, so that 755 is NOT the bit mask 0x02f3, but seen
    * as 0755 octal.
    *
-   * @param String mode
-   * @return Number | undefined
+   * @param {string} mode
+   * @returns {number|undefined}
    */
   fs.str2mod = function(mode) {};
   #endif
@@ -788,8 +788,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    *    modeval: Number // Numeric file mode bitmask, use `fs.mod2str(mode)` to convert to a string like 'drwxr-xr-x'.
    * }
    *
-   * @param String path
-   * @return Object | undefined
+   * @param {string} path
+   * @returns {object|undefined}
    */
   fs.stat = function(path) {};
   #endif
@@ -863,8 +863,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns the file size in bytes of a given file path, or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Number | undefined
+   * @param {string} path
+   * @returns {number|undefined}
    */
   fs.size = function(path) {};
   #endif
@@ -884,8 +884,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns the name of the file owner of a given file path, or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return String | undefined
+   * @param {string} path
+   * @returns {string|undefined}
    */
   fs.owner = function(path) {};
   #endif
@@ -939,8 +939,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns the group name of a given file path, or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return String | undefined
+   * @param {string} path
+   * @returns {string|undefined}
    */
   fs.group = function(path) {};
   #endif
@@ -971,8 +971,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns last modified time a given file path, or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Date | undefined
+   * @param {string} path
+   * @returns {Date|undefined}
    */
   fs.mtime = function(path) {};
   #endif
@@ -998,8 +998,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns last access time a given file path, or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Date | undefined
+   * @param {string} path
+   * @returns {Date|undefined}
    */
   fs.atime = function(path) {};
   #endif
@@ -1025,8 +1025,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns creation time a given file path, or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Date | undefined
+   * @param {string} path
+   * @returns {Date|undefined}
    */
   fs.ctime = function(path) {};
   #endif
@@ -1053,8 +1053,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * false otherwise or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.exists = function(path) {};
   #endif
@@ -1083,8 +1083,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns true if a given path points to a regular file, false otherwise or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.isfile = function(path) {};
   #endif
@@ -1110,8 +1110,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns true if a given path points to a directory, false otherwise or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.isdir = function(path) {};
   #endif
@@ -1137,8 +1137,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns true if a given path points to a link, false otherwise or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.islink = function(path) {};
   #endif
@@ -1158,8 +1158,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Returns true if a given path points to a fifo (named pipe), false otherwise or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.isfifo = function(path) {};
   #endif
@@ -1181,8 +1181,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * false otherwise or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.iswritable = function(path) {};
   #endif
@@ -1204,8 +1204,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * false otherwise or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.isreadable = function(path) {};
   #endif
@@ -1227,8 +1227,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * false otherwise or undefined on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.isexecutable = function(path) {};
   #endif
@@ -1251,8 +1251,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Does strictly require one String argument (the path).
    * Note: Windows: returns undefined, not implemented.
    *
-   * @param String path
-   * @return String | undefined
+   * @param {string} path
+   * @returns {string|undefined}
    */
   fs.readlink = function(path) {};
   #endif
@@ -1281,8 +1281,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Switches the current working directory to the specified path. Returns true on success, false on error.
    * Does strictly require one String argument (the input path).
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.chdir = function(path) {};
   #endif
@@ -1302,9 +1302,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * creation of the directory or a parent directory fails, the function returns false.
    * Note that it is possible that the path might be only partially created in this case.
    *
-   * @param String path
-   * @param String options
-   * @return Boolean
+   * @param {string} path
+   * @param {string} [options]
+   * @returns {boolean}
    */
   fs.mkdir = function(path, options) {};
   #endif
@@ -1374,8 +1374,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Does strictly require one String argument (the input path).
    * Note that the function also fails if the directory is not empty (no recursion),
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.rmdir = function(path) {};
   #endif
@@ -1392,8 +1392,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Does strictly require one String argument (the input path).
    * Note that the function also fails if the given path is a directory. Use `fs.rmdir()` in this case.
    *
-   * @param String path
-   * @return Boolean
+   * @param {string} path
+   * @returns {boolean}
    */
   fs.unlink = function(path) {};
   #endif
@@ -1410,10 +1410,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Does strictly require three argument: The input path (String), the last-modified time (Date) and the last
    * access time (Date).
    *
-   * @param String path
-   * @param Date mtime
-   * @param Date atime
-   * @return Boolean
+   * @param {string} path
+   * @param {Date} [mtime]
+   * @param {Date} [atime]
+   * @returns {boolean}
    */
   fs.utime = function(path, mtime, atime) {};
   #endif
@@ -1454,9 +1454,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Note that this is a basic filesystem i/o function that fails if the parent directory,
    * or the new file does already exist.
    *
-   * @param String path
-   * @param String new_path
-   * @return Boolean
+   * @param {string} path
+   * @param {string} new_path
+   * @returns {boolean}
    */
   fs.rename = function(path, new_path) {};
   #endif
@@ -1474,9 +1474,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   /**
    * Creates a symbolic link, returns true on success, false on error.
    *
-   * @param String path
-   * @param String link_path
-   * @return Boolean
+   * @param {string} path
+   * @param {string} link_path
+   * @returns {boolean}
    */
   fs.symlink = function(path, link_path) {};
   #endif
@@ -1488,7 +1488,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
       // "shortcuts" should not be available. Hence, here we throw to
       // clearify that actual symlinking is meant, not .lnk files.
       #if !defined(_WIN32_WINNT) || (_WIN32_WINNT < 0x0601)
-      stack.throw_exception("Your windows version does not support symlinks (this is not creating .lnk files).");
+      stack.throw_exception("Your windows version does not support symlinks (this is not creating .lnk files)");
       return 0;
       #else
       if(!stack.is<std::string>(0) || !stack.is<std::string>(1)) { stack.push(false); return 1; }
@@ -1511,9 +1511,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   /**
    * Creates a (hard) link, returns true on success, false on error.
    *
-   * @param String path
-   * @param String link_path
-   * @return Boolean
+   * @param {string} path
+   * @param {string} link_path
+   * @returns {boolean}
    */
   fs.hardlink = function(path, link_path) {};
   #endif
@@ -1537,9 +1537,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   /**
    * Creates a (hard) link, returns true on success, false on error.
    *
-   * @param String path
-   * @param String|Number mode
-   * @return Boolean
+   * @param {string} path
+   * @param {string|number} [mode]
+   * @returns {boolean}
    */
   fs.chmod = function(path, mode) {};
   #endif
@@ -1568,13 +1568,13 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
 
   #ifdef WINDOWS
   namespace {
-    template <typename=void>
+    template <typename PathAccessor>
     int win32_glob_push_stack(duktape::api& stack, std::string path_pattern)
     {
       struct dir_guard {
         HANDLE hFind;
         explicit dir_guard() noexcept : hFind(INVALID_HANDLE_VALUE) {}
-        ~dir_guard() noexcept { if(hFind != INVALID_HANDLE_VALUE) FindClose(hFind); }
+        ~dir_guard() noexcept { if(hFind != INVALID_HANDLE_VALUE) ::FindClose(hFind); }
       };
       WIN32_FIND_DATAA ffd;
       dir_guard dir;
@@ -1583,20 +1583,20 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
       stack.require_stack_top(5);
       duktape::api::array_index_t i=0;
       auto array_stack_index = stack.push_array();
-      if((dir.hFind = FindFirstFileA(path_pattern.c_str(), &ffd)) == INVALID_HANDLE_VALUE) {
-        err = GetLastError();
+      if((dir.hFind = ::FindFirstFileA(path_pattern.c_str(), &ffd)) == INVALID_HANDLE_VALUE) {
+        err = ::GetLastError();
       } else {
         do {
           if((!ffd.cFileName) || (!ffd.cFileName[0])) continue;
           std::string s(ffd.cFileName);
           if((s == ".") || (s == "..")) continue;
-          stack.push(s);
+          stack.push(PathAccessor::to_js(s));
           if(!stack.put_prop_index(array_stack_index, i)) return 0;
           ++i;
         }
-        while(FindNextFileA(dir.hFind, &ffd) != 0);
-        err = GetLastError();
-        FindClose(dir.hFind);
+        while(::FindNextFileA(dir.hFind, &ffd) != 0);
+        err = ::GetLastError();
+        ::FindClose(dir.hFind);
         dir.hFind = INVALID_HANDLE_VALUE;
       }
       return (err == ERROR_NO_MORE_FILES) ? 1 : 0;
@@ -1609,8 +1609,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * Lists the contents of a directory (basenames only), undefined if the function failed to open the directory
    * for reading. Results are unsorted.
    *
-   * @param String path
-   * @return Array|undefined
+   * @param {string} path
+   * @returns {array|undefined}
    */
   fs.readdir = function(path) {};
   #endif
@@ -1645,7 +1645,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
           continue;
         }
       }
-      stack.push(de->d_name);
+      stack.push(PathAccessor::to_js(de->d_name));
       if(!stack.put_prop_index(array_stack_index, i)) return 0;
       ++i;
     }
@@ -1653,7 +1653,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #else
     if(path.length() > ((MAX_PATH)-3)) return 0;
     path += "\\*";
-    return win32_glob_push_stack(stack, path);
+    return win32_glob_push_stack<PathAccessor>(stack, path);
     #endif
   }
 
@@ -1661,8 +1661,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   /**
    * File pattern (fnmatch) based listing of files.
    *
-   * @param String pattern
-   * @return Array|undefined
+   * @param {string} pattern
+   * @returns {array|undefined}
    */
   fs.glob = function(pattern) {};
   #endif
@@ -1670,7 +1670,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   int glob(duktape::api& stack)
   {
     if(!stack.is<std::string>(0)) return 0;
-    std::string path = stack.to<std::string>(0);
+    std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
     #ifndef WINDOWS
     {
       struct glob_data {
@@ -1696,7 +1696,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
         duktape::api::array_index_t array_item_index=0;
         auto array_stack_index = stack.push_array();
         for(size_t i=0; (i < gb.data.gl_pathc) && (gb.data.gl_pathv[i]); ++i) {
-          stack.push(gb.data.gl_pathv[i]);
+          stack.push(PathAccessor::to_js(gb.data.gl_pathv[i]));
           if(!stack.put_prop_index(array_stack_index, array_item_index)) return 0;
           ++array_item_index;
         }
@@ -1704,7 +1704,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
       }
     }
     #else
-    return win32_glob_push_stack(stack, path);
+    return win32_glob_push_stack<PathAccessor>(stack, path);
     #endif
   }
 
@@ -1770,480 +1770,6 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
     js.define("fs.readlink", readlink<PathAccessor>);
     js.define("fs.chmod", chmod<PathAccessor>, 2);
     //#endif
-  }
-  // </editor-fold>
-
-}}}}
-// </editor-fold>
-
-// <editor-fold desc="enhanced filesystem operations" defaultstate="collapsed">
-namespace duktape { namespace detail { namespace filesystem { namespace enhanced {
-
-  // <editor-fold desc="find" defaultstate="collapsed">
-  #if(0 && JSDOC)
-  /**
-   * Recursive directory walking. The argument `path` specifies the root directory
-   * of the file search - that is not a pattern with wildcards, but a absolute or
-   * relative path. The second argument `options` can be
-   *
-   *  - a string: then it is the pattern to filter by the file name.
-   *
-   *  - a plain object with one or more of the properties:
-   *
-   *      - name: [String] Filter by file name match pattern (fnmatch based, means with '*','?', etc).
-   *
-   *      - type: [String] Filter by file type, where
-   *
-   *          - "d": Directory
-   *          - "f": Regular file
-   *          - "l": Symbolic link
-   *          - "p": Fifo (pipe)
-   *          - "s": Socket
-   *          - "c": Character device (like /dev/tty)
-   *          - "b": Block device (like /dev/sda)
-   *
-   *      - depth: [Number] Maximum directory recursion depth. `0` lists nothing, `1` the contents of the
-   *               root directory, etc.
-   *
-   *      - logical: [Boolean] Default is `true`. This affects symbolic links. Normally people are interested
-   *                 in the files that links refer to rather than the links themselves. Therefore the logical
-   *                 search is default. In contrast, a physical search will refer to the links themselves
-   *                 (set `logical:false`) and not to the files pointed to.
-   *                 THAT IS ESPESIALLY IMPORTANT IF YOU WANT TO DELETE FILES BASED ON A FIND SEARCH.
-   *
-   *      - filter: [Function A callback invoked for each file that was not yet filtered out with the
-   *                criteria listed above. The callback gets the file path as first argument. With that
-   *                you can:
-   *
-   *                  - Add it to the output by returning `true`.
-   *
-   *                  - Not add it to the output list by returning `false`, `null`, or `undefined`. That is
-   *                    useful e.g. if you don't want to list any files, but process them instead, or update
-   *                    global/local accessible variables depending on the file paths you get.
-   *
-   *                  - Add a modified path or other string by returning a String. That is really useful
-   *                    e.g. if you want to directly return the contents of files, or checksums etc etc etc.
-   *                    You get a path, and specify the output yourself.
-   *
-   *
-   * @param String path
-   * @param String|Object options
-   * @return Array|undefined
-   */
-  fs.find = function(path, options) {};
-  #endif
-  template <typename PathAccessor>
-  int findfiles(duktape::api& stack)
-  {
-    if(!stack.is<std::string>(0)) return 0;
-    std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
-    std::string pattern, ftype;
-    int depth = std::numeric_limits<int>::max();
-    bool logical_find = true;
-    bool no_outside = true;
-    mode_t mode = 0;
-    duktape::api::index_t filter_function = 0;
-
-    if(!stack.is_undefined(1)) {
-      if(stack.is<std::string>(1)) {
-        pattern = stack.to<std::string>(1);
-      } else if(stack.is_object(1)) {
-        pattern = stack.get_prop_string<std::string>(1, "name", std::string());
-        ftype = stack.get_prop_string<std::string>(1, "type", std::string());
-        depth = stack.get_prop_string<int>(1, "depth", depth);
-        logical_find = stack.get_prop_string<bool>(1, "logical", true);
-        if(!ftype.empty()) {
-          if(ftype.find('l') != ftype.npos) mode |= S_IFLNK;
-          if(ftype.find('d') != ftype.npos) mode |= S_IFDIR;
-          if(ftype.find('f') != ftype.npos) mode |= S_IFREG;
-          if(ftype.find('p') != ftype.npos) mode |= S_IFIFO;
-          if(ftype.find('c') != ftype.npos) mode |= S_IFCHR;
-          if(ftype.find('b') != ftype.npos) mode |= S_IFBLK;
-          if(ftype.find('s') != ftype.npos) mode |= S_IFSOCK;
-        }
-        if(stack.has_prop_string(1, "filter")) {
-          stack.get_prop_string(1, "filter");
-          if(stack.is_function(-1)) {
-            filter_function = stack.top()-1;
-          } else {
-            stack.throw_exception("The filter setting for reading a directory must be a function.");
-            return 0;
-          }
-        }
-      } else {
-        stack.throw_exception("Invalid configuration for find function.");
-        return 0;
-      }
-    }
-
-    #ifndef WINDOWS
-    struct fts_guard {
-      ::FTS* ptr;
-      explicit fts_guard() noexcept : ptr(nullptr) {}
-      ~fts_guard() noexcept { if(ptr) ::fts_close(ptr); }
-    };
-
-    auto fts_entcmp = [](const ::FTSENT **a, const ::FTSENT **b) {
-      return ::strcmp((*a)->fts_name, (*b)->fts_name);
-    };
-
-    fts_guard tree;
-    ::FTSENT *f;
-    {
-      char apath[PATH_MAX];
-      memset(apath, 0, sizeof(apath));
-      std::copy(path.begin(), path.end(), apath);
-      char *ppath[] = { apath, nullptr };
-      if(!(tree.ptr = ::fts_open(ppath, (logical_find ? FTS_LOGICAL:FTS_PHYSICAL) | ((!mode) ? FTS_NOSTAT:0), fts_entcmp))) return 0;
-    }
-    errno = 0;
-    duktape::api::array_index_t array_item_index=0;
-    auto array_stack_index = stack.push_array();
-    while((f=::fts_read(tree.ptr))) {
-      switch(f->fts_info) {
-        case FTS_DNR:
-        case FTS_ERR:
-        case FTS_NS: // Add to skipped list
-          continue;
-        case FTS_DOT:
-        case FTS_DP:
-          continue;
-        default:
-          if(0
-          || (no_outside && (f->fts_level < 0)) || (f->fts_level > depth) // respect max depth, do not include parent directories.
-          // array address, never nullptr : || (!f->fts_name) || (!f->fts_path) // pointer checks
-          ) {
-            continue;
-          } else if(mode) {
-            if(!f->fts_statp || !(f->fts_statp->st_mode & mode)) {
-              continue;
-            } else {
-              // optimise!
-              mode_t m = f->fts_statp->st_mode;
-              if(!(0
-                || (S_ISREG(m) && (ftype.find('f') != ftype.npos))
-                || (S_ISDIR(m) && (ftype.find('d') != ftype.npos))
-                || (S_ISLNK(m) && (ftype.find('l') != ftype.npos))
-                || (S_ISFIFO(m) && (ftype.find('p') != ftype.npos))
-                || (S_ISCHR(m) && (ftype.find('c') != ftype.npos))
-                || (S_ISBLK(m) && (ftype.find('b') != ftype.npos))
-                || (S_ISSOCK(m) && (ftype.find('s') != ftype.npos))
-              )) {
-                continue;
-              };
-            }
-          }
-          std::string item(f->fts_path);
-          if(pattern.empty() || ::fnmatch(pattern.c_str(), f->fts_name, FNM_PERIOD) == 0) {
-            if(filter_function) {
-              stack.dup(filter_function);
-              stack.push(f->fts_path);
-              stack.call(1);
-              if(stack.is<std::string>(-1)) {
-                // 1. Filter returns a string: Means a modified version of the path shall be added.
-                item = stack.to<std::string>(-1);
-              } else if(stack.is<bool>(-1)) {
-                if(stack.get<bool>(-1)) {
-                  // 2. Filter returns true: add.
-                } else {
-                  // 3. Filter returns false: don't add.
-                  item.clear();
-                }
-              } else if(stack.is_undefined(-1) || stack.is_null(-1)) {
-                  // 4. Filter returns undefined: Means, don't add, the callback
-                item.clear();
-              } else {
-                stack.throw_exception("The 'find.filter' function must return a string, true/false or nothing (undefined).");
-                return 0;
-              }
-              stack.pop();
-            }
-            if(!item.empty()) {
-              stack.push(item);
-              if(!stack.put_prop_index(array_stack_index, array_item_index)) return 0;
-              ++array_item_index;
-            }
-          } else if(f->fts_info == FTS_DC) {
-            // recursion warning list?
-          } else {
-            // no match
-          }
-      }
-    }
-    ::fts_close(tree.ptr);
-    tree.ptr = nullptr;
-    return (!errno);
-    #else
-    /// @todo: implement findfiles for windows
-    (void) path;
-    (void) logical_find;
-    (void) no_outside;
-    return 0;
-    #endif
-  }
-
-  // </editor-fold>
-
-  // <editor-fold desc="auxiliary execution" defaultstate="collapsed">
-  namespace {
-    /**
-     * Executes args[0], passing args as arguments. Optionally passes
-     * a C-string as stdin and closes the stdin-pipe. Implicitly redirects
-     * stdout and stderr to /dev/null. Programs must be specified with
-     * full path, no environment is passed to the child process.
-     *
-     * @param std::vector<std::string>&& args
-     * @param const char* pipe_stdin=nullptr
-     * @return int
-     */
-    #ifndef WINDOWS
-    template <typename=void>
-    int sysexec(std::vector<std::string>&& args, const char* pipe_stdin=nullptr)
-    {
-      // { std::string s; for(auto e:args) { s += string("'") + e + "' "; } std::cerr << s << std::endl; }
-      using fd_t = int;
-      fd_t pi[2] = {-1,-1};
-      ::pid_t pid = -1;
-      std::vector<const char*> argv;
-      for(auto& e:args) argv.push_back(e.c_str());
-      argv.push_back(nullptr);
-      argv.push_back(nullptr);
-      if(::pipe(pi)) return -1;
-      if((pid = ::fork()) < 0) {
-        ::close(pi[0]);
-        ::close(pi[1]);
-        return -2;
-      } else if(pid == 0) {
-        if(::dup2(pi[0], STDIN_FILENO) < 0) _exit(1);
-        ::close(STDOUT_FILENO); ::open("/dev/null", O_WRONLY);
-        ::close(STDERR_FILENO); ::open("/dev/null", O_WRONLY);
-        for(fd_t i=3; i<128; ++i) ::close(i);
-        ::execv(argv[0], (char* const*)(&argv[0]));
-        _exit(1);
-      } else {
-        if(pipe_stdin && pipe_stdin[0]) {
-          ssize_t r=::write(pi[1], pipe_stdin, ::strlen(pipe_stdin));
-          (void)r;
-        }
-        ::close(pi[1]);
-        int status = -1;
-        pid_t p = -1;
-        while((p=::waitpid(pid, &status, 0)) <= 0) {
-          if(p < 0) {
-            switch(errno) {
-              case EAGAIN:
-              case EINTR:
-                break;
-              case ECHILD:
-              default:
-                return -4;
-            }
-          }
-        }
-        return WEXITSTATUS(status);
-      }
-      return -5;
-    }
-    #endif /*ndef windows*/
-  }
-  // </editor-fold>
-
-  // <editor-fold desc="copy" defaultstate="collapsed">
-  #if(0 && JSDOC)
-  /**
-   * Copies a file from one location `source_path` to another (`target_path`),
-   * similar to the `cp` shell command. The argument `options` can  encompass
-   * the key-value pairs
-   *
-   *    {
-   *      "recursive": Boolean (default false)
-   *    }
-   *
-   * Optionally, it is possible to specify the string 'r' or '-r' instead of
-   * `{recursive:true}` as third argument.
-   *
-   * @param String source_path
-   * @param String target_path
-   * @param undefined|Object options
-   * @return Boolean
-   */
-  fs.copy = function(source_path, target_path, options) {};
-  #endif
-  template <typename PathAccessor>
-  int copyfile(duktape::api& stack)
-  {
-    if(!stack.is<std::string>(0) || !stack.is<std::string>(1)) return_false;
-    std::string src = PathAccessor::to_sys(stack.to<std::string>(0));
-    std::string dst = PathAccessor::to_sys(stack.to<std::string>(1));
-    bool recursive = false;
-    if(!stack.is_undefined(2)) {
-      if(stack.is_object(2)) {
-        recursive = stack.get_prop_string<bool>(2, "recursive", false);
-      } else if(stack.is_string(2)) {
-        std::string s = stack.get_string(2);
-        if(s == "r" || s == "R" || s == "-r" || s == "-R") {
-          recursive = true;
-        } else if(!s.empty()) {
-          stack.throw_exception("String options can be only 'r' for recursive copying.");
-          return 0;
-        }
-      } else {
-        stack.throw_exception("Invalid configuration for copy function (must be plain object or string).");
-        return 0;
-      }
-    }
-
-    // Empty / identical paths check
-    if(src.empty() || dst.empty() || src == dst) return_false;
-
-    #ifndef WINDOWS
-    // Composition of args, invoke POSIX cp
-    std::vector<std::string> args;
-    args.emplace_back("/bin/cp");
-    std::string ops = "-f";
-    if(recursive) ops += 'R';
-    args.emplace_back(std::move(ops));
-    args.emplace_back("--");
-    args.emplace_back(src);
-    args.emplace_back(dst);
-    stack.push(sysexec<>(std::move(args)) == 0);
-    return 1;
-    #else
-    /// @ŧodo implement copyfile for windows
-    (void) stack;
-    (void) recursive;
-
-    return 0;
-    #endif
-  }
-
-  // </editor-fold>
-
-  // <editor-fold desc="move" defaultstate="collapsed">
-  #if(0 && JSDOC)
-  /**
-   * Moves a file or directory from one location `source_path` to another (`target_path`),
-   * similar to the `mv` shell command.
-   *
-   * @param String source_path
-   * @param String target_path
-   * @return Boolean
-   */
-  fs.move = function(source_path, target_path) {};
-  #endif
-  template <typename PathAccessor>
-  int movefile(duktape::api& stack)
-  {
-    if(!stack.is<std::string>(0) || !stack.is<std::string>(1)) return_false;
-    std::string src = PathAccessor::to_sys(stack.to<std::string>(0));
-    std::string dst = PathAccessor::to_sys(stack.to<std::string>(1));
-
-    // Empty / identical paths check
-    if(src.empty() || dst.empty() || src == dst) return_false;
-
-    #ifndef WINDOWS
-    // Composition of args, invoke POSIX cp
-    std::vector<std::string> args;
-    args.emplace_back("/bin/mv");
-    args.emplace_back("--");
-    args.emplace_back(src);
-    args.emplace_back(dst);
-    stack.push(sysexec<>(std::move(args)) == 0);
-    return 1;
-    #else
-    /// @ŧodo implement movefile for windows
-    return 0;
-    #endif
-  }
-
-  // </editor-fold>
-
-  // <editor-fold desc="remove" defaultstate="collapsed">
-  #if(0 && JSDOC)
-  /**
-   * Deletes a file or directory (`target_path`), similar to the `rm` shell
-   * command. The argument `options` can  encompass the key-value pairs
-   *
-   *    {
-   *      "recursive": Boolean (default false)
-   *    }
-   *
-   * Optionally, it is possible to specify the string 'r' or '-r' instead of
-   * `{recursive:true}` as third argument.
-   *
-   * Removing is implicitly forced (like "rm -f").
-   *
-   * @param String target_path
-   * @param undefined|Object options
-   * @return Boolean
-   */
-  fs.remove = function(target_path, options) {};
-  #endif
-  template <typename PathAccessor>
-  int removefile(duktape::api& stack)
-  {
-    if(!stack.is<std::string>(0)) return_false;
-    std::string dst = PathAccessor::to_sys(stack.to<std::string>(0));
-    bool recursive = false;
-    if(!stack.is_undefined(1)) {
-      if(stack.is_object(1)) {
-        recursive = stack.get_prop_string<bool>(1, "recursive", false);
-      } else if(stack.is_string(1)) {
-        std::string s = stack.get_string(1);
-        if(s == "r" || s == "-r") {
-          recursive = true;
-        } else if(!s.empty()) {
-          stack.throw_exception("String options can be only 'r' for recursive removing.");
-          return 0;
-        }
-      } else {
-        stack.throw_exception("Invalid configuration for remove function (must be plain object or string).");
-        return 0;
-      }
-    }
-
-    // Empty / identical paths check
-    if(dst.empty()) return_false;
-
-    #ifndef WINDOWS
-    // Composition of args, invoke POSIX rm
-    std::vector<std::string> args;
-    args.emplace_back("/bin/rm");
-    std::string ops = "-f";
-    if(recursive) ops += 'r';
-    args.emplace_back(std::move(ops));
-    args.emplace_back("--");
-    args.emplace_back(dst);
-    stack.push(sysexec<>(std::move(args)) == 0);
-    return 1;
-    #else
-    /// @ŧodo implement removefile for windows
-    (void) stack;
-    (void) recursive;
-    return 0;
-    #endif
-  }
-
-  // </editor-fold>
-
-}}}}
-
-namespace duktape { namespace mod { namespace filesystem { namespace enhanced {
-
-  // <editor-fold desc="js decls" defaultstate="collapsed">
-  using namespace ::duktape::detail::filesystem;
-  using namespace ::duktape::detail::filesystem::enhanced;
-  /**
-   * Export main relay. Adds all module functions to the specified engine.
-   * @param duktape::engine& js
-   */
-  template <typename PathAccessor=path_accessor<std::string>>
-  static void define_in(duktape::engine& js)
-  {
-    js.define("fs.find", findfiles<PathAccessor>, 2);
-    js.define("fs.copy", copyfile<PathAccessor>, 3);
-    js.define("fs.move", movefile<PathAccessor>, 3);
-    js.define("fs.remove", removefile<PathAccessor>, 2);
   }
   // </editor-fold>
 

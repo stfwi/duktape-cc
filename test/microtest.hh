@@ -117,6 +117,7 @@
 #include <type_traits>
 #include <atomic>
 #include <mutex>
+#include <chrono>
 #include <random>
 #if defined(__WINDOWS__) || defined(_WIN32) || defined(__WIN32__) || defined(_WIN64) || defined(__MINGW32__) || defined(__MINGW64__)
   #include <windows.h>
@@ -347,6 +348,13 @@ namespace { namespace templates {
   };
   // </editor-fold>
 
+  template <typename=void>
+  struct auxfn
+  {
+    static std::string srtrim(std::string s)
+    { while(!s.empty() && std::isspace(s.back())) s.pop_back(); return s; }
+  };
+
 }}
 
 using buildinfo = templates::buildinfo<>;
@@ -388,7 +396,7 @@ using tmp_file = templates::tmp_file<>;
             test_expect_nocatch(__VA_ARGS__); \
           } catch(const std::exception& e) { \
             (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
-              #__VA_ARGS__ " | Unexpected exception: ") + e.what() )); \
+              #__VA_ARGS__ " | Unexpected exception: ") + ::sw::utest::templates::auxfn<>::srtrim(std::string(e.what())) )); \
           } catch(...) { \
             (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
               #__VA_ARGS__ " | Unexpected exception: ") )); \
@@ -400,7 +408,7 @@ using tmp_file = templates::tmp_file<>;
             (::sw::utest::test::fail(__FILE__, __LINE__, #__VA_ARGS__, " | Exception was expected" )); \
           } catch(const std::exception& e) { \
             (::sw::utest::test::pass(__FILE__, __LINE__, std::string( \
-              #__VA_ARGS__ " | Expected exception: ") + e.what() )); \
+              #__VA_ARGS__ " | Expected exception: ") + ::sw::utest::templates::auxfn<>::srtrim(std::string(e.what())) )); \
           } catch(...) { \
             (::sw::utest::test::pass(__FILE__, __LINE__, std::string( \
               #__VA_ARGS__ " | Expected exception") )); \
@@ -412,7 +420,7 @@ using tmp_file = templates::tmp_file<>;
             (::sw::utest::test::pass(__FILE__, __LINE__, #__VA_ARGS__)); \
           } catch(const std::exception& e) { \
             (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
-              #__VA_ARGS__ " | Unexpected exception: ") + e.what() )); \
+              #__VA_ARGS__ " | Unexpected exception: ") + ::sw::utest::templates::auxfn<>::srtrim(std::string(e.what())) )); \
           } catch(...) { \
             (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
               #__VA_ARGS__ " | Unexpected exception") )); \
@@ -428,7 +436,7 @@ using tmp_file = templates::tmp_file<>;
             } \
           } catch(const std::exception& e) { \
             (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
-                #ARG "-> Unexpected exception: ") + e.what()) ); \
+                #ARG "-> Unexpected exception: ") + ::sw::utest::templates::auxfn<>::srtrim(std::string(e.what()))) ); \
           } catch(...) { \
             (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
               #ARG " | Unexpected exception") )); \
@@ -465,8 +473,10 @@ namespace random_generators {
    * Statically initialised RND device.
    */
   template <typename=void> struct rnddev
-  { static std::random_device uni; };
-  template <typename T> std::random_device rnddev<T>::uni;
+  { static std::default_random_engine rd; };
+  template <typename T> std::default_random_engine rnddev<T>::rd(
+    static_cast<long unsigned int>(::std::chrono::high_resolution_clock::now().time_since_epoch().count())
+  );
 
   /**
    * Float / int distribution selector
@@ -497,7 +507,7 @@ namespace random_generators {
   ::type rnd(R& r, A1 min, A2 max)
   {
     typename distrbution<R>::type d(static_cast<R>(min), static_cast<R>(max));
-    r = d(rnddev<>::uni);
+    r = d(rnddev<>::rd);
   }
 
   /**
@@ -513,7 +523,7 @@ namespace random_generators {
   ::type rnd(R& r, A1 max)
   {
     typename distrbution<R>::type d(static_cast<R>(0), static_cast<R>(max));
-    r = d(rnddev<>::uni);
+    r = d(rnddev<>::rd);
   }
 
   /**
@@ -529,10 +539,10 @@ namespace random_generators {
   {
     if(std::is_floating_point<R>::value) {
       typename distrbution<R>::type d(0.0, 1.0);
-      r = d(rnddev<>::uni);
+      r = d(rnddev<>::rd);
     } else {
       typename distrbution<R>::type d(std::numeric_limits<R>::min(), std::numeric_limits<R>::max());
-      r = d(rnddev<>::uni);
+      r = d(rnddev<>::rd);
     }
   }
 
@@ -551,7 +561,7 @@ namespace random_generators {
       typename str_t::value_type(' '),
       typename str_t::value_type('~')
     );
-    for(auto& e : s) e = d(rnddev<>::uni);
+    for(auto& e : s) e = d(rnddev<>::rd);
     r.swap(s);
   }
 
@@ -589,7 +599,7 @@ namespace random_generators {
       static_cast<typename R::value_type>(min),
       static_cast<typename R::value_type>(max)
     );
-    for(auto& e : container) e = d(rnddev<>::uni);
+    for(auto& e : container) e = d(rnddev<>::rd);
     r.swap(container);
   }
 
@@ -728,6 +738,7 @@ namespace detail {
           std::stringstream ss;
           push_stream(ss, std::forward<Args>(args)...);
           msg = ss.str();
+          while(!msg.empty() && std::isspace(msg.back())) msg.pop_back();
         }
         std::lock_guard<std::mutex> lck(iolock_);
         *os_ << "[" << what << "] ";
@@ -789,30 +800,30 @@ using test = detail::utest<>;
        * Creates a temporary directory (only if not existing yet) and returns the path of it.
        * @return const char*
        */
-      static const char* path() noexcept
+      static const std::string& path() noexcept
       {
         if(instance_.path_.empty()) {
           bool failed = false;
           std::string dir, subdir;
           #if (defined(__WINDOWS__) || defined(_WIN32) || defined(__WIN32__) || defined(_WIN64))
-          char bf[4096];
-          ::memset(bf, 0, sizeof(bf));
-          DWORD r = ::GetTempPathA(sizeof(bf), bf);
-          if(!r || r > sizeof(bf)) bf[0] = '\0';
-          bf[r] = bf[sizeof(bf)-1] = '\0';
-          if(r) while(--r > 0 && bf[r] == '\\') bf[r] = '\0';
-          dir = bf;
+          {
+            char bf[4096];
+            ::memset(bf, 0, sizeof(bf));
+            DWORD r = ::GetTempPathA(sizeof(bf), bf);
+            if(!r || r > sizeof(bf)) bf[0] = '\0';
+            bf[r] = bf[sizeof(bf)-1] = '\0';
+            if(r) while(--r > 0 && bf[r] == '\\') bf[r] = '\0';
+            dir = bf;
+          }
           {
             std::string s("000");
-            std::random_device uni;
+            std::default_random_engine rd(static_cast<long unsigned int>(::std::chrono::high_resolution_clock::now().time_since_epoch().count()));
             std::uniform_int_distribution<char> d('a','z');
-            for(auto& e : s) e = d(uni);
+            for(auto& e : s) e = d(rd);
             subdir = std::string("\\utest-test-") + std::to_string(::time(nullptr)) + "-" + s;
           }
-
           auto filestat = [](const char* p, struct ::stat* st) { return ::stat(p, st); };
           auto makedir = [](const char* p) { return ::mkdir(p); };
-
           #else
           dir = "/tmp";
           subdir = std::string("/utest-") + std::to_string(::time(nullptr)) + "-" + std::to_string(::clock() % 100);
@@ -833,16 +844,15 @@ using test = detail::utest<>;
             utest<>::fail(__FILE__, __LINE__, std::string("Failed to create test directory '") + dir + "'");
             failed = true;
           }
-
           if(failed) {
             utest<>::summary();
-            ::abort();
+            ::exit(1);
           } else {
             utest<>::comment("microtest.hh", __LINE__, std::string("Test temporary directory created: '") + dir + "'");
           }
           instance_.path_ = dir;
         }
-        return instance_.path_.c_str();
+        return instance_.path_;
       }
 
       /**
@@ -851,15 +861,32 @@ using test = detail::utest<>;
       static void remove() noexcept
       {
         #if (defined(__WINDOWS__) || defined(_WIN32) || defined(__WIN32__) || defined(_WIN64))
+        struct ::stat st;
+        if(instance_.path_.size() && (!::stat(instance_.path_.c_str(), &st)) && S_ISDIR(st.st_mode)) {
+          std::string cmd = "rmdir /S /Q \"";
+          cmd += instance_.path_;
+          cmd += "\" >NUL 2>&1";
+          int r = ::system(cmd.c_str());
+          if(r != 0) {
+            ::chdir(instance_.path_.c_str());
+            ::chdir("..");
+            r = ::system(cmd.c_str());
+          }
+          if(::stat(instance_.path_.c_str(), &st) != 0) {
+            utest<>::comment("microtest.hh", __LINE__, std::string("Test temporary directory removed: '") + instance_.path_ + "'");
+          } else {
+            utest<>::comment("microtest.hh", __LINE__, std::string("Could not remove test temporary directory: '") + instance_.path_ + "'");
+          }
+        }
         #else
         struct ::stat st;
-        if(instance_.path_.length() && (!::stat(instance_.path_.c_str(), &st)) && S_ISDIR(st.st_mode)
+        if(instance_.path_.size() && (!::stat(instance_.path_.c_str(), &st)) && S_ISDIR(st.st_mode)
             && (st.st_uid == ::getuid())) {
-          std::string cmd = "rm -rf '";
+          std::string cmd = "rm -rf -- '";
           cmd += instance_.path_;
           cmd += "' >/dev/null 2>&1";
           int r=::system(cmd.c_str()); (void)r;
-          // utest<>::comment("microtest.hh", __LINE__, std::string("Test temporary directory removed: '") + instance_.path_ + "'");
+          utest<>::comment("microtest.hh", __LINE__, std::string("Test temporary directory removed: '") + instance_.path_ + "'");
         }
         #endif
       }
@@ -874,7 +901,7 @@ using test = detail::utest<>;
 
   using tmpdir = detail::tmpdir<>;
 
-  #define test_tmpdir()        (::sw::utest::tmpdir::path())
+  #define test_tmpdir()        (::sw::utest::tmpdir::path().c_str())
   #define test_tmpdir_remove() { ::sw::utest::tmpdir::remove(); }
 #endif
 // </editor-fold>

@@ -2,6 +2,7 @@
 #include <duktape/mod/mod.stdio.hh>
 #include <duktape/mod/mod.stdlib.hh>
 #include <duktape/mod/mod.fs.hh>
+#include <duktape/mod/mod.fs.ext.hh>
 #include <duktape/mod/mod.fs.file.hh>
 #include <duktape/mod/mod.sys.hh>
 #include <duktape/mod/mod.sys.exec.hh>
@@ -9,6 +10,8 @@
 #include <stdexcept>
 #include <iostream>
 #include <string>
+#include <locale>
+#include <clocale>
 
 #ifndef PROGRAM_NAME
   #define PROGRAM_NAME "js"
@@ -24,6 +27,8 @@ using namespace duktape;
 int main(int argc, const char** argv)
 {
   try {
+    locale::global(locale("C"));
+    ::setlocale(LC_ALL, "C");
 
     // Command line arguments
     string script_path, script_code, eval_code;
@@ -89,11 +94,12 @@ int main(int argc, const char** argv)
     duktape::mod::stdio::define_in(js);
     duktape::mod::filesystem::generic::define_in(js);
     duktape::mod::filesystem::basic::define_in(js);
-    duktape::mod::filesystem::enhanced::define_in(js);
+    duktape::mod::filesystem::extended::define_in(js);
     duktape::mod::filesystem::fileobject::define_in(js);
     duktape::mod::system::define_in(js);
     duktape::mod::system::exec::define_in(js);
     js.define("sys.args", args);
+    js.define("sys.script", script_path);
     vector<string>().swap(args);
 
     if(script_path == "-") {
@@ -104,10 +110,10 @@ int main(int argc, const char** argv)
     } else if(!script_path.empty()) {
       std::ifstream fis(script_path);
       script_code.assign((std::istreambuf_iterator<char>(fis)), std::istreambuf_iterator<char>());
-      if(!fis.good() && !fis.eof()) throw std::runtime_error(std::string("Failed to read script '") + script_path + "'.");
-      if(script_code.empty()) throw std::runtime_error("Script to execute is empty.");
+      if(!fis.good() && !fis.eof()) throw std::runtime_error(std::string("Failed to read script '") + script_path + "'");
+      if(script_code.empty()) throw std::runtime_error("Script to execute is empty");
     } else if(eval_code.empty()) {
-      throw std::runtime_error("No js file specified/piped in, and no code to evaluate passed. Nothing to do.");
+      throw std::runtime_error("No js file specified/piped in, and no code to evaluate passed. Nothing to do");
     }
     // remove leading #!/bin/whatever
     if((script_code.length() > 2) && (script_code[0] == '#') && (script_code[1] == '!')) {

@@ -4,11 +4,13 @@
 # simply install GIT globally, so that tools like rm.exe are in the PATH;
 # Linux/BSD: no action needed).
 #---------------------------------------------------------------------------------------------------
+# Optional tool chain prefix path, sometimes also referred to as CROSSCOMPILE
+TOOLCHAIN=
 
-CXX=g++
+CXX=$(TOOLCHAIN)g++
 LD=$(CXX)
-CXXFLAGS=-std=c++11 -W -Wall -Wextra -pedantic
-CXXFLAGS+=-Iduktape
+FLAGSCXX=-std=c++11 -W -Wall -Wextra -pedantic
+FLAGSCXX+=-Iduktape
 DUKOPTS+=-std=c++11 -fstrict-aliasing -fdata-sections -ffunction-sections -Os -DDUK_USE_CPP_EXCEPTIONS
 DUKTAPE_VERSION=2.1.0
 DUKTAPE_ARCHIVE=duktape/duktape-releases/duktape-$(DUKTAPE_VERSION).tar.xz
@@ -17,20 +19,23 @@ GIT_COMMIT_VERSION:=$(shell git log --pretty=format:%h -1)
 #---------------------------------------------------------------------------------------------------
 
 ifdef DEBUG
-  CXXFLAGS+=-Os -g -fno-omit-frame-pointer -fdata-sections -ffunction-sections
-  LDFLAGS+=-Os -g -fno-omit-frame-pointer -Wl,--gc-sections
-#  CXXFLAGS+=-fsanitize=address
-#  LDFLAGS+=-fsanitize=address
+  FLAGSCXX+=-Os -g -fno-omit-frame-pointer -fdata-sections -ffunction-sections
+  FLAGSLD+=-Os -g -fno-omit-frame-pointer -Wl,--gc-sections
+#  FLAGSCXX+=-fsanitize=address
+#  FLAGSLD+=-fsanitize=address
   LIBS+=-lm
   DUKOPTS+=-g -O0
 else
-  STRIP=strip
-  CXXFLAGS+=-Os -fomit-frame-pointer -fdata-sections -ffunction-sections
-  LDFLAGS+=-Os -Wl,--gc-sections
+  STRIP=$(TOOLCHAIN)strip
+  FLAGSCXX+=-Os -fomit-frame-pointer -fdata-sections -ffunction-sections
+  FLAGSLD+=-Os -Wl,--gc-sections
   LIBS+=-lm
 endif
 
-CXXFLAGS+=$(FLAGS)
+# make command line overrides
+FLAGSCXX+=$(FLAGS)
+FLAGSCXX+=$(CXXFLAGS)
+FLAGSLD+=$(LDFLAGS)
 
 # Auto pick windows, other platforms are compatible
 ifeq ($(wildcard /bin/*),)
@@ -40,9 +45,9 @@ endif
 ifeq ($(OS),win)
 BINARY_EXTENSION=.exe
 LDSTATIC+=-static -Os -s -static-libgcc
-CXXFLAGS+=-D_WIN32_WINNT=0x0601 -DWINVER=0x0601 -D_WIN32_IE=0x0900
+FLAGSCXX+=-D_WIN32_WINNT=0x0601 -DWINVER=0x0601 -D_WIN32_IE=0x0900
 BINARY=js$(BINARY_EXTENSION)
-LIBS+=-ladvapi32
+LIBS+=-ladvapi32 -lshell32
 else
 BINARY_EXTENSION=.elf
 BINARY=js
@@ -52,13 +57,25 @@ ifdef STATIC
 endif
 endif
 
+ifeq ($(WITH_EXPERIMENTAL),1)
+  FLAGSCXX+=-DWITH_EXPERIMENTAL
+endif
+
 DEVBINARY=dev$(BINARY_EXTENSION)
 EXAMPLEBINARY=example$(BINARY_EXTENSION)
 wildcardr=$(foreach d,$(wildcard $1*),$(call wildcardr,$d/,$2) $(filter $(subst *,%,$2),$d))
+
 TEST_RESULT_EXTENSION=.log
+ifneq ($(TEST),)
+TEST_BINARIES:=test/$(TEST)/test$(BINARY_EXTENSION)
+TEST_RESULTS:=test/$(TEST)/test$(TEST_RESULT_EXTENSION)
+TEST_SOURCES:=test/$(TEST)/test.cc
+else
 TEST_BINARIES:=$(foreach F, $(filter %/ , $(sort $(wildcard test/*/))), $Ftest$(BINARY_EXTENSION))
 TEST_RESULTS:=$(patsubst %$(BINARY_EXTENSION),%$(TEST_RESULT_EXTENSION),$(TEST_BINARIES))
 TEST_SOURCES:=$(patsubst %$(BINARY_EXTENSION),%.cc,$(TEST_BINARIES))
+endif
+
 STDMOD_SOURCES:=$(sort $(call wildcardr, duktape/mod, *.hh))
 HEADER_DEPS=duktape/duktape.hh $(STDMOD_SOURCES)
 MAIN_TESTJS:=$(wildcard main.js)
@@ -66,7 +83,7 @@ MAIN_TESTJS:=$(wildcard main.js)
 #---------------------------------------------------------------------------------------------------
 # make targets
 #---------------------------------------------------------------------------------------------------
-.PHONY: clean all binary bininfo run tests test test-run documentation jsdoc dev mrproper
+.PHONY: clean all binary bininfo run tests test test-run documentation jsdoc dev clean-tests
 
 binary: cli/$(BINARY)
 all: clean binary bininfo test documentation jsdoc
@@ -75,29 +92,30 @@ ifeq ($(OS),win)
 run: cli/$(BINARY)	; cli/$(BINARY) $(MAIN_TESTJS)
 bininfo:
 clean:			; @rm -f cli/$(BINARY) cli/$(DEVBINARY) cli/$(EXAMPLEBINARY) cli/*.o duktape/*.o *.o; rm -f $(TEST_BINARIES) $(TEST_RESULTS)
+clean-tests:		; @rm -f $(TEST_BINARIES) $(TEST_RESULTS)
 jsdoc:
 else
 run: cli/$(BINARY)	; ./cli/$(BINARY) $(MAIN_TESTJS)
 bininfo: cli/$(BINARY)  ; @echo -n "[info] "; file cli/$(BINARY); echo -n "[info] "; ls -lh cli/$(BINARY)
 clean:			; @rm -f cli/$(BINARY) cli/$(DEVBINARY) cli/*.o duktape/*.o *.o; rm -f $(TEST_BINARIES) $(TEST_RESULTS)
+clean-tests:		; @rm -f $(TEST_BINARIES) $(TEST_RESULTS):
 jsdoc: doc/stdmods.js
 endif
 
 documentation: jsdoc
-mrproper: clean		; @rm -rf duktape/duktape-releases; rm -f duktape/*.h duktape/*.c
 
 #---------------------------------------------------------------------------------------------------
 # CLI example app
 
 cli/$(BINARY): cli/main.o duktape/duktape.o
 	@echo "[ld  ] $^  $@"
-	@$(CXX) -o $@ $^ $(LDFLAGS) $(LDSTATIC) $(LIBS)
+	@$(CXX) -o $@ $^ $(FLAGSLD) $(LDSTATIC) $(LIBS)
 	@if [ ! -z "$(STRIP)" ]; then $(STRIP) $@; fi
 	@echo "[note] binary is $@"
 
 cli/main.o: cli/main.cc $(HEADER_DEPS) $(TEST_SOURCES)
 	@echo "[c++ ] $<  $@"
-	$(CXX) -c -o $@ $< $(CXXFLAGS) $(OPTS) -I. -DPROGRAM_VERSION='"""$(GIT_COMMIT_VERSION)"""'
+	@$(CXX) -c -o $@ $< $(FLAGSCXX) $(OPTS) -I. -DPROGRAM_VERSION='"""$(GIT_COMMIT_VERSION)"""'
 
 #---------------------------------------------------------------------------------------------------
 # Duktape base compilation
@@ -108,33 +126,6 @@ duktape/duktape.o: duktape/duktape.c duktape/duk_config.h duktape/duktape.h
 	@$(CXX) -c -o $@ $< $(DUKOPTS)
 
 #---------------------------------------------------------------------------------------------------
-# Retrieving Duktape base sources from duktape.org or github
-#---------------------------------------------------------------------------------------------------
-
-ifeq ($(GET_DUKTAPE_RELEASE),y)
-duktape/duk_config.h duktape/duktape.h duktape/duktape.c:
-ifeq ($(GET_DUKTAPE_VIA_WGET),y)
-	@if [ ! -f $(DUKTAPE_ARCHIVE) ]; then \
-	  mkdir -p duktape/duktape-releases; \
-	  echo "[wget] Downloading ($(DUKTAPE_ARCHIVE)) from duktape.org ..."; \
-	  cd duktape/duktape-releases; \
-	  wget -q http://duktape.org/$(notdir $(DUKTAPE_ARCHIVE)); \
-	fi
-else
-	@if [ ! -f $(DUKTAPE_ARCHIVE) ]; then \
-	  echo "[git ] Getting ($(DUKTAPE_ARCHIVE)) from github.com/svaarala/duktape-releases.git ..."; \
-	  cd duktape; git clone --depth=1 https://github.com/svaarala/duktape-releases.git; \
-	fi
-endif
-	@echo "[tar ] Extracting ..."
-	@tar -xJf $(DUKTAPE_ARCHIVE) duktape-$(DUKTAPE_VERSION)/src/duk_config.h --to-command=cat > duktape/duk_config.h
-	@tar -xJf $(DUKTAPE_ARCHIVE) duktape-$(DUKTAPE_VERSION)/src/duktape.h --to-command=cat > duktape/duktape.h
-	@tar -xJf $(DUKTAPE_ARCHIVE) duktape-$(DUKTAPE_VERSION)/src/duktape.c --to-command=cat > duktape/duktape.c
-
-duktape/duktape.hh: duktape/duktape.h duktape/duk_config.h
-endif
-
-#---------------------------------------------------------------------------------------------------
 # Developer testing ground
 #---------------------------------------------------------------------------------------------------
 dev: cli/$(DEVBINARY)
@@ -143,12 +134,12 @@ dev: cli/$(DEVBINARY)
 
 cli/$(DEVBINARY): cli/dev.o duktape/duktape.o
 	@echo "[ld  ] $^ $@"
-	@$(CXX) -o $@ $^ $(LDSTATIC) $(LDFLAGS) $(LIBS)
+	@$(CXX) -o $@ $^ $(LDSTATIC) $(FLAGSLD) $(LIBS)
 	@if [ ! -z "$(STRIP)" ]; then $(STRIP) $@; fi
 
 cli/dev.o: cli/dev.cc $(HEADER_DEPS) $(TEST_SOURCES)
 	@echo "[c++ ] $< $@"
-	@$(CXX) -c -o $@ $< $(CXXFLAGS) $(OPTS) -I.
+	@$(CXX) -c -o $@ $< $(FLAGSCXX) $(OPTS) -I.
 	@echo "[note] Development testing binary is $@"
 
 #---------------------------------------------------------------------------------------------------
@@ -160,12 +151,12 @@ example: cli/$(EXAMPLEBINARY)
 
 cli/$(EXAMPLEBINARY): cli/example.o duktape/duktape.o
 	@echo "[ld  ] $^ $@"
-	@$(CXX) -o $@ $^ $(LDSTATIC) $(LDFLAGS) $(LIBS)
+	@$(CXX) -o $@ $^ $(LDSTATIC) $(FLAGSLD) $(LIBS)
 	@if [ ! -z "$(STRIP)" ]; then $(STRIP) $@; fi
 
 cli/example.o: cli/example.cc $(HEADER_DEPS) $(TEST_SOURCES)
 	@echo "[c++ ] $< $@"
-	@$(CXX) -c -o $@ $< $(CXXFLAGS) $(OPTS) -I.
+	@$(CXX) -c -o $@ $< $(FLAGSCXX) $(OPTS) -I.
 	@echo "[note] Example binary is $@"
 
 #---------------------------------------------------------------------------------------------------
@@ -173,7 +164,7 @@ cli/example.o: cli/example.cc $(HEADER_DEPS) $(TEST_SOURCES)
 #---------------------------------------------------------------------------------------------------
 test/%/test$(BINARY_EXTENSION): test/%/test.cc test/%/test.js duktape/duktape.o $(HEADER_DEPS)
 	@echo "[c++ ] $@"
-	-@$(CXX) -o $@ $< duktape/duktape.o $(CXXFLAGS) $(OPTS) $(LDFLAGS) $(LIBS) || echo "[fail] $@"
+	-@$(CXX) -o $@ $< duktape/duktape.o $(FLAGSCXX) $(OPTS) $(FLAGSLD) $(LIBS) || echo "[fail] $@"
 	-@if [ ! -z "$(STRIP)" ]; then $(STRIP) $@; fi
 
 test/%/test$(TEST_RESULT_EXTENSION): test/%/test$(BINARY_EXTENSION) test/%/test.cc test/%/test.js
@@ -183,6 +174,9 @@ ifneq ($(OS),win)
 else
 	-@rm -f $@
 	-@cd "$(dir $<)"; echo "" | "./$(notdir $<)" >$(notdir $@) && echo "[pass] $<" || echo "[fail] $@"
+endif
+ifneq ($(TEST),)
+	-@[ -f $@ ] && cat $@
 endif
 
 tests: $(TEST_BINARIES)

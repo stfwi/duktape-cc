@@ -660,9 +660,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
    * for details.
    *
    * @constructor
-   * @param undefined|String path
-   * @param undefined|String openmode
-   * @return fs.file
+   * @throws {Error}
+   * @param {string} [path]
+   * @param {string} [openmode]
+   * @returns {fs.file}
    */
   fs.file = function(path, openmode) {};
   #endif
@@ -778,9 +779,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
    *
    * The function returns the reference to `this`.
    *
-   * @param undefined|String path
-   * @param undefined|String openmode
-   * @return fs.file
+   * @throws {Error}
+   * @param {string} [path]
+   * @param {string} [openmode]
+   * @returns {fs.file}
    */
   fs.file.open = function(path, openmode) {};
   #endif
@@ -799,7 +801,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
   /**
    * Closes a file. Returns `this` reference.
    *
-   * @return fs.file
+   * @returns {fs.file}
    */
   fs.file.close = function() {};
   #endif
@@ -821,7 +823,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
   /**
    * Returns true if a file is closed.
    *
-   * @return Boolean
+   * @returns {boolean}
    */
   fs.file.closed = function() {};
   #endif
@@ -841,7 +843,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
   /**
    * Returns true if a file is opened.
    *
-   * @return Boolean
+   * @returns {boolean}
    */
   fs.file.opened = function() {};
   #endif
@@ -864,8 +866,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
    * then as many bytes as possible are read (until EOF, until
    * error or until the operation would block).
    *
-   * @param Number|undefined max_bytes
-   * @return String|Buffer
+   * @throws {Error}
+   * @param {number} [max_bytes]
+   * @returns {string|buffer}
    */
   fs.file.read = function(max_size) {};
   #endif
@@ -910,8 +913,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
    * Normally all bytes are written, except if nonblocking i/o
    * was specified when opening the file.
    *
-   * @param String|Buffer data
-   * @return Number
+   * @throws {Error}
+   * @param {string|buffer} data
+   * @returns {number}
    */
   fs.file.write = function(data) {};
   #endif
@@ -933,7 +937,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
   /**
    * Returns the current file position.
    *
-   * @return Number
+   * @throws {Error}
+   * @returns {number}
    */
   fs.file.tell = function() {};
   #endif
@@ -960,9 +965,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
    *  - "end"             : From the end of the file backward (SEEK_END)
    *  - "current" ("cur") : From the current position forward (SEEK_CUR)
    *
-   * @param Number position
-   * @param String whence
-   * @return Number
+   * @throws {Error}
+   * @param {number} position
+   * @param {string} [whence=begin]
+   * @returns {number}
    */
   fs.file.seek = function(position, whence) {};
   #endif
@@ -997,7 +1003,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
   /**
    * Returns the current file size in bytes.
    *
-   * @return Number
+   * @throws {Error}
+   * @returns {number}
    */
   fs.file.size = function() {};
   #endif
@@ -1018,7 +1025,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
    * Returns details about the file including path, size, mode
    * etc. @see fs.stat() for details.
    *
-   * @return Object
+   * @throws {Error}
+   * @returns {object}
    */
   fs.file.stat = function() {};
   #endif
@@ -1042,7 +1050,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
    * Flushes the file write buffer. Ignored on platforms where this
    * is not required. Returns reference to `this`.
    *
-   * @return fs.file
+   * @throws {Error}
+   * @returns {fs.file}
    */
   fs.file.flush = function() {};
   #endif
@@ -1070,8 +1079,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
    * only the contents of the file shall be synced, but not the file
    * system meta information.
    *
-   * @param Boolean|undefined no_metadata
-   * @return fs.file
+   * @throws {Error}
+   * @param {boolean} [no_metadata]
+   * @returns {fs.file}
    */
   fs.file.sync = function() {};
   #endif
@@ -1097,8 +1107,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
    *  - "x", "" : Exclusive lock
    *  - "s"     : Shared lock
    *
-   * @param string access
-   * @return fs.file
+   * @throws {Error}
+   * @param {string} access
+   * @returns {fs.file}
    */
   fs.file.lock = function(access) {};
   #endif
@@ -1122,7 +1133,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
    * Unlocks a previously locked file. Ignored if the platform does not
    * support locking.
    *
-   * @return fs.file
+   * @throws {Error}
+   * @returns {fs.file}
    */
   fs.file.unlock = function() {};
   #endif
