@@ -1568,13 +1568,13 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
 
   #ifdef WINDOWS
   namespace {
-    template <typename=void>
+    template <typename PathAccessor>
     int win32_glob_push_stack(duktape::api& stack, std::string path_pattern)
     {
       struct dir_guard {
         HANDLE hFind;
         explicit dir_guard() noexcept : hFind(INVALID_HANDLE_VALUE) {}
-        ~dir_guard() noexcept { if(hFind != INVALID_HANDLE_VALUE) FindClose(hFind); }
+        ~dir_guard() noexcept { if(hFind != INVALID_HANDLE_VALUE) ::FindClose(hFind); }
       };
       WIN32_FIND_DATAA ffd;
       dir_guard dir;
@@ -1583,20 +1583,20 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
       stack.require_stack_top(5);
       duktape::api::array_index_t i=0;
       auto array_stack_index = stack.push_array();
-      if((dir.hFind = FindFirstFileA(path_pattern.c_str(), &ffd)) == INVALID_HANDLE_VALUE) {
-        err = GetLastError();
+      if((dir.hFind = ::FindFirstFileA(path_pattern.c_str(), &ffd)) == INVALID_HANDLE_VALUE) {
+        err = ::GetLastError();
       } else {
         do {
           if((!ffd.cFileName) || (!ffd.cFileName[0])) continue;
           std::string s(ffd.cFileName);
           if((s == ".") || (s == "..")) continue;
-          stack.push(s);
+          stack.push(PathAccessor::to_js(s));
           if(!stack.put_prop_index(array_stack_index, i)) return 0;
           ++i;
         }
-        while(FindNextFileA(dir.hFind, &ffd) != 0);
-        err = GetLastError();
-        FindClose(dir.hFind);
+        while(::FindNextFileA(dir.hFind, &ffd) != 0);
+        err = ::GetLastError();
+        ::FindClose(dir.hFind);
         dir.hFind = INVALID_HANDLE_VALUE;
       }
       return (err == ERROR_NO_MORE_FILES) ? 1 : 0;
@@ -1645,7 +1645,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
           continue;
         }
       }
-      stack.push(de->d_name);
+      stack.push(PathAccessor::to_js(de->d_name));
       if(!stack.put_prop_index(array_stack_index, i)) return 0;
       ++i;
     }
@@ -1653,7 +1653,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #else
     if(path.length() > ((MAX_PATH)-3)) return 0;
     path += "\\*";
-    return win32_glob_push_stack(stack, path);
+    return win32_glob_push_stack<PathAccessor>(stack, path);
     #endif
   }
 
@@ -1670,7 +1670,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   int glob(duktape::api& stack)
   {
     if(!stack.is<std::string>(0)) return 0;
-    std::string path = stack.to<std::string>(0);
+    std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
     #ifndef WINDOWS
     {
       struct glob_data {
@@ -1696,7 +1696,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
         duktape::api::array_index_t array_item_index=0;
         auto array_stack_index = stack.push_array();
         for(size_t i=0; (i < gb.data.gl_pathc) && (gb.data.gl_pathv[i]); ++i) {
-          stack.push(gb.data.gl_pathv[i]);
+          stack.push(PathAccessor::to_js(gb.data.gl_pathv[i]));
           if(!stack.put_prop_index(array_stack_index, array_item_index)) return 0;
           ++array_item_index;
         }
@@ -1704,7 +1704,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
       }
     }
     #else
-    return win32_glob_push_stack(stack, path);
+    return win32_glob_push_stack<PathAccessor>(stack, path);
     #endif
   }
 

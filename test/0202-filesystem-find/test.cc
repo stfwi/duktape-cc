@@ -33,13 +33,16 @@ void mk_test_tree()
   test_makefile("b/b/v");
   test_makefile("c/b/c/u");
 
-  #define TEST_NUMSYMLINKS (1)
+  #ifndef WINDOWS
+  #define TEST_NUMSYMLINKS int(1)
   test_makesymlink("a", "/a/b/l");
+  #else
+  #define TEST_NUMSYMLINKS int(0)
+  #endif
 }
 
 void test(duktape::engine& js)
 {
-#ifndef WINDOWS
   duktape::mod::filesystem::basic::define_in<>(js);
   duktape::mod::filesystem::extended::define_in<>(js);
   js.define("testdir", test_path());
@@ -49,7 +52,4 @@ void test(duktape::engine& js)
   mk_test_tree();
   js.include("test.js");
   test_rmfiletree();
-#else
-  (void) js;
-#endif
 }

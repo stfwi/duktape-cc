@@ -73,8 +73,8 @@ comment( 'find with filter callback returning nothing --> return empty array')
   ;
 
 comment( 'find with filter callback returning a boolean string match --> return filtered array')
-  && comment( 'files=fs.find(testdir, {filter:function(path){return path.search(/a\\/b.*?c$/) >= 0;}}), files=',
-     files=fs.find(testdir, {filter:function(path){return path.search(/a\/b.*?c$/) >= 0;}}))
+  && comment( 'files=fs.find(testdir, {filter:function(path){return (path.search(/a\\/b.*?c$/) >= 0) || (path.search(/a\\\\b.*?c$/) >= 0);}}), files=',
+     files=fs.find(testdir, {filter:function(path){return (path.search(/a\/b.*?c$/) >= 0) || (path.search(/a\\b.*?c$/) >= 0);}}))
   && expect(!!files, '!!files')
   && expect(files.length !== undefined, 'files.length !== undefined')
   && expect(files.length === 1, 'files.length === 1')
@@ -94,7 +94,7 @@ comment( 'find with type filter (directories)')
      files=fs.find(testdir, {type: "d"}))
   && expect(!!files, '!!files')
   && expect(files.length !== undefined, 'files.length !== undefined')
-  && expect(files.length === 1+num_dirs, 'files.length === 1+num_dirs')
+  && expect(files.length === num_dirs, 'files.length === num_dirs')
   ;
 
 comment( 'find with type filter (files)')
@@ -118,5 +118,5 @@ comment( 'find with type filter (directories and symlinks and files)')
      files=fs.find(testdir, {type: "fdl"}))
   && expect(!!files, '!!files')
   && expect(files.length !== undefined, 'files.length !== undefined')
-  && expect(files.length === 1+num_dirs+num_symlinks+num_files, 'files.length === 1+num_dirs+num_symlinks+num_files')
+  && expect(files.length === num_dirs+num_symlinks+num_files, 'files.length === num_dirs+num_symlinks+num_files')
   ;

@@ -118,12 +118,13 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     const int depth,
     const bool no_outside,
     const bool case_sensitive,
+    const bool xdev,
     FileCallback fcallback,
     ErrorCallback ecallback,
     int recursion_level = 0
   )
   {
-    if(recursion_level > depth) return true;
+    if(recursion_level >= depth) return true;
     bool f_lnk = ftype.find('l') != ftype.npos;
     bool f_dir = ftype.find('d') != ftype.npos;
     bool f_reg = ftype.find('f') != ftype.npos;
@@ -201,7 +202,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
       memset(apath, 0, sizeof(apath));
       std::copy(path.begin(), path.end(), apath);
       char *ppath[] = { apath, nullptr };
-      if(!(tree.ptr = ::fts_open(ppath, FTS_NOCHDIR|FTS_PHYSICAL, fts_entcmp))) {
+      if(!(tree.ptr = ::fts_open(ppath, FTS_NOCHDIR|FTS_PHYSICAL|(xdev?FTS_XDEV:0x0000), fts_entcmp))) {
         ecallback(strerror(errno));
         return 0;
       }
@@ -220,7 +221,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         case FTS_DP:
           continue;
         default:
-          if((no_outside && (f->fts_level < 0)) || (f->fts_level > depth)) {
+          if((no_outside && (f->fts_level <= 0)) || (f->fts_level > depth)) {
             // respect max depth, do not include parent directories.
             continue;
           } else if(!f->fts_statp || !(f->fts_statp->st_mode & mode)) {
@@ -249,7 +250,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     // </editor-fold>
     #elif defined(WINDOWS)
     // <editor-fold desc="win32" defaultstate="collapsed">
-    (void) no_outside; (void) f_lnk; (void) f_fifo; (void) f_cdev; (void) f_bdev; (void) f_sock;
+    (void) no_outside; (void) f_lnk; (void) f_fifo; (void) f_cdev;
+    (void) f_bdev; (void) f_sock; (void) xdev;
 
     struct hfind_guard {
       HANDLE h;
@@ -286,7 +288,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         }
         if(ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
           ok = recurse_directory(
-            path+ffd.cFileName, pattern, ftype, depth, no_outside, case_sensitive,
+            path+ffd.cFileName, pattern, ftype, depth, no_outside, case_sensitive, xdev,
             fcallback, ecallback, recursion_level+1
           );
         }
@@ -439,13 +441,13 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     std::string pattern, ftype;
     int depth = std::numeric_limits<int>::max();
     bool no_outside = true;
+    bool xdev = false;
     #ifdef WINDOWS
     bool case_sensitive = false;
     #else
     bool case_sensitive = true;
     #endif
     duktape::api::index_t filter_function = 0;
-
     if(path.empty()) {
       return stack.throw_exception("No directory given to search");
     } else if(!stack.is_undefined(1)) {
@@ -457,6 +459,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         depth = stack.get_prop_string<int>(1, "depth", depth);
         case_sensitive = !stack.get_prop_string<bool>(1, "icase", !case_sensitive);
         no_outside = stack.get_prop_string<bool>(1, "notoutside", no_outside); // find better name then add documentation
+        xdev = stack.get_prop_string<bool>(1, "xdev", xdev);
         if(stack.has_prop_string(1, "filter")) {
           stack.get_prop_string(1, "filter");
           if(stack.is_function(-1)) {
@@ -478,11 +481,11 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     duktape::api::array_index_t array_item_index=0;
     auto array_stack_index = stack.push_array();
     if(recurse_directory(
-      path, pattern, ftype, depth, no_outside, case_sensitive,
+      path, pattern, ftype, depth, no_outside, case_sensitive, xdev,
       [&](std::string&& path) -> bool {
         if(filter_function) {
           stack.dup(filter_function);
-          stack.push(path);
+          stack.push(PathAccessor::to_js(path));
           stack.call(1);
           if(stack.is<std::string>(-1)) {
             // 1. Filter returns a string: Means a modified version of the path shall be added.
@@ -504,7 +507,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
           stack.pop();
         }
         if(!path.empty()) {
-          stack.push(path);
+          stack.push(PathAccessor::to_js(path));
           if(!stack.put_prop_index(array_stack_index, array_item_index)) return 0;
           ++array_item_index;
         }
