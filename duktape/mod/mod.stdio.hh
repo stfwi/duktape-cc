@@ -70,6 +70,7 @@ struct stdio
     js.define("confirm", confirm);
     js.define("prompt", prompt);
     js.define("printf", printf_stdout);
+    js.define("sprintf", printf_string);
   }
 
   #if(0 && JSDOC)
@@ -307,6 +308,27 @@ struct stdio
   #endif
   static int printf_stdout(duktape::api& stack)
   { return printf_to(stack, out_stream); }
+
+
+  #if(0 && JSDOC)
+  /**
+   * C style formatted output into a string. For
+   * formatting details please @see printf.
+   *
+   * @param {string} format
+   * @param {...*} args
+   * @returns {string}
+   */
+  sprintf = function(format, args) {};
+  #endif
+  static int printf_string(duktape::api& stack)
+  {
+    std::stringstream ss;
+    printf_to(stack, &ss);
+    if(stack.is_error(-1)) return 0;
+    stack.push(ss.str());
+    return 1;
+  }
 
 public:
 

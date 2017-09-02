@@ -182,31 +182,30 @@ int ecma_assert(duk_context *ctx) {
 
 int ecma_print(duk_context *ctx) {
   duktape::api duk(ctx);
+  std::stringstream ss;
   int nargs = duk.top();
   if((nargs == 1) && duk.is_buffer(0)) {
     const char *buf = NULL;
     duk_size_t sz = 0;
     if((buf = (const char *) duk.get_buffer(0, sz)) && sz > 0) {
-      std::cout.write(buf, sz);
-      std::cout.flush();
+      ss.write(buf, sz);
     }
   } else if(nargs > 0) {
-    std::cout << duk.to<std::string>(0);
-    for(int i=1; i<nargs; i++) std::cout << " " << duk.to<std::string>(i);
-    std::cout << std::endl;
-    std::cout.flush();
+    ss << duk.to<std::string>(0);
+    for(int i=1; i<nargs; i++) ss << " " << duk.to<std::string>(i);
   }
+  ::sw::utest::test::comment("(stdout)", 0, ss.str());
   return 0;
 }
 
 int ecma_alert(duk_context *ctx) {
   duktape::api duk(ctx);
+  std::stringstream ss;
   int nargs = duk.top();
   if(!nargs) return 0;
-  std::cerr << duk.to<std::string>(0);
-  for(int i=1; i<nargs; i++) std::cerr << " " << duk.to<std::string>(i);
-  std::cerr << std::endl;
-  std::cerr.flush();
+  ss << duk.to<std::string>(0);
+  for(int i=1; i<nargs; i++) ss << " " << duk.to<std::string>(i);
+  ::sw::utest::test::comment("(stderr)", 0, ss.str());
   return 0;
 }
 
@@ -261,33 +260,45 @@ int ecma_expect(duk_context *ctx) {
   return 1;
 }
 
-int test_main(int argc, const char **argv) {
-  (void)argc;
-  (void)argv;
+int test_main(int argc, const char **argv)
+{
   try {
     std::locale::global(std::locale("C"));
     ::setlocale(LC_ALL, "C");
 
     duktape::engine js;
-    js.define("print", ecma_print);
-    js.define("alert", ecma_alert);
+    js.define("print", ecma_print); // may be overwritten by stdio
+    js.define("alert", ecma_alert); // may be overwritten by stdio
     js.define("fail", ecma_fail);
     js.define("pass", ecma_pass);
     js.define("expect", ecma_expect);
     js.define("comment", ecma_comment);
     js.define("testabspath", ecma_testabspath, 1);
     js.define("testrelpath", ecma_testrelpath, 1);
+    {
+      std::vector<std::string> args;
+      for(int i=1; i<argc && argv[i]; ++i) {
+        args.emplace_back(argv[i]);
+        js.define("sys.args", args);
+      }
+    }
     try {
       test(js);
+    } catch(duktape::exit_exception& e) {
+      test_note(std::string("Exit with code ") + std::to_string(e.exit_code()) + "'.");
+    } catch(duktape::script_error& e) {
+      test_fail("Unexpected script error: ", e.callstack());
+    } catch(duktape::engine_error& e) {
+      test_fail("Unexpected engine error: ", e.what());
     } catch(std::exception& e) {
       test_fail("Unexpected exception: '", e.what(), "'.");
     } catch (...) {
       test_fail("Unexpected exception.");
     }
   } catch(std::exception& e) {
-    test_fail("Unexpected exception: '", e.what(), "'.");
+    test_fail("Unexpected init exception: '", e.what(), "'.");
   } catch (...) {
-    test_fail("Unexpected exception.");
+    test_fail("Unexpected init exception.");
   }
   ::sw::utest::tmpdir::remove();
   return sw::utest::test::summary();

@@ -129,6 +129,17 @@ printf = function(format, args) {};
 
 
 /**
+ * C style formatted output into a string. For
+ * formatting details please @see printf.
+ *
+ * @param {string} format
+ * @param {...*} args
+ * @returns {string}
+ */
+sprintf = function(format, args) {};
+
+
+/**
  * Exits the script interpreter with a specified exit code.
  *
  * @param {number} status_code
@@ -597,6 +608,23 @@ fs.glob = function(pattern) {};
 
 
 /**
+ * Contains the (execution path) PATH separator,
+ * e.g. ":" for Linux/Unix or ";" for win32.
+ *
+ * @var {string}
+ */
+fs.pathseparator = "";
+
+/**
+ * Contains the directory separator, e.g. "/"
+ * for Linux/Unix or "\" for win32.
+ *
+ * @var {string}
+ */
+fs.directoryseparator = "";
+
+
+/**
  * Recursive directory walking. The argument `path` specifies the root directory
  * of the file search - that is not a pattern with wildcards, but a absolute or
  * relative path. The second argument `options` can be
@@ -952,16 +980,60 @@ fs.file.opened = function() {};
 
 
 /**
+ * Returns true if the end of the file is reached. This
+ * is practically interpreted as:
+ *
+ *  - when the file or pipe signals EOF,
+ *  - when the file is not opened,
+ *  - when a pipe is not connected or broken
+ *
+ * @returns {boolean}
+ */
+fs.file.eof = function() {};
+
+
+/**
  * Reads data from a file, where the maximum number of bytes
  * to read can be specified. If `max_size` is not specified,
  * then as many bytes as possible are read (until EOF, until
  * error or until the operation would block).
+ *
+ * Note: If the end of the file is reached, the `eof()`
+ *       method will return true and the `read()` method
+ *       will return `undefined` as indication.
  *
  * @throws {Error}
  * @param {number} [max_bytes]
  * @returns {string|buffer}
  */
 fs.file.read = function(max_size) {};
+
+
+/**
+ * Read string data from the opened file and return when
+ * detecting a newline character. The newline character
+ * defaults to the operating system newline and can be
+ * changed for the file by setting the `newline` property
+ * of the file (e.g. `myfile.newline = "\r\n"`).
+ *
+ * Note: This function cannot be used in combination
+ * with the nonblocking I/O option.
+ *
+ * Note: If the end of the file is reached, the `eof()`
+ *       method will return true and the `read()` method
+ *       will return `undefined` to indicate that no
+ *       empty line was read but nothing at all.
+ *
+ * Note: This function is slower than `fs.file.read()` or
+ *       `fs.readfile()` because it has to read unbuffered
+ *       char-by-char. If you intend to read an entire file
+ *       and filter the lines prefer `fs.readfile()` with
+ *       line processing callback.
+ *
+ * @throws {Error}
+ * @returns {string}
+ */
+fs.file.readln = function() {};
 
 
 /**
@@ -974,6 +1046,38 @@ fs.file.read = function(max_size) {};
  * @returns {number}
  */
 fs.file.write = function(data) {};
+
+
+/**
+ * Write string data to a file and implicitly append
+ * a newline character. The newline character defaults
+ * to the operating system newline (Windows CRLF, else
+ * LF, no old Mac CR). This character can be changed
+ * for the file by setting the `newline` property of
+ * the file (e.g. myfile.newline = "\r\n").
+ * Note: This function cannot be used in combination
+ * with the nonblocking I/O option. The method throws
+ * an exception if not all data could be written.
+ *
+ * @throws {Error}
+ * @param {string} data
+ */
+fs.file.writeln = function(data) {};
+
+
+/**
+ * C style formatted output to the opened file.
+ * The method is used identically to `printf()`.
+ * Note: This function cannot be used in combination
+ * with the nonblocking I/O option. The method
+ * throws an exception if not all data could be
+ * written.
+ *
+ * @throws {Error}
+ * @param {string} format
+ * @param {...*} args
+ */
+fs.file.printf = function(format, args) {};
 
 
 /**

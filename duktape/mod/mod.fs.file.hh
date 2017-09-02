@@ -39,14 +39,15 @@
 
 // <editor-fold desc="preprocessor" defaultstate="collapsed">
 #include "../duktape.hh"
-#include "mod.fs.hh" /* Required includes defined already there */
+#include "mod.fs.hh"    /* Required includes defined already there */
+#include "mod.stdio.hh" /* printf() */
 #include <string>
 // </editor-fold>
 
 namespace duktape { namespace detail { namespace filesystem { namespace fileobject { namespace {
 
-  // <editor-fold desc="linux/*nix" defaultstate="collapsed">
-  #if !defined(WIN32)
+  // <editor-fold desc="linux/*nix interface" defaultstate="collapsed">
+  #ifndef WINDOWS
   template <typename=void>
   struct native_file_handling
   {
@@ -86,30 +87,35 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
       }
     }
 
-    static std::string read(descriptor_type fd, size_t size)
+    static std::string read(descriptor_type fd, size_t size, bool& iseof)
     {
       ssize_t n = -1;
       std::string s;
+      iseof = false;
       if(!size) {
         int i;
         n = ::read(fd, &i, 0);
       } else {
         s.resize(size);
-        n = ::read(fd, &s[0], s.size());
-        if(n > 0) {
+        if((n=::read(fd, &s[0], s.size())) > 0) {
           s.resize(size_t(n));
         } else if(n == 0) {
           std::string().swap(s);
-        } else {
-          switch(errno) {
-            case EAGAIN:
-            case EINTR:
-              std::string().swap(s);
-              break;
-            default: {
-              const char* msg = ::strerror(errno);
-              throw std::runtime_error(std::string("Failed to read file (") + std::string(msg?msg:"Unspecified error") + ")");
-            }
+          iseof = true;
+        }
+      }
+      if(n < 0) {
+        switch(errno) {
+          case EAGAIN:
+          case EINTR:
+            std::string().swap(s);
+            break;
+          case EPIPE:
+          case EBADF:
+          default: {
+            iseof = true;
+            const char* msg = ::strerror(errno);
+            throw std::runtime_error(std::string("Failed to read file (") + std::string(msg?msg:"Unspecified error") + ")");
           }
         }
       }
@@ -237,8 +243,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
   #endif
   // </editor-fold>
 
-  // <editor-fold desc="windows" defaultstate="collapsed">
-  #if defined(WIN32)
+  // <editor-fold desc="windows interface" defaultstate="collapsed">
+  #ifdef WINDOWS
   template <typename=void>
   struct native_file_handling
   {
@@ -301,10 +307,11 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
       }
     }
 
-    static std::string read(descriptor_type fd, size_t max_size)
+    static std::string read(descriptor_type fd, size_t max_size, bool& iseof)
     {
+      iseof = false;
       std::string data;
-      if((fd == invalid_descriptor) || (!max_size)) return data;
+      if((fd == invalid_descriptor) || (!max_size)) { iseof=true; return data; }
       constexpr auto size_limit = size_t(std::numeric_limits<ssize_t>::max()-4096);
       if(max_size > size_limit) max_size = size_limit; // as many as possible / limit
       for(;;) {
@@ -316,14 +323,16 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
           switch(::GetLastError()) {
             case ERROR_MORE_DATA:
               break;
-            case ERROR_PIPE_BUSY:
             case ERROR_HANDLE_EOF:
             case ERROR_BROKEN_PIPE:
-            case ERROR_NO_DATA:
             case ERROR_PIPE_NOT_CONNECTED:
+              iseof = true;
+            case ERROR_PIPE_BUSY:
+            case ERROR_NO_DATA:
               return data;
             case ERROR_INVALID_HANDLE:
             default:
+              iseof = true;
               throw std::runtime_error(std::string("Failed to read file (") + error_message() + ")");
           }
         } else if(!n_read) {
@@ -457,8 +466,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
   #endif
   // </editor-fold>
 
-  // <editor-fold desc="ecma file object wrappers" defaultstate="collapsed">
-
+  // <editor-fold desc="constructor, finalizer, auxiliaries" defaultstate="collapsed">
   using nfh = native_file_handling<>;
 
   /**
@@ -526,6 +534,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     stack.put_prop_string_hidden(0, "path");
     stack.push("");
     stack.put_prop_string_hidden(0, "options");
+    stack.push(true);
+    stack.put_prop_string_hidden(0, "feof");
+
     fd = nfh::invalid_descriptor;
 
     // Options are sanatized, reordered and parsed in a more detailed
@@ -614,6 +625,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     stack.put_prop_string_hidden(0, "path");
     stack.push(options);
     stack.put_prop_string_hidden(0, "options");
+    stack.push(false);
+    stack.put_prop_string_hidden(0, "feof");
     return 0;
   }
 
@@ -689,12 +702,16 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     stack.put_prop_string_hidden(0, "path");
     stack.push("");
     stack.put_prop_string_hidden(0, "options");
+    stack.push("");
+    stack.put_prop_string(0, "newline");
     if(!stack.is_undefined(1)) file_open_stack<PathAccessor>(stack);
     if(stack.is_error(-1)) return 0;
     stack.top(1);
     return 1;
   }
+  // </editor-fold>
 
+  // <editor-fold desc="open, close, opened, closed, eof" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Opens a file given the path and corresponding "open mode". The
@@ -816,6 +833,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     stack.push(nfh::invalid_descriptor);
     stack.put_prop_string_hidden(0, "fd");
     stack.top(1);
+    stack.push(true);
+    stack.put_prop_string_hidden(0, "feof");
+    stack.top(1);
     return 1;
   }
 
@@ -861,10 +881,43 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
   #if(0 && JSDOC)
   /**
+   * Returns true if the end of the file is reached. This
+   * is practically interpreted as:
+   *
+   *  - when the file or pipe signals EOF,
+   *  - when the file is not opened,
+   *  - when a pipe is not connected or broken
+   *
+   * @returns {boolean}
+   */
+  fs.file.eof = function() {};
+  #endif
+  template <typename PathAccessor>
+  int file_eof(duktape::api& stack)
+  {
+    stack.top(0);
+    stack.push_this();
+    bool iseof = true;
+    if(stack.get_prop_string_hidden(0, "feof")) {
+      iseof = stack.get<bool>(-1);
+    }
+    stack.top(0);
+    stack.push(iseof);
+    return 1;
+  }
+  // </editor-fold>
+
+  // <editor-fold desc="read, write, readln, writeln, printf" defaultstate="collapsed">
+  #if(0 && JSDOC)
+  /**
    * Reads data from a file, where the maximum number of bytes
    * to read can be specified. If `max_size` is not specified,
    * then as many bytes as possible are read (until EOF, until
    * error or until the operation would block).
+   *
+   * Note: If the end of the file is reached, the `eof()`
+   *       method will return true and the `read()` method
+   *       will return `undefined` as indication.
    *
    * @throws {Error}
    * @param {number} [max_bytes]
@@ -883,17 +936,24 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     if(!get_file_object_data(stack, 0, fd, openopts)) return 0;
     stack.pop();
     std::string out;
+    bool iseof = false;
     if(max_size <= 0) {
       max_size = 4096;
-      std::string s = nfh::read(fd, max_size);
+      std::string s = nfh::read(fd, max_size, iseof);
       while(s.size() > 0) {
         out.append(s);
-        s = nfh::read(fd, max_size);
+        s = nfh::read(fd, max_size, iseof);
       }
     } else {
-      out = nfh::read(fd, max_size);
+      out = nfh::read(fd, max_size, iseof);
     }
-    if(openopts[4] != 'b') {
+    stack.push_this();
+    stack.push(iseof);
+    stack.put_prop_string_hidden(0, "feof");
+    stack.top(0);
+    if(out.empty() && iseof) {
+      return 0;
+    } else if(openopts[4] != 'b') {
       stack.push(out);
     } else {
       void* buf = stack.push_dynamic_buffer(out.size());
@@ -905,6 +965,88 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
       }
     }
     return 1;
+  }
+
+  #if(0 && JSDOC)
+  /**
+   * Read string data from the opened file and return when
+   * detecting a newline character. The newline character
+   * defaults to the operating system newline and can be
+   * changed for the file by setting the `newline` property
+   * of the file (e.g. `myfile.newline = "\r\n"`).
+   *
+   * Note: This function cannot be used in combination
+   * with the nonblocking I/O option.
+   *
+   * Note: If the end of the file is reached, the `eof()`
+   *       method will return true and the `read()` method
+   *       will return `undefined` to indicate that no
+   *       empty line was read but nothing at all.
+   *
+   * Note: This function is slower than `fs.file.read()` or
+   *       `fs.readfile()` because it has to read unbuffered
+   *       char-by-char. If you intend to read an entire file
+   *       and filter the lines prefer `fs.readfile()` with
+   *       line processing callback.
+   *
+   * @throws {Error}
+   * @returns {string}
+   */
+  fs.file.readln = function() {};
+  #endif
+  template <typename PathAccessor>
+  int file_readln(duktape::api& stack)
+  {
+    stack.top(0);
+    stack.push_this();
+    std::string openopts;
+    nfh::descriptor_type fd = nfh::invalid_descriptor;
+    if(!get_file_object_data(stack, 0, fd, openopts)) return 0;
+    if(openopts.find('n') != openopts.npos) {
+      return stack.throw_exception("You cannot use the file printf() method in combination with nonblocking "
+              "I/O because it is not guaranteed entirely written, and you do not have the buffered formatted "
+              "output.");
+    }
+    std::string nl;
+    stack.get_prop_string(0, "newline");
+    if(stack.is_string(-1)) nl = stack.get<std::string>(-1);
+    bool autonl = false;
+    if(nl.empty()) {
+      autonl = true;
+      nl = "\n";
+    }
+    stack.top(0);
+    char lastchar = nl.back();
+    bool iseof = false;
+    std::string out;
+    std::string s = nfh::read(fd, 1, iseof);
+    while(s.size() > 0) {
+      out.append(s);
+      if(s.back() == lastchar) {
+        if(autonl) {
+          out.pop_back(); // LF
+          if((!out.empty()) && (out.back() == '\r')) out.pop_back(); // CR
+          break;
+        } else {
+          auto p = out.rfind(nl);
+          if(p != out.npos) {
+            out.resize(p);
+            break;
+          }
+        }
+      }
+      s = nfh::read(fd, 1, iseof);
+    }
+    stack.push_this();
+    stack.push(iseof);
+    stack.put_prop_string_hidden(0, "feof");
+    stack.top(0);
+    if(out.empty() && iseof) {
+      return 0;
+    } else {
+      stack.push(out);
+      return 1;
+    }
   }
 
   #if(0 && JSDOC)
@@ -933,6 +1075,105 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 1;
   }
 
+  #if(0 && JSDOC)
+  /**
+   * Write string data to a file and implicitly append
+   * a newline character. The newline character defaults
+   * to the operating system newline (Windows CRLF, else
+   * LF, no old Mac CR). This character can be changed
+   * for the file by setting the `newline` property of
+   * the file (e.g. myfile.newline = "\r\n").
+   * Note: This function cannot be used in combination
+   * with the nonblocking I/O option. The method throws
+   * an exception if not all data could be written.
+   *
+   * @throws {Error}
+   * @param {string} data
+   */
+  fs.file.writeln = function(data) {};
+  #endif
+  template <typename PathAccessor>
+  int file_writeln(duktape::api& stack)
+  {
+    std::string data = stack.to<std::string>(0);
+    stack.top(0);
+    stack.push_this();
+    std::string openopts;
+    nfh::descriptor_type fd = nfh::invalid_descriptor;
+    if(!get_file_object_data(stack, 0, fd, openopts)) return 0;
+    if(openopts.find('n') != openopts.npos) {
+      return stack.throw_exception("You cannot use the file printf() method in combination with nonblocking "
+              "I/O because it is not guaranteed entirely written, and you do not have the buffered formatted "
+              "output.");
+    }
+    std::string nl;
+    stack.get_prop_string(0, "newline");
+    if(stack.is_string(-1)) nl = stack.get<std::string>(-1);
+    if(nl.empty()) {
+      #ifdef WINDOWS
+      nl = "\r\n";
+      #else
+      nl = "\n";
+      #endif
+    }
+    data += nl;
+    stack.top(0);
+    nfh::write(fd, data);
+    if(!data.empty()) {
+      return stack.throw_exception("Not all data written to file");
+    }
+    stack.push(true);
+    return 1;
+  }
+
+  #if(0 && JSDOC)
+  /**
+   * C style formatted output to the opened file.
+   * The method is used identically to `printf()`.
+   * Note: This function cannot be used in combination
+   * with the nonblocking I/O option. The method
+   * throws an exception if not all data could be
+   * written.
+   *
+   * @throws {Error}
+   * @param {string} format
+   * @param {...*} args
+   */
+  fs.file.printf = function(format, args) {};
+  #endif
+  template <typename PathAccessor>
+  int file_printf(duktape::api& stack)
+  {
+    std::string data;
+    {
+      std::stringstream ss;
+      duktape::mod::stdio::printf_to(stack, &ss);
+      if(stack.is_error(-1)) return 0;
+      data = ss.str();
+    }
+    stack.top(0);
+    stack.push_this();
+    std::string openopts;
+    nfh::descriptor_type fd = nfh::invalid_descriptor;
+    if(!get_file_object_data(stack, 0, fd, openopts)) return 0;
+    stack.pop();
+    if(openopts.find('n') != openopts.npos) {
+      // we better talk about that issue directly
+      return stack.throw_exception("You cannot use the file printf() method in combination with nonblocking "
+              "I/O because it is not guaranteed entirely written, and you do not have the buffered formatted "
+              "output.");
+    }
+    nfh::write(fd, data);
+    if(!data.empty()) {
+      return stack.throw_exception("Not all data written to file");
+    }
+    stack.top(0);
+    stack.push(true);
+    return 1;
+  }
+  // </editor-fold>
+
+  // <editor-fold desc="seek, tell, size, stat, lock, unlock, flush, sync" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Returns the current file position.
@@ -1149,7 +1390,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     stack.top(1);
     return 1;
   }
-
   // </editor-fold>
 
 }}}}}
@@ -1177,8 +1417,12 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
       js.define("fs.file.prototype.close", file_close<PathAccessor>,0);
       js.define("fs.file.prototype.closed", file_closed<PathAccessor>,0);
       js.define("fs.file.prototype.opened", file_opened<PathAccessor>,0);
+      js.define("fs.file.prototype.eof", file_eof<PathAccessor>,0);
       js.define("fs.file.prototype.read", file_read<PathAccessor>, 1);
+      js.define("fs.file.prototype.readln", file_readln<PathAccessor>, 1);
       js.define("fs.file.prototype.write", file_write<PathAccessor>, 1);
+      js.define("fs.file.prototype.writeln", file_writeln<PathAccessor>, 1);
+      js.define("fs.file.prototype.printf", file_printf<PathAccessor>);
       js.define("fs.file.prototype.flush", file_flush<PathAccessor>, 0);
       js.define("fs.file.prototype.tell", file_tell<PathAccessor>, 0);
       js.define("fs.file.prototype.seek", file_seek<PathAccessor>, 2);
