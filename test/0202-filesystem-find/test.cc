@@ -50,6 +50,6 @@ void test(duktape::engine& js)
   js.define("num_files", TEST_NUMFILES);
   js.define("num_dirs", TEST_NUMDIRS);
   mk_test_tree();
-  js.include("test.js");
+  test_include_script(js);
   test_rmfiletree();
 }

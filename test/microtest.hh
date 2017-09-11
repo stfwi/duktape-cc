@@ -363,84 +363,79 @@ using tmp_file = templates::tmp_file<>;
 
 // <editor-fold desc="test_ macros" defaultstate="collapsed">
 
-#define test_fail(...)    (::sw::utest::test::fail   (__FILE__, __LINE__, __VA_ARGS__))
+#define test_fail(...) (::sw::utest::test::fail   (__FILE__, __LINE__, __VA_ARGS__))
 
 #define test_pass(...) (::sw::utest::test::pass(__FILE__, __LINE__, __VA_ARGS__))
 
-#define test_note(ARG) \
-          { \
-            std::stringstream ss_ss; ss_ss << ARG; \
-            (::sw::utest::test::comment(__FILE__, __LINE__, ss_ss.str())); \
-          }
+#define test_reset() (::sw::utest::test::reset(__FILE__, __LINE__));
+
+#define test_note(ARG) { \
+  std::stringstream ss_ss; ss_ss << ARG; \
+  (::sw::utest::test::comment(__FILE__, __LINE__, ss_ss.str())); \
+}
 
 #define test_comment(X) test_note(X)
 
 #define test_buildinfo() (::sw::utest::test::buildinfo(__FILE__, __LINE__))
 
-#define test_expect_cond(...) \
-          ( \
-            (__VA_ARGS__) ? \
-            (::sw::utest::test::pass(__FILE__, __LINE__, #__VA_ARGS__)) : \
-            (::sw::utest::test::fail(__FILE__, __LINE__, #__VA_ARGS__)) \
-          )
+#define test_expect_cond(...) ( \
+  (__VA_ARGS__) ? \
+  (::sw::utest::test::pass(__FILE__, __LINE__, #__VA_ARGS__)) : \
+  (::sw::utest::test::fail(__FILE__, __LINE__, #__VA_ARGS__)) \
+)
 
-#define test_expect_nocatch(...) \
-          ( \
-            (__VA_ARGS__) ? \
-            (::sw::utest::test::pass(__FILE__, __LINE__, #__VA_ARGS__)) : \
-            (::sw::utest::test::fail(__FILE__, __LINE__, #__VA_ARGS__)) \
-          )
+#define test_expect_nocatch(...) ( \
+  (__VA_ARGS__) ? \
+  (::sw::utest::test::pass(__FILE__, __LINE__, #__VA_ARGS__)) : \
+  (::sw::utest::test::fail(__FILE__, __LINE__, #__VA_ARGS__)) \
+)
 
-#define test_expect(...) \
-          try { \
-            test_expect_nocatch(__VA_ARGS__); \
-          } catch(const std::exception& e) { \
-            (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
-              #__VA_ARGS__ " | Unexpected exception: ") + ::sw::utest::templates::auxfn<>::srtrim(std::string(e.what())) )); \
-          } catch(...) { \
-            (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
-              #__VA_ARGS__ " | Unexpected exception: ") )); \
-          }
+#define test_expect(...) try { \
+  test_expect_nocatch(__VA_ARGS__); \
+} catch(const std::exception& e) { \
+  (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
+    #__VA_ARGS__ " | Unexpected exception: ") + ::sw::utest::templates::auxfn<>::srtrim(std::string(e.what())) )); \
+} catch(...) { \
+  (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
+    #__VA_ARGS__ " | Unexpected exception: ") )); \
+}
 
-#define test_expect_except(...) \
-          try { \
-            (__VA_ARGS__); \
-            (::sw::utest::test::fail(__FILE__, __LINE__, #__VA_ARGS__, " | Exception was expected" )); \
-          } catch(const std::exception& e) { \
-            (::sw::utest::test::pass(__FILE__, __LINE__, std::string( \
-              #__VA_ARGS__ " | Expected exception: ") + ::sw::utest::templates::auxfn<>::srtrim(std::string(e.what())) )); \
-          } catch(...) { \
-            (::sw::utest::test::pass(__FILE__, __LINE__, std::string( \
-              #__VA_ARGS__ " | Expected exception") )); \
-          }
+#define test_expect_except(...) try { \
+  (__VA_ARGS__); \
+  (::sw::utest::test::fail(__FILE__, __LINE__, #__VA_ARGS__, " | Exception was expected" )); \
+} catch(const std::exception& e) { \
+  (::sw::utest::test::pass(__FILE__, __LINE__, std::string( \
+    #__VA_ARGS__ " | Expected exception: ") + ::sw::utest::templates::auxfn<>::srtrim(std::string(e.what())) )); \
+} catch(...) { \
+  (::sw::utest::test::pass(__FILE__, __LINE__, std::string( \
+    #__VA_ARGS__ " | Expected exception") )); \
+}
 
-#define test_expect_noexcept(...) \
-          try { \
-            ;(__VA_ARGS__); \
-            (::sw::utest::test::pass(__FILE__, __LINE__, #__VA_ARGS__)); \
-          } catch(const std::exception& e) { \
-            (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
-              #__VA_ARGS__ " | Unexpected exception: ") + ::sw::utest::templates::auxfn<>::srtrim(std::string(e.what())) )); \
-          } catch(...) { \
-            (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
-              #__VA_ARGS__ " | Unexpected exception") )); \
-          }
+#define test_expect_noexcept(...) try { \
+  ;(__VA_ARGS__); \
+  (::sw::utest::test::pass(__FILE__, __LINE__, #__VA_ARGS__)); \
+} catch(const std::exception& e) { \
+  (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
+    #__VA_ARGS__ " | Unexpected exception: ") + ::sw::utest::templates::auxfn<>::srtrim(std::string(e.what())) )); \
+} catch(...) { \
+  (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
+    #__VA_ARGS__ " | Unexpected exception") )); \
+}
 
-#define test_expect_in_tolerance(ARG, TOL) \
-          try { \
-            double r = (ARG); \
-            if(r < (ARG)+(TOL) && r > (ARG)-(TOL)) { \
-              ::sw::utest::test::pass(__FILE__, __LINE__, std::string(#ARG)); \
-            } else { \
-              ::sw::utest::test::fail(__FILE__, __LINE__, std::string(#ARG)); \
-            } \
-          } catch(const std::exception& e) { \
-            (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
-                #ARG "-> Unexpected exception: ") + ::sw::utest::templates::auxfn<>::srtrim(std::string(e.what()))) ); \
-          } catch(...) { \
-            (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
-              #ARG " | Unexpected exception") )); \
-          }
+#define test_expect_in_tolerance(ARG, TOL) try { \
+  double r = (ARG); \
+  if(r < (ARG)+(TOL) && r > (ARG)-(TOL)) { \
+    ::sw::utest::test::pass(__FILE__, __LINE__, std::string(#ARG)); \
+  } else { \
+    ::sw::utest::test::fail(__FILE__, __LINE__, std::string(#ARG)); \
+  } \
+} catch(const std::exception& e) { \
+  (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
+      #ARG "-> Unexpected exception: ") + ::sw::utest::templates::auxfn<>::srtrim(std::string(e.what()))) ); \
+} catch(...) { \
+  (::sw::utest::test::fail(__FILE__, __LINE__, std::string( \
+    #ARG " | Unexpected exception") )); \
+}
 
 // </editor-fold>
 
@@ -673,6 +668,16 @@ namespace detail {
     { num_checks_++; num_fails_++; osout("fail", file, line, args...); return false; }
 
     /**
+     * Register a failed expectation, increase test counter and fail counter, prints message
+     * @param std::string file
+     * @param int line
+     * @param typename ...Args args
+     */
+    template <typename ...Args>
+    static bool warn(std::string file, int line, Args ...args) noexcept
+    { num_warnings_++; osout("warn", file, line, args...); return false; }
+
+    /**
      * Register fail without logging
      * @return bool
      */
@@ -690,6 +695,18 @@ namespace detail {
     { osout("note", file, line, args...); }
 
     /**
+     * Resets errors, warnings and passes (counters).
+     */
+    template <typename=void>
+    static void reset(std::string file, int line) noexcept
+    {
+      num_checks_ = 0;
+      num_fails_ = 0;
+      num_warnings_ = 0;
+      comment(file, line, "Test counters reset.");
+    }
+
+    /**
      * Print summary, return 0 on pass, 1 .. 99 on fail.
      * @return int
      */
@@ -698,12 +715,12 @@ namespace detail {
       std::lock_guard<std::mutex> lck(iolock_);
       if(!num_fails_) {
         if(!num_checks_) {
-          *os_ << "[done] No checks" << std::endl;
+          *os_ << "[PASS] No checks" << std::endl;
         } else {
-          *os_ << "[done] All " << num_checks_ << " checks passed." << std::endl;
+          *os_ << "[PASS] All " << num_checks_ << " checks passed," << num_warnings_ << (num_warnings_ == 1 ? " warning." : " warnings.") << std::endl;
         }
       } else {
-        *os_ << "[done] " << num_fails_ << " of " << num_checks_ << " checks failed." << std::endl;
+        *os_ << "[FAIL] " << num_fails_ << " of " << num_checks_ << " checks failed, " << num_warnings_ << (num_warnings_ == 1 ? " warning." : " warnings.") << std::endl;
       }
       unsigned long n = num_fails_;
       return n > 99 ? 99 : n;
@@ -766,6 +783,7 @@ namespace detail {
     // <editor-fold desc="variables" defaultstate="collapsed">
     static std::atomic<unsigned long> num_checks_;
     static std::atomic<unsigned long> num_fails_;
+    static std::atomic<unsigned long> num_warnings_;
     static std::ostream* os_;
     static std::mutex iolock_;
     // </editor-fold>
@@ -775,6 +793,7 @@ namespace detail {
   // <editor-fold desc="statics init" defaultstate="collapsed">
   template <typename T> std::atomic<unsigned long> utest<T>::num_checks_(0);
   template <typename T> std::atomic<unsigned long> utest<T>::num_fails_(0);
+  template <typename T> std::atomic<unsigned long> utest<T>::num_warnings_(0);
   template <typename T> std::ostream* utest<T>::os_ = &std::cout;
   template <typename T> std::mutex utest<T>::iolock_;
   // </editor-fold>

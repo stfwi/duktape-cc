@@ -191,7 +191,7 @@ test-binaries: binary $(TEST_BINARIES)
 #
 # Test binaries (compile, run, test No < 1000)
 #
-test/%/test$(BINARY_EXTENSION): test/%/test.cc duktape/duktape.o $(HEADER_DEPS)
+test/%/test$(BINARY_EXTENSION): test/%/test.cc test/testenv.hh test/microtest.hh duktape/duktape.o $(HEADER_DEPS)
 	@echo "[c++ ] $@"
 	-@$(CXX) -o $@ $< duktape/duktape.o $(FLAGSCXX) $(OPTS) $(FLAGSLD) $(LIBS) || echo "[fail] $@"
 	-@if [ ! -z "$(STRIP)" ]; then $(STRIP) $@; fi
@@ -211,7 +211,7 @@ endif
 #
 # Test scripts running with the test script binary (No > 1000)
 #
-$(TEST_SCRIPT_BINARY): $(TEST_SCRIPT_BINARY_SOURCE) duktape/duktape.o $(HEADER_DEPS)
+$(TEST_SCRIPT_BINARY): $(TEST_SCRIPT_BINARY_SOURCE) duktape/duktape.o $(HEADER_DEPS) test/testenv.hh test/microtest.hh
 	@echo "[c++ ] $@"
 	-@$(CXX) -o $@ $< duktape/duktape.o $(FLAGSCXX) $(OPTS) $(FLAGSLD) $(LIBS) || echo "[fail] $@"
 	-@if [ ! -z "$(STRIP)" ]; then $(STRIP) $@; fi
