@@ -49,6 +49,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <algorithm>
 #include <exception>
 #include <stdexcept>
 #include <fstream>
@@ -1420,6 +1421,43 @@ namespace duktape { namespace detail {
       return *reinterpret_cast<engine*>(get_pointer(-1));
     }
 
+    std::string callstack()
+    {
+      // note: Due to performance tests choosing request of
+      //       one stack trace and performing a string
+      //       analysis to filer and format.
+      auto currtop = top();
+      ::duk_push_error_object_raw(ctx(), DUK_ERR_ERROR, __FILE__, __LINE__, "Trace");
+      get_prop_string(-1, "stack");
+      std::string s = get<std::string>(-1);
+      top(currtop);
+      std::string out;
+      s.erase(std::remove(s.begin(), s.end(), '\r'), s.end());
+      while(!s.empty() && s.back() == '\n') s.pop_back();
+      auto p = s.find('\n');
+      if(p != s.npos) {
+        s = s.substr(p+1); // omit error name
+        do {
+          p = s.find('\n');
+          std::string line = s.substr(0, p);
+          s = s.substr(p+1);
+          if(line.find("at [anon] (") != line.npos) continue;
+          auto ps = line.rfind(')');
+          if(ps == line.npos) continue;
+          line.resize(ps);
+          ps = line.find(" at ");
+          if((ps == line.npos) || (ps == line.size()-1)) continue;
+          line = line.substr(ps+4);
+          ps = line.rfind("(");
+          if((ps == line.npos) || (ps == line.size()-1)) continue;
+          line[ps] = '@';
+          out += line + "\n";
+        } while(p != s.npos);
+      }
+      while(!out.empty() && ::isspace(out.back())) out.pop_back();
+      return out;
+    }
+
   private:
 
     template <typename T>
@@ -2000,6 +2038,13 @@ namespace duktape { namespace detail {
       stack().push_pointer(this);
       stack().put_prop_string(-2, "_engine_");
       stack().top(0);
+      // Remove some Duktape methods which may not be intended to be
+      // available and unknown to the programmer.
+      undef("Duktape.env");
+      undef("Duktape.Pointer");
+      undef("Duktape.info");
+      undef("Duktape.errCreate");
+      undef("Duktape.errThrow");
     }
     // </editor-fold>
 

@@ -1707,7 +1707,37 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return win32_glob_push_stack<PathAccessor>(stack, path);
     #endif
   }
+  // </editor-fold>
 
+  // <editor-fold desc="filesystem constants" defaultstate="collapsed">
+  #if(0 && JSDOC)
+  /**
+   * Contains the (execution path) PATH separator,
+   * e.g. ":" for Linux/Unix or ";" for win32.
+   *
+   * @var {string}
+   */
+  fs.pathseparator = "";
+
+  /**
+   * Contains the directory separator, e.g. "/"
+   * for Linux/Unix or "\" for win32.
+   *
+   * @var {string}
+   */
+  fs.directoryseparator = "";
+  #endif
+  template <typename=void>
+  static void define_constants(duktape::engine& js)
+  {
+    #ifdef WINDOWS
+    js.define("fs.pathseparator", ";");
+    js.define("fs.directoryseparator", "\\");
+    #else
+    js.define("fs.pathseparator", ":");
+    js.define("fs.directoryseparator", "/");
+    #endif
+  }
   // </editor-fold>
 
 }}}}
@@ -1728,7 +1758,6 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
     js.define("fs.cwd", cwd<PathAccessor>, 0);
     js.define("fs.pwd", cwd<PathAccessor>, 0);
     js.define("fs.tmpdir", tmpdir<PathAccessor>, 0);
-//    js.define("fs.tempnam", tempnam<PathAccessor>, 1);
     js.define("fs.home", homedir<PathAccessor>, 0);
     js.define("fs.realpath", realpath<PathAccessor>, 1);
     js.define("fs.dirname", getdirname<PathAccessor>, 1);
@@ -1743,7 +1772,6 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
     js.define("fs.size", filesize<PathAccessor>, 1);
     js.define("fs.mod2str", mod2str<PathAccessor>, 2);
     js.define("fs.str2mod", str2mod<PathAccessor>, 1);
-
     js.define("fs.exists", exists<PathAccessor>, 1);
     js.define("fs.iswritable", is_writable<PathAccessor>, 1);
     js.define("fs.isreadable", is_readable<PathAccessor>, 1);
@@ -1752,24 +1780,20 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
     js.define("fs.isfile", isfile<PathAccessor>, 1);
     js.define("fs.islink", islink<PathAccessor>, 1);
     js.define("fs.isfifo", isfifo<PathAccessor>, 1);
-
     js.define("fs.chdir", chdir<PathAccessor>, 1);
     js.define("fs.mkdir", mkdir<PathAccessor>, 2);
     js.define("fs.rmdir", rmdir<PathAccessor>, 1);
     js.define("fs.unlink", unlink<PathAccessor>, 1);
     js.define("fs.rename", rename<PathAccessor>, 2);
-
     js.define("fs.readdir", readdir<PathAccessor>, 1);
     js.define("fs.glob", glob<PathAccessor>, 1);
-
     js.define("fs.symlink", symlink<PathAccessor>, 2);
     js.define("fs.utime", utime<PathAccessor>, 3);
-
-    //#ifndef WINDOWS
     js.define("fs.hardlink", hardlink<PathAccessor>, 2);
     js.define("fs.readlink", readlink<PathAccessor>);
     js.define("fs.chmod", chmod<PathAccessor>, 2);
-    //#endif
+  //js.define("fs.tempnam", tempnam<PathAccessor>, 1);
+    define_constants(js);
   }
   // </editor-fold>
 
