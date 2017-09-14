@@ -179,27 +179,9 @@ int main(int argc, const char** argv)
   is needed (but in the modules, not the main duktape.hh). Traits
   should be generally there for
 
-    - [x] Numeric types
-    - [x] `std::string`       -> String
-    - [x] `std::vector<...>`  -> Array
-    - [ ] `std::map<...>`,`std::unordered_map<...>`  -> Object. This
-          is still a point of discussion if this makes sense.
-
-- Missing list
-
-    - Maybe also `std::deque`. `map` is yet missing here, as it has to be
-      crucially checked what to do with non-own-properties or `null` or
-      unconvertible properties like ´function´ - and how recursion is dealt
-      with.
-
-    - [ ] Wrapping of C++ classes as JS objects: Maybe one day. It currently
-      looks simpler and more straight forward to use the Duktape-API-way when
-      defining constructors and dealing with object properties.
-
-    - [ ] The test cases are yet somewhat rudimentary and cover only the main
-      cases. Randomly generated inputs for better coverage are on the list.
-
-    - [ ] With Visual Studio not tested at all yet.
+    - Numeric types
+    - `std::string`       -> String
+    - `std::vector<...>`  -> Array
 
 - Duktape release files
 

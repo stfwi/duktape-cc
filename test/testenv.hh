@@ -170,6 +170,12 @@ int callerline(duk_context *ctx)
   return ::atoi(s.c_str());
 }
 
+int ecma_callstack(duk_context *ctx) {
+  duktape::api stack(ctx);
+  stack.push(stack.callstack());
+  return 1;
+}
+
 // returns an absolute path to the given unix path (relative to test temp directory)
 int ecma_testabspath(duk_context *ctx)
 {
@@ -485,7 +491,9 @@ std::string replace_expect_function_arguments(std::string&& code, std::string fu
 void test_include_script(duktape::engine& js)
 {
   using namespace std;
-
+  // Redefine print and alert in case stdio was included in the test c++
+  js.define("print", ecma_print); // may be overwritten by stdio
+  js.define("alert", ecma_warn); // may be overwritten by stdio
 
   // Actual include
   {
@@ -503,7 +511,7 @@ void test_include_script(duktape::engine& js)
         }
       );
       code = replace_expect_function_arguments(
-        std::move(contents), "test_expect_except", [](string& function_name, string& arguments) {
+        std::move(contents2), "test_expect_except", [](string& function_name, string& arguments) {
           function_name = "test_eval_expect_except";
           string s; for(auto c:arguments) { if((c == '"') || (c == '\\')) s += '\\'; s += c; }
           arguments = string("\"") + s + "\"";
@@ -529,9 +537,11 @@ int main(int argc, const char **argv)
     js.define("test_eval_expect", ecma_eexpect, 1);
     js.define("test_eval_expect_except", ecma_eexpect_except, 1);
     js.define("test_comment", ecma_comment);
+    js.define("test_note", ecma_comment);
     js.define("test_reset", ecma_reset);
     js.define("test_abspath", ecma_testabspath, 1);
     js.define("test_relpath", ecma_testrelpath, 1);
+    js.define("callstack", ecma_callstack, 1);
     {
       std::vector<std::string> args;
       for(int i=1; i<argc && argv[i]; ++i) {

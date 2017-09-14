@@ -100,11 +100,9 @@ void test(duktape::engine& js)
   duktape::mod::filesystem::extended::define_in<>(js);
   js.define("testdir", test_path());
   try {
-    #if !defined(WINDOWS) || defined(WITH_EXPERIMENTAL)
     test_copy_function(js);
     test_move_function(js);
     test_remove_function(js);
-    #endif
     test_rmfiletree();
   } catch(...) {
     test_rmfiletree();

@@ -79,7 +79,7 @@ struct stdio
    *
    * @param {...*} args
    */
-  print = function(args) {}
+  print = function(args) {};
   #endif
   static int print(duktape::api& stack)
   { return print_to(stack, out_stream); }
@@ -90,7 +90,7 @@ struct stdio
    *
    * @param {...*} args
    */
-  alert = function(args) {}
+  alert = function(args) {};
   #endif
   static int alert(duktape::api& stack)
   { return print_to(stack, err_stream); }
@@ -104,7 +104,7 @@ struct stdio
    * @param {string} text
    * @returns {string}
    */
-  confirm = function(text) {}
+  confirm = function(text) {};
   #endif
   static int confirm(duktape::api& stack)
   {

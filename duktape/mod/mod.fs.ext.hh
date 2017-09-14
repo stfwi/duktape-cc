@@ -590,15 +590,11 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         return stack.throw_exception(std::string("Refusing to move special folder '") + match + "'");
       }
     }
-    #ifdef WITH_EXPERIMENTAL
     if(!::MoveFileExA(src.c_str(), dst.c_str(), MOVEFILE_WRITE_THROUGH|MOVEFILE_COPY_ALLOWED)) {
       return stack.throw_exception(std::string("Moving '") + src_path + "' to '" + dst_path + "' failed: " + win32errstr());
     } else {
       return_true;
     }
-    #else
-    return stack.throw_exception(std::string("Experimental win32 recursive move disabled for safety (src='") + src_path + "', dst='" + dst_path + "')");
-    #endif
     #endif
   }
   // </editor-fold>
@@ -754,8 +750,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     } else if(!recursive && (src_type == 'd')) { // there are voids here because of patterns
       return stack.throw_exception("Cannot recursively copy source directory because the recursive option is not set");
     }
-
-    #ifdef WITH_EXPERIMENTAL
     src.append(4,'\0');
     dst.append(4,'\0');
     ::SHFILEOPSTRUCTA sfos = ::SHFILEOPSTRUCTA();
@@ -770,9 +764,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     }
     stack.push(true);
     return 1;
-    #else
-    return stack.throw_exception(std::string("Experimental win32 recursive copy disabled for safety (src='") + src + "', dst='" + dst + "')");
-    #endif
     #endif
   }
   // </editor-fold>
@@ -886,7 +877,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         std::string match = win32_match_special_folder(path);
         if(!match.empty()) return stack.throw_exception(std::string("Refusing to delete special folder '") + match + "'");
       }
-      #ifdef WITH_EXPERIMENTAL
       path.append(4,'\0');
       ::SHFILEOPSTRUCTA sfos = ::SHFILEOPSTRUCTA();
       sfos.hwnd = nullptr;
@@ -899,9 +889,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         return stack.throw_exception("Not all files could by copied");
       }
       return_true;
-      #else
-      return stack.throw_exception(std::string("Experimental win32 recursive remove disabled for safety (path is '")+path+"')");
-      #endif
     }
     #endif
   }

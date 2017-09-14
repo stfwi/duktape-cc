@@ -1454,6 +1454,7 @@ namespace duktape { namespace detail {
           out += line + "\n";
         } while(p != s.npos);
       }
+      while(!out.empty() && ::isspace(out.back())) out.pop_back();
       return out;
     }
 

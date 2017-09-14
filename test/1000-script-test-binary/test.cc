@@ -14,13 +14,6 @@
 using namespace std;
 
 
-int trace_test(duk_context *ctx) {
-  duktape::api stack(ctx);
-  stack.push(stack.callstack());
-  return 1;
-}
-
-
 
 void test(duktape::engine& js)
 {
@@ -35,6 +28,6 @@ void test(duktape::engine& js)
   // reset some stdio to to testenv
   js.define("print", ecma_print); // may be overwritten by stdio
   js.define("alert", ecma_warn); // may be overwritten by stdio
-  js.define("trace", trace_test);
+  js.define("callstack", ecma_callstack);
   test_include_script(js);
 }

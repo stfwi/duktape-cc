@@ -46,11 +46,11 @@ ifeq ($(OS),win)
 BINARY_EXTENSION=.exe
 LDSTATIC+=-static -Os -s -static-libgcc
 FLAGSCXX+=-D_WIN32_WINNT=0x0601 -DWINVER=0x0601 -D_WIN32_IE=0x0900
-BINARY=js$(BINARY_EXTENSION)
+BINARY=djs$(BINARY_EXTENSION)
 LIBS+=-ladvapi32 -lshell32
 else
 BINARY_EXTENSION=.elf
-BINARY=js
+BINARY=djs
 LIBS+=-lrt
 ifdef STATIC
   LDSTATIC+=-static -Os -s -static-libgcc
@@ -89,7 +89,7 @@ MAIN_TESTJS:=$(wildcard main.js)
 #---------------------------------------------------------------------------------------------------
 # make targets
 #---------------------------------------------------------------------------------------------------
-.PHONY: clean all binary documentation jsdoc dev test test-binaries test-clean-all test-clean help static-code-analysis
+.PHONY: clean all binary documentation dev test test-binaries test-clean-all test-clean help static-code-analysis
 
 all: binary test documentation
 
@@ -169,18 +169,11 @@ cli/example.o: cli/example.cc $(HEADER_DEPS) $(TEST_BINARIES_SOURCES)
 #---------------------------------------------------------------------------------------------------
 # Documentation
 #---------------------------------------------------------------------------------------------------
-documentation: jsdoc
+documentation: doc/stdmods.js
 
 # JS documentation (searching the mods for JSDOC preprocessor tags and collecting the contents.
-ifneq ($(OS),win)
-doc/stdmods.js: $(STDMOD_SOURCES)
-	@find duktape/mod/ -name '*.hh' -exec cat {} \; \
-	| awk '/#if\(0 && JSDOC\)/,/#endif/' \
-	| sed -e 's/^[\t ]\+#if.*$$//' -e 's/^[\t ]\+#endif.*$$//' -e 's/^  //' -e 's/[\t ]\+$$//' \
-	> $@
-else
-.PHONY: doc/stdmods.js
-endif
+doc/stdmods.js: $(STDMOD_SOURCES) cli/$(BINARY) doc/mkjsdoc.js
+	@cli/$(BINARY) doc/mkjsdoc.js > $@
 
 #---------------------------------------------------------------------------------------------------
 # Tests
@@ -254,17 +247,6 @@ help:
 	@echo " - test-clean:     Clean test log files to re-run tests."
 	@echo " - test-clean-all: Clean also test binaries to force rebuild."
 	@echo ""
-
-#---------------------------------------------------------------------------------------------------
-
-#.PHONY: test-info
-#test-info:
-#	@echo "TESTDIRS = '$(notdir $(TESTDIRS))'"
-#	@echo "TEST_BINARIES = '$(TEST_BINARIES)'"
-#	@echo "TEST_BINARIES_RESULTS = '$(TEST_BINARIES_RESULTS)'"
-#	@echo "TEST_BINARIES_SOURCES = '$(TEST_BINARIES_SOURCES)'"
-#	@echo "TEST_SCRIPT_SOURCES = '$(TEST_SCRIPT_SOURCES)'"
-#	@echo "TEST_SCRIPT_RESULTS = '$(TEST_SCRIPT_RESULTS)'"
 
 # EOF
 #---------------------------------------------------------------------------------------------------
