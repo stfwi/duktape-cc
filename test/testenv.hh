@@ -304,8 +304,7 @@ int ecma_eexpect(duk_context *ctx)
   stack.top(0);
   while(!expr.empty() && ::isspace(expr.back())) expr.pop_back();
   while(!expr.empty() && ::isspace(expr.front())) expr = expr.substr(1);
-  stack.peval_string(expr);
-  if(stack.is_error(-1)) {
+  if(stack.peval_string(expr) != 0) {
     std::string msg = stack.safe_to_string(-1);
     ::sw::utest::test::fail(test_source_file, callerline(ctx), expr + std::string(" | Unexpected exception: '") + msg + "'");
     stack.push(false);
@@ -327,8 +326,7 @@ int ecma_eexpect_except(duk_context *ctx)
   stack.top(0);
   while(!expr.empty() && ::isspace(expr.back())) expr.pop_back();
   while(!expr.empty() && ::isspace(expr.front())) expr = expr.substr(1);
-  stack.peval_string(expr);
-  if(stack.is_error(-1)) {
+  if(stack.peval_string(expr) != 0) {
     std::string msg = stack.safe_to_string(-1);
     ::sw::utest::test::pass(test_source_file, callerline(ctx), expr + std::string(" | Expected exception: '") + msg + "'");
     stack.push(false);

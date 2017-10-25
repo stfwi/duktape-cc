@@ -1096,6 +1096,12 @@ namespace duktape { namespace detail {
     void inspect_value(index_t index) const
     { duk_inspect_value(ctx_, index); }
 
+    void seal(index_t index) const
+    { duk_seal(ctx_, index); }
+
+    void freeze(index_t index) const
+    { duk_freeze(ctx_, index); }
+
     static void xcopy_top(context_t to_ctx, context_t from_ctx, size_t count)
     { duk_xcopy_top(to_ctx, from_ctx, duk_idx_t(count)); }
 

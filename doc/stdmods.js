@@ -984,6 +984,16 @@ sprintf = function(format, args) {};
 exit = function(status_code) {};
 
 /**
+ * Includes a JS file and returns the result of
+ * the last statement.
+ * Note that `include()` is NOT recursion protected.
+ *
+ * @param {string} file
+ * @return {any}
+ */
+include = function(path) {};
+
+/**
  * Execute a process, optionally fetch stdout, stderr or pass stdin data.
  *
  * - The `program` is the path to the executable.
