@@ -66,6 +66,13 @@
 #else
 #define dukcc_assert(X)
 #endif
+
+#ifndef WITH_DEFAULT_STRICT_INCLUDE
+  #define DEFAULT_STRICT_INCLUDE (false)
+#elif !defined(DEFAULT_STRICT_INCLUDE)
+  #define DEFAULT_STRICT_INCLUDE (true)
+#endif
+
 // </editor-fold>
 
 // <editor-fold desc="forwards" defaultstate="collapsed">
@@ -73,7 +80,7 @@ namespace duktape {
   namespace detail {
     template <typename R=void> class basic_api;
     template <typename R=void> class basic_stack_guard;
-    template <typename MutexType=std::recursive_timed_mutex> class basic_engine;
+    template <typename MutexType=std::recursive_timed_mutex, bool StrictInclude=bool(DEFAULT_STRICT_INCLUDE)> class basic_engine;
     template <typename T> struct conv;
   }
 
@@ -144,8 +151,9 @@ namespace duktape {
 // </editor-fold>
 
 // <editor-fold desc="auxiliary functions" defaultstate="collapsed">
-namespace duktape { namespace detail { namespace {
+namespace duktape { namespace detail { 
 
+namespace {
 template <typename=void>
 struct aux
 {
@@ -180,15 +188,15 @@ struct aux
     }
   }
 };
-
+}
 
 /**
  * define(....) : Defines are done using these flags (DUK_DEFPROP_HAVE_... will be
  * automatically added). The default is defining sealed, frozen - means not writable,
  * not configurable, but enumerable.
  */
-template <typename T=unsigned>
-struct defprop_flags
+template <typename T>
+struct basic_defprop_flags
 {
   using type = T;
   static constexpr type restricted = 0;
@@ -214,8 +222,9 @@ struct defprop_flags
   }
 };
 
+using defprop_flags = basic_defprop_flags<unsigned>;
 
-}}}
+}}
 // </editor-fold>
 
 // <editor-fold desc="api" defaultstate="collapsed">
@@ -349,8 +358,8 @@ namespace duktape { namespace detail {
     basic_api(duk_context* ct) noexcept : ctx_(ct)
     { ; }
 
-    template <typename T>
-    basic_api(const basic_engine<T>& en) : ctx_(en.ctx())
+    template <typename T, bool S>
+    basic_api(const basic_engine<T,S>& en) : ctx_(en.ctx())
     { ; }
 
     ~basic_api() noexcept
@@ -1140,7 +1149,7 @@ namespace duktape { namespace detail {
       require_stack(1);
       push_string(std::string("\xff_") + key);
       swap(-1,-2);
-      def_prop(obj_index, defprop_flags<>::convert(defprop_flags<>::restricted));
+      def_prop(obj_index, defprop_flags::convert(defprop_flags::restricted));
       return true;
     }
 
@@ -1764,7 +1773,7 @@ namespace duktape { namespace detail {
 
   private:
 
-    template <bool Strict>
+    template <bool StrictReturn>
     static type get_array(duk_context* ctx, int index)
     {
       api stack(ctx);
@@ -1779,8 +1788,8 @@ namespace duktape { namespace detail {
       const api::index_t size = stack.get_length(index);
       for(auto i = api::index_t(0); i < size; ++i) {
         if(!stack.get_prop_index(index, i)) return type();
-        ret.push_back(!Strict ? stack.to<T>(-1) : stack.get<T>(-1));
-        if(Strict && !stack.is<T>(-1)) { stack.pop(); return type(); }
+        ret.push_back(!StrictReturn ? stack.to<T>(-1) : stack.get<T>(-1));
+        if(StrictReturn && !stack.is<T>(-1)) { stack.pop(); return type(); }
         stack.pop();
       }
       return ret;
@@ -1959,7 +1968,7 @@ namespace duktape { namespace detail {
    *
    * The allocated heap is freed during destruction.
    */
-  template <typename MutexType>
+  template <typename MutexType, bool StrictInclude>
   class basic_engine
   {
   public:
@@ -1968,7 +1977,7 @@ namespace duktape { namespace detail {
     using api_type = ::duktape::api;
     using stack_guard_type = ::duktape::stack_guard;
     using lock_guard_type = std::lock_guard<MutexType>;
-    using defflags = defprop_flags<>;
+    using defflags = defprop_flags;
     // </editor-fold>
 
   public:
@@ -2030,6 +2039,14 @@ namespace duktape { namespace detail {
   public:
 
     // <editor-fold desc="standard methods" defaultstate="collapsed">
+    #if(0 && JSDOC)
+    /**
+     * Reference to the global object, mainly useful
+     * for accessing in strict mode ('use strict';).
+     * @var {object}
+     */
+    var global = {};
+    #endif
     /**
      * Resets the engine to a new, empty heap.
      */
@@ -2051,6 +2068,13 @@ namespace duktape { namespace detail {
       undef("Duktape.info");
       undef("Duktape.errCreate");
       undef("Duktape.errThrow");
+      // Global object (in case DUK_USE_GLOBAL_BINDING not set)
+      stack().push_global_object();
+      stack().push_string("global");
+      stack().push_global_object();
+      stack().def_prop(0, DUK_DEFPROP_HAVE_VALUE|DUK_DEFPROP_HAVE_WRITABLE|DUK_DEFPROP_WRITABLE|DUK_DEFPROP_HAVE_ENUMERABLE|DUK_DEFPROP_HAVE_CONFIGURABLE|DUK_DEFPROP_CONFIGURABLE);
+      stack().top(0);
+      stack().gc();
     }
     // </editor-fold>
 
@@ -2060,24 +2084,24 @@ namespace duktape { namespace detail {
      * @param const char* path
      * @return typename ReturnType
      */
-    template <typename ReturnType=void, bool Strict=false>
-    ReturnType include(const char* path)
-    { return include<ReturnType, Strict>(std::string(path)); }
+    template <typename ReturnType=void, bool StrictReturn=false>
+    ReturnType include(const char* path, bool use_strict=StrictInclude)
+    { return include<ReturnType, StrictReturn>(std::string(path), use_strict); }
 
     /**
      * Includes a file, throws a `duktape::script_error` on fail.
      * @param std::string path
      * @return typename ReturnType
      */
-    template <typename ReturnType=void, bool Strict=false>
-    ReturnType include(std::string path)
+    template <typename ReturnType=void, bool StrictReturn=false>
+    ReturnType include(std::string path, bool use_strict=StrictInclude)
     {
       std::ifstream is;
       is.open(path.c_str(), std::ifstream::in | std::ifstream::binary);
       std::string code((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
       if(!is) throw script_error(std::string("Failed to read include file '") + path + "'");
       is.close();
-      return eval<ReturnType, Strict>(std::move(code), path);
+      return eval<ReturnType, StrictReturn>(std::move(code), path, use_strict);
     }
 
     /**
@@ -2087,9 +2111,9 @@ namespace duktape { namespace detail {
      * @param const char* file=nullptr
      * @return typename ReturnType
      */
-    template <typename ReturnType=void, bool Strict=false>
-    ReturnType eval(const char* code, const char* file=nullptr)
-    { return eval<ReturnType,Strict>(std::string(code), std::string(file ? file : "(eval)")); }
+    template <typename ReturnType=void, bool StrictReturn=false>
+    ReturnType eval(const char* code, const char* file=nullptr, bool use_strict=false)
+    { return eval<ReturnType,StrictReturn>(std::string(code), std::string(file ? file : "(eval)"), use_strict); }
 
     /**
      * Evaluate code given as string, throws a `duktape::script_error` on fail. Optionally a
@@ -2098,8 +2122,8 @@ namespace duktape { namespace detail {
      * @param std::string file="(eval)"
      * @return typename ReturnType
      */
-    template <typename ReturnType=void, bool Strict=false>
-    ReturnType eval(std::string&& code, std::string file="(eval)")
+    template <typename ReturnType=void, bool StrictReturn=false>
+    ReturnType eval(std::string&& code, std::string file="(eval)", bool use_strict=false)
     {
       lock_guard_type lck(mutex_);
       stack_guard_type sg(ctx(), true);
@@ -2108,7 +2132,7 @@ namespace duktape { namespace detail {
       stack().push_string(file);
       bool ok;
       try {
-        ok = (stack().eval_raw(0, 0, DUK_COMPILE_EVAL | DUK_COMPILE_SAFE | DUK_COMPILE_SHEBANG) == 0);
+        ok = (stack().eval_raw(0, 0, DUK_COMPILE_EVAL | DUK_COMPILE_SAFE | DUK_COMPILE_SHEBANG | (use_strict ? DUK_COMPILE_STRICT : 0)) == 0);
       } catch(const exit_exception&) {
         stack().top(0);
         stack().gc();
@@ -2133,7 +2157,7 @@ namespace duktape { namespace detail {
         }
       } else if(std::is_void<ReturnType>::value) {
         return ReturnType();
-      } else if(!Strict) {
+      } else if(!StrictReturn) {
         return conv<ReturnType>::to(ctx(), -1);
       } else {
         if(!conv<ReturnType>::is(ctx(), -1)) {
@@ -2155,10 +2179,10 @@ namespace duktape { namespace detail {
      * @param std::string funct
      * @return typename ReturnType
      */
-    template <typename ReturnType=void, bool Strict=false, typename ...Args>
+    template <typename ReturnType=void, bool StrictReturn=false, typename ...Args>
     ReturnType call(const char* funct, Args ...args)
     { if(!funct) throw engine_error("BUG: engine::call(nullptr, ...)");
-      return call<ReturnType, Strict, Args...>(std::string(funct), args...);
+      return call<ReturnType, StrictReturn, Args...>(std::string(funct), args...);
     }
 
     /**
@@ -2166,7 +2190,7 @@ namespace duktape { namespace detail {
      * @param std::string funct
      * @return typename ReturnType
      */
-    template <typename ReturnType=void, bool Strict=false, typename ...Args>
+    template <typename ReturnType=void, bool StrictReturn=false, typename ...Args>
     ReturnType call(std::string funct, Args ...args)
     {
       lock_guard_type lck(mutex_);
@@ -2204,7 +2228,7 @@ namespace duktape { namespace detail {
         }
       } else if(std::is_void<ReturnType>::value) {
         return ReturnType();
-      } else if(!Strict) {
+      } else if(!StrictReturn) {
         return conv<ReturnType>::to(ctx(), -1);
       } else if(!conv<ReturnType>::is(ctx(), -1)) {
         stack().top(0);

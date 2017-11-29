@@ -1,34 +1,34 @@
 
 
-function e() {
+global.e = function() {
   print("-> e()");
   wrapped_native_function_throwing_script_error();
   print("<- e()");
-}
+};
 
-function d() {
+global.d = function() {
   print("-> d()");
   e();
   print("<- d()");
-}
+};
 
-function c() {
+global.c = function() {
   print("-> c()");
   wrapped_apistack_call("d");
   print("<- c()");
-}
+};
 
-function b() {
+global.b = function() {
   print("-> b()");
   wrapped_engine_call("c");
   print("<- a()");
-}
+};
 
-function a() {
+global.a = function() {
   print("-> a()");
   wrapped_engine_eval("b();");
   print("<- a()");
-}
+};
 
 try {
   a();

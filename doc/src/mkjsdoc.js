@@ -1,4 +1,5 @@
 #!/usr/bin/djs
+"use strict";
 
 /**
  * Removes indentation spaces on all lines of the given text.
@@ -35,11 +36,12 @@ function unindent(text) {
  * @returns {String}
  */
 function scan_js_docs() {
-  var jsdocs = "";
-  fs.find(fs.realpath(fs.dirname(fs.dirname(fs.realpath(sys.script))) + fs.directoryseparator + "duktape"), {
+  var docs = {};
+  fs.find(fs.realpath(fs.dirname(fs.dirname(fs.dirname(fs.realpath(sys.script)))) + fs.directoryseparator + "duktape"), {
     name:"*.hh",
     type:"f",
     filter: function(path) {
+      var doc = "";
       var doc_span = "";
       var is_doc_span = false;
       fs.readfile(path, function(line) {
@@ -51,7 +53,7 @@ function scan_js_docs() {
           } else if(line.search(/^[\s]*?#endif[\s]*?$/) >= 0) {
             if(is_doc_span) {
               doc_span = doc_span.replace(/[\s]+$/g,"").replace(/^[\r\n]+/g,"");
-              jsdocs += unindent(doc_span) + "\n\n";
+              doc += unindent(doc_span) + "\n\n";
             }
             doc_span = "";
             is_doc_span = false;
@@ -60,10 +62,30 @@ function scan_js_docs() {
           }
         }
       });
+      docs[fs.basename(path)] = doc;
     }
   });
-  return jsdocs.replace(/[\s]+$/, "") + "\n";
+  
+  // First fixed order, then by sort order
+  var sorted_docs = "";
+  var append_doc = function(key) { 
+    sorted_docs += "/** @file: " + key + " */\n\n";
+    sorted_docs += docs[key]; delete docs[key]; 
+  };
+  append_doc("duktape.hh");
+  append_doc("mod.stdlib.hh");
+  append_doc("mod.stdio.hh");
+  append_doc("mod.fs.hh");
+  append_doc("mod.fs.ext.hh");
+  append_doc("mod.fs.file.hh");
+  append_doc("mod.sys.hh");
+  append_doc("mod.sys.exec.hh");
+  for(var key in docs) { 
+    sorted_docs += "/** @file: " + key + " */\n\n";
+    sorted_docs += docs[key];
+  }
+  return sorted_docs.replace(/[\s]+$/, "") + "\n";
 }
 
 // result to stdout
-print(scan_js_docs());
+print(scan_js_docs()); 

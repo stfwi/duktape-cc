@@ -1,3 +1,612 @@
+/** @file: duktape.hh */
+
+/**
+ * Reference to the global object, mainly useful
+ * for accessing in strict mode ('use strict';).
+ * @var {object}
+ */
+var global = {};
+
+/** @file: mod.stdlib.hh */
+
+/**
+ * Exits the script interpreter with a specified exit code.
+ *
+ * @param {number} status_code
+ */
+exit = function(status_code) {};
+
+/**
+ * Includes a JS file and returns the result of
+ * the last statement.
+ * Note that `include()` is NOT recursion protected.
+ *
+ * @param {string} path
+ * @return {any}
+ */
+include = function(path) {};
+
+/** @file: mod.stdio.hh */
+
+/**
+ * print(a,b,c, ...). Writes data stringifyed to STDOUT.
+ *
+ * @param {...*} args
+ */
+print = function(args) {};
+
+/**
+ * alert(a,b,c, ...). Writes data stringifyed to STDERR.
+ *
+ * @param {...*} args
+ */
+alert = function(args) {};
+
+/**
+ * Returns a first character entered as string. First function argument
+ * is a text that is printed before reading the input stream (without newline,
+ * "?" or ":"). The input is read from STDIN.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+confirm = function(text) {};
+
+/**
+ * Returns a line entered via the input stream STDIN.
+ *
+ * @returns {string}
+ */
+prompt = function() {};
+
+/**
+ * Console object known from various JS implementations.
+ *
+ * @var {object}
+ */
+var console = {};
+
+/**
+ * Writes a line to the log stream (automatically appends a newline).
+ * The default log stream is STDERR.
+ *
+ * @param {...*} args
+ */
+console.log = function(args) {};
+
+/**
+ * Write to STDOUT without any conversion, whitespaces between the given arguments,
+ * and without newline at the end.
+ *
+ * @param {...*} args
+ */
+console.write = function(args) {};
+
+/**
+ * Read from STDIN until EOF. Using the argument `arg` it is possible
+ * to use further functionality:
+ *
+ *  - By default (if `arg` is undefined or not given) the function
+ *    returns a string when all data are read.
+ *
+ *  - If `arg` is boolean and `true`, then the input is read into
+ *    a buffer variable, not a string. The function returns when
+ *    all data are read.
+ *
+ * - If `arg` is a function, then a string is read line by line,
+ *   and each line passed to this callback function. If the function
+ *   returns `true`, then the line is added to the output. The
+ *   function may also preprocess line and return a String. In this
+ *   case the returned string is added to the output.
+ *   Otherwise, if `arg` is not `true` and no string, the line is
+ *   skipped.
+ *
+ * @param {function|boolean} arg
+ * @returns {string|buffer}
+ */
+console.read = function(arg) {};
+
+/**
+ * C style formatted output to STDOUT. Note that not
+ * all formats can be used like in C/C++ because ECMA
+ * is has no strong type system. E.g. %u, %ul etc does
+ * not make sense because numbers are intrinsically
+ * floating point, and the (data type) size of the number
+ * matters when using %u. If unsupported arguments are
+ * passed the method will throw an exception.
+ *
+ * Supported formatters are:
+ *
+ *  - %d, %ld, %lld: The ECMA number is coerced
+ *    into an integer and printed. Digits and sign
+ *    are supported (%4d, %+06l).
+ *
+ *  - %f, %lf, %g: Floating point format, also with additional
+ *    format specs like %.8f, %+10.5f etc.
+ *
+ *  - %x: Hexadecimal representation of numbers (also %08x
+ *    or %4X etc supported).
+ *
+ *  - %o: Octal representation of numbers (also %08o)
+ *
+ *  - %s: String coercing with optional minimum width (e.g. %10s)
+ *
+ *  - %c: When number given, the ASCII code of the lowest byte
+ *        (e.g. 65=='A'). When string given the first character
+ *        of the string.
+ *
+ * Not supported:
+ *
+ *  - Parameter argument (like "%2$d", the "2$" would apply the
+ *    same format to two arguments passed to the function).
+ *
+ *  - Dynamic width (like "%*f", the "*" would be used to pass
+ *    the output width of the floating point number as argument).
+ *
+ *  - Unsigned %u, %n
+ *
+ * @param {string} format
+ * @param {...*} args
+ */
+printf = function(format, args) {};
+
+/**
+ * C style formatted output into a string. For
+ * formatting details please @see printf.
+ *
+ * @param {string} format
+ * @param {...*} args
+ * @returns {string}
+ */
+sprintf = function(format, args) {};
+
+/** @file: mod.fs.hh */
+
+/**
+ * Global file system object.
+ * @var {object}
+ */
+var fs = {};
+
+/**
+ * Reads a file, returns the contents or undefined on error.
+ *
+ * - Normally the file is read as text file, no matter if the data in the file
+ *   really correspond to a readable text.
+ *
+ * - If `conf` is a string containing the word "binary", the data are read
+ *   binary and returned as `buffer`.
+ *
+ * - If `conf` is a callable function, the data are read as text line by line,
+ *   and for each line the callback is invoked, where the line text is passed
+ *   as argument. The callback ("filter function") can:
+ *
+ *    - return `true` to keep the passed line in the file read output.
+ *    - return `false` or `undefined` to exclude the line from the output.
+ *    - return a `string` to put the returned string into the output instead
+ *      of the original passed text (inline editing).
+ *
+ * - Binary reading and using the filter callback function excludes another.
+ *
+ * - Not returning anything/undefined has a purpose of storing the line data
+ *   somewhere else, e.g. when parsing:
+ *
+ *     var config = {};
+ *     fs.readfile("whatever.conf", function(s) {
+ *       // parse, parse ... get some key and value pair ...
+ *       config[key] = value;
+ *       // no return return statement, output of fs.filter()
+ *       // is not relevant.
+ *     });
+ *
+ * @param {string} path
+ * @param {string|function} [conf]
+ * @returns {string|buffer}
+ */
+fs.readfile = function(path, conf) {};
+
+/**
+ * Writes data into a file Reads a file and returns the contents as text.
+ *
+ * @param {string} path
+ * @param {string|buffer|number|boolean|object} data
+ * @param {string|object} [flags]
+ * @returns {boolean}
+ */
+fs.filewrite = function(path, data, flags) {};
+
+/**
+ * Returns the current working directory or `undefined` on error.
+ * Does strictly not accept arguments.
+ *
+ * @returns {string|undefined}
+ */
+fs.cwd = function() {};
+
+/**
+ * Returns the temporary directory or `undefined` on error.
+ * Does strictly not accept arguments.
+ *
+ * @returns {string|undefined}
+ */
+fs.tmpdir = function() {};
+
+/**
+ * Returns the path for a temporary file. The file is
+ * NOT created yet. Note that using this function for
+ * creating temporary files is unsafe, as other processes
+ * might create the same file before this program has
+ * created it.
+ * Accepts one optional argument, the file prefix.
+ *
+ * @param {string} [prefix]
+ * @returns {string|undefined}
+ */
+fs.tempnam = function(prefix) {};
+
+/**
+ * Returns the home directory of the current used or `undefined` on error.
+ * Does strictly not accept arguments.
+ *
+ * @returns {string|undefined}
+ */
+fs.home = function() {};
+
+/**
+ * Returns the real, full path (with resolved symbolic links) or `undefined`
+ * on error or if the file does not exist.
+ * Does strictly require one String argument (the path).
+ *
+ * @param {string} path
+ * @returns {string|undefined}
+ */
+fs.realpath = function(path) {};
+
+/**
+ * Returns directory part of the given path (without tailing slash/backslash)
+ * or `undefined` on error.
+ * Does strictly require one String argument (the path).
+ *
+ * @param {string} path
+ * @returns {string|undefined}
+ */
+fs.dirname = function(path) {};
+
+/**
+ * Returns file base part of the given path (name and extension, without parent directory)
+ * or `undefined` on error.
+ * Does strictly require one String argument (the path).
+ *
+ * @param {string} path
+ * @returns {string|undefined}
+ */
+fs.basename = function(path) {};
+
+/**
+ * Returns a string representation of a file mode bit mask, e.g.
+ * for a (octal) mode `0755` directory the output will be '755' or 'rwxrwxrwx' (see flags below).
+ * Does strictly require one (integral) Number argument (the input mode) at first.
+ *
+ * If flags are given they modify the output as follows:
+ *
+ *  flags == 'o' (octal)    : returns a string with the octal representation (like 755 or 644)
+ *  flags == 'l' (long)     : returns a string like 'rwxrwxrwx', like `ls -l` but without preceeding file type character.
+ *  flags == 'e' (extended) : output like `ls -l` ('d'=directory, 'c'=character device, 'p'=pipe, ...)
+ *
+ * @param {number} mode
+ * @param {string} [flags]
+ * @returns {string|undefined}
+ */
+fs.mod2str = function(mode, flags) {};
+
+/**
+ * Returns a numeric representation of a file mode bit mask given as string, e.g.
+ * "755", "rwx------", etc.
+ * Does strictly require one argument (the input mode). Note that numeric arguments
+ * will be reinterpreted as string, so that 755 is NOT the bit mask 0x02f3, but seen
+ * as 0755 octal.
+ *
+ * @param {string} mode
+ * @returns {number|undefined}
+ */
+fs.str2mod = function(mode) {};
+
+/**
+ * Returns a plain object containing information about a given file,
+ * directory or `undefined` on error.
+ * Does strictly require one String argument (the path).
+ *
+ * The returned object has the properties:
+ *
+ * {
+ *    path: String,   // given path (function argument)
+ *    size: Number,   // size in bytes
+ *    mtime: Date,    // Last modification time
+ *    ctime: Date,    // Creation time
+ *    atime: Date,    // Last accessed time
+ *    owner: String,  // User name of the file owner
+ *    group: String,  // Group name of the file group
+ *    uid: Number,    // User ID of the owner
+ *    gid: Number,    // Group ID of the group
+ *    inode: Number,  // Inode of the file
+ *    device: Number, // Device identifier/no of the file
+ *    mode: String,   // Octal mode representation like "644" or "755"
+ *    modeval: Number // Numeric file mode bitmask, use `fs.mod2str(mode)` to convert to a string like 'drwxr-xr-x'.
+ * }
+ *
+ * @param {string} path
+ * @returns {object|undefined}
+ */
+fs.stat = function(path) {};
+
+/**
+ * Returns the file size in bytes of a given file path, or undefined on error.
+ * Does strictly require one String argument (the input path).
+ *
+ * @param {string} path
+ * @returns {number|undefined}
+ */
+fs.size = function(path) {};
+
+/**
+ * Returns the name of the file owner of a given file path, or undefined on error.
+ * Does strictly require one String argument (the input path).
+ *
+ * @param {string} path
+ * @returns {string|undefined}
+ */
+fs.owner = function(path) {};
+
+/**
+ * Returns the group name of a given file path, or undefined on error.
+ * Does strictly require one String argument (the input path).
+ *
+ * @param {string} path
+ * @returns {string|undefined}
+ */
+fs.group = function(path) {};
+
+/**
+ * Returns last modified time a given file path, or undefined on error.
+ * Does strictly require one String argument (the input path).
+ *
+ * @param {string} path
+ * @returns {Date|undefined}
+ */
+fs.mtime = function(path) {};
+
+/**
+ * Returns last access time a given file path, or undefined on error.
+ * Does strictly require one String argument (the input path).
+ *
+ * @param {string} path
+ * @returns {Date|undefined}
+ */
+fs.atime = function(path) {};
+
+/**
+ * Returns creation time a given file path, or undefined on error.
+ * Does strictly require one String argument (the input path).
+ *
+ * @param {string} path
+ * @returns {Date|undefined}
+ */
+fs.ctime = function(path) {};
+
+/**
+ * Returns true if a given path points to an existing "node" in the file system (file, dir, pipe, link ...),
+ * false otherwise or undefined on error.
+ * Does strictly require one String argument (the input path).
+ *
+ * @param {string} path
+ * @returns {boolean}
+ */
+fs.exists = function(path) {};
+
+/**
+ * Returns true if a given path points to a regular file, false otherwise or undefined on error.
+ * Does strictly require one String argument (the input path).
+ *
+ * @param {string} path
+ * @returns {boolean}
+ */
+fs.isfile = function(path) {};
+
+/**
+ * Returns true if a given path points to a directory, false otherwise or undefined on error.
+ * Does strictly require one String argument (the input path).
+ *
+ * @param {string} path
+ * @returns {boolean}
+ */
+fs.isdir = function(path) {};
+
+/**
+ * Returns true if a given path points to a link, false otherwise or undefined on error.
+ * Does strictly require one String argument (the input path).
+ *
+ * @param {string} path
+ * @returns {boolean}
+ */
+fs.islink = function(path) {};
+
+/**
+ * Returns true if a given path points to a fifo (named pipe), false otherwise or undefined on error.
+ * Does strictly require one String argument (the input path).
+ *
+ * @param {string} path
+ * @returns {boolean}
+ */
+fs.isfifo = function(path) {};
+
+/**
+ * Returns true if the current user has write permission to a given path,
+ * false otherwise or undefined on error.
+ * Does strictly require one String argument (the input path).
+ *
+ * @param {string} path
+ * @returns {boolean}
+ */
+fs.iswritable = function(path) {};
+
+/**
+ * Returns true if the current user has read permission to a given path,
+ * false otherwise or undefined on error.
+ * Does strictly require one String argument (the input path).
+ *
+ * @param {string} path
+ * @returns {boolean}
+ */
+fs.isreadable = function(path) {};
+
+/**
+ * Returns true if the current user has execution permission to a given path,
+ * false otherwise or undefined on error.
+ * Does strictly require one String argument (the input path).
+ *
+ * @param {string} path
+ * @returns {boolean}
+ */
+fs.isexecutable = function(path) {};
+
+/**
+ * Returns the target path of a symbolic link, returns a String or `undefined` on error.
+ * Does strictly require one String argument (the path).
+ * Note: Windows: returns undefined, not implemented.
+ *
+ * @param {string} path
+ * @returns {string|undefined}
+ */
+fs.readlink = function(path) {};
+
+/**
+ * Switches the current working directory to the specified path. Returns true on success, false on error.
+ * Does strictly require one String argument (the input path).
+ *
+ * @param {string} path
+ * @returns {boolean}
+ */
+fs.chdir = function(path) {};
+
+/**
+ * Creates a new empty directory for the specified path. Returns true on success, false on error.
+ * Require one String argument (the input path), and one optional option argument.
+ * If the options is "p" or "parents" (similar to unix `mkdir -p`), parent directories will be
+ * created recursively. If the directory already exists, the function returns success, if the
+ * creation of the directory or a parent directory fails, the function returns false.
+ * Note that it is possible that the path might be only partially created in this case.
+ *
+ * @param {string} path
+ * @param {string} [options]
+ * @returns {boolean}
+ */
+fs.mkdir = function(path, options) {};
+
+/**
+ * Removes an empty directory specified by a given path. Returns true on success, false on error.
+ * Does strictly require one String argument (the input path).
+ * Note that the function also fails if the directory is not empty (no recursion),
+ *
+ * @param {string} path
+ * @returns {boolean}
+ */
+fs.rmdir = function(path) {};
+
+/**
+ * Removes a file or link form the file system. Returns true on success, false on error.
+ * Does strictly require one String argument (the input path).
+ * Note that the function also fails if the given path is a directory. Use `fs.rmdir()` in this case.
+ *
+ * @param {string} path
+ * @returns {boolean}
+ */
+fs.unlink = function(path) {};
+
+/**
+ * Changes the modification and access time of a file or directory. Returns true on success, false on error.
+ * Does strictly require three argument: The input path (String), the last-modified time (Date) and the last
+ * access time (Date).
+ *
+ * @param {string} path
+ * @param {Date} [mtime]
+ * @param {Date} [atime]
+ * @returns {boolean}
+ */
+fs.utime = function(path, mtime, atime) {};
+
+/**
+ * Changes the name of a file or directory. Returns true on success, false on error.
+ * Does strictly require two String arguments: The input path and the new name path.
+ * Note that this is a basic filesystem i/o function that fails if the parent directory,
+ * or the new file does already exist.
+ *
+ * @param {string} path
+ * @param {string} new_path
+ * @returns {boolean}
+ */
+fs.rename = function(path, new_path) {};
+
+/**
+ * Creates a symbolic link, returns true on success, false on error.
+ *
+ * @param {string} path
+ * @param {string} link_path
+ * @returns {boolean}
+ */
+fs.symlink = function(path, link_path) {};
+
+/**
+ * Creates a (hard) link, returns true on success, false on error.
+ *
+ * @param {string} path
+ * @param {string} link_path
+ * @returns {boolean}
+ */
+fs.hardlink = function(path, link_path) {};
+
+/**
+ * Creates a (hard) link, returns true on success, false on error.
+ *
+ * @param {string} path
+ * @param {string|number} [mode]
+ * @returns {boolean}
+ */
+fs.chmod = function(path, mode) {};
+
+/**
+ * Lists the contents of a directory (basenames only), undefined if the function failed to open the directory
+ * for reading. Results are unsorted.
+ *
+ * @param {string} path
+ * @returns {array|undefined}
+ */
+fs.readdir = function(path) {};
+
+/**
+ * File pattern (fnmatch) based listing of files.
+ *
+ * @param {string} pattern
+ * @returns {array|undefined}
+ */
+fs.glob = function(pattern) {};
+
+/**
+ * Contains the (execution path) PATH separator,
+ * e.g. ":" for Linux/Unix or ";" for win32.
+ *
+ * @var {string}
+ */
+fs.pathseparator = "";
+/**
+ * Contains the directory separator, e.g. "/"
+ * for Linux/Unix or "\" for win32.
+ *
+ * @var {string}
+ */
+fs.directoryseparator = "";
+
+/** @file: mod.fs.ext.hh */
+
 /**
  * Recursive directory walking. The argument `path` specifies the root directory
  * of the file search - that is not a pattern with wildcards, but a absolute or
@@ -97,6 +706,8 @@ fs.copy = function(source_path, target_path, options) {};
  * @returns {boolean}
  */
 fs.remove = function(target_path, options) {};
+
+/** @file: mod.fs.file.hh */
 
 /**
  * File object constructor, creates a fs.file object when
@@ -409,686 +1020,13 @@ fs.file.lock = function(access) {};
  */
 fs.file.unlock = function() {};
 
-/**
- * Reads a file, returns the contents or undefined on error.
- *
- * - Normally the file is read as text file, no matter if the data in the file
- *   really correspond to a readable text.
- *
- * - If `conf` is a string containing the word "binary", the data are read
- *   binary and returned as `buffer`.
- *
- * - If `conf` is a callable function, the data are read as text line by line,
- *   and for each line the callback is invoked, where the line text is passed
- *   as argument. The callback ("filter function") can:
- *
- *    - return `true` to keep the passed line in the file read output.
- *    - return `false` or `undefined` to exclude the line from the output.
- *    - return a `string` to put the returned string into the output instead
- *      of the original passed text (inline editing).
- *
- * - Binary reading and using the filter callback function excludes another.
- *
- * - Not returning anything/undefined has a purpose of storing the line data
- *   somewhere else, e.g. when parsing:
- *
- *     var config = {};
- *     fs.readfile("whatever.conf", function(s) {
- *       // parse, parse ... get some key and value pair ...
- *       config[key] = value;
- *       // no return return statement, output of fs.filter()
- *       // is not relevant.
- *     });
- *
- * @param {string} path
- * @param {string|function} [conf]
- * @returns {string|buffer}
- */
-fs.readfile = function(path, conf) {};
+/** @file: mod.sys.hh */
 
 /**
- * Writes data into a file Reads a file and returns the contents as text.
- *
- * @param {string} path
- * @param {string|buffer|number|boolean|object} data
- * @param {string|object} [flags]
- * @returns {boolean}
+ * Operating system functionality object.
+ * @var {object}
  */
-fs.filewrite = function(path, data, flags) {};
-
-/**
- * Returns the current working directory or `undefined` on error.
- * Does strictly not accept arguments.
- *
- * @returns {string|undefined}
- */
-fs.cwd = function() {};
-
-/**
- * Returns the temporary directory or `undefined` on error.
- * Does strictly not accept arguments.
- *
- * @returns {string|undefined}
- */
-fs.tmpdir = function() {};
-
-/**
- * Returns the path for a temporary file. The file is
- * NOT created yet. Note that using this function for
- * creating temporary files is unsafe, as other processes
- * might create the same file before this program has
- * created it.
- * Accepts one optional argument, the file prefix.
- *
- * @param {string} [prefix]
- * @returns {string|undefined}
- */
-fs.tempnam = function(prefix) {};
-
-/**
- * Returns the home directory of the current used or `undefined` on error.
- * Does strictly not accept arguments.
- *
- * @returns {string|undefined}
- */
-fs.home = function() {};
-
-/**
- * Returns the real, full path (with resolved symbolic links) or `undefined`
- * on error or if the file does not exist.
- * Does strictly require one String argument (the path).
- *
- * @param {string} path
- * @returns {string|undefined}
- */
-fs.realpath = function(path) {};
-
-/**
- * Returns directory part of the given path (without tailing slash/backslash)
- * or `undefined` on error.
- * Does strictly require one String argument (the path).
- *
- * @param {string} path
- * @returns {string|undefined}
- */
-fs.dirname = function(path) {};
-
-/**
- * Returns file base part of the given path (name and extension, without parent directory)
- * or `undefined` on error.
- * Does strictly require one String argument (the path).
- *
- * @param {string} path
- * @returns {string|undefined}
- */
-fs.basename = function(path) {};
-
-/**
- * Returns a string representation of a file mode bit mask, e.g.
- * for a (octal) mode `0755` directory the output will be '755' or 'rwxrwxrwx' (see flags below).
- * Does strictly require one (integral) Number argument (the input mode) at first.
- *
- * If flags are given they modify the output as follows:
- *
- *  flags == 'o' (octal)    : returns a string with the octal representation (like 755 or 644)
- *  flags == 'l' (long)     : returns a string like 'rwxrwxrwx', like `ls -l` but without preceeding file type character.
- *  flags == 'e' (extended) : output like `ls -l` ('d'=directory, 'c'=character device, 'p'=pipe, ...)
- *
- * @param {number} mode
- * @param {string} [flags]
- * @returns {string|undefined}
- */
-fs.mod2str = function(mode, flags='') {};
-
-/**
- * Returns a numeric representation of a file mode bit mask given as string, e.g.
- * "755", "rwx------", etc.
- * Does strictly require one argument (the input mode). Note that numeric arguments
- * will be reinterpreted as string, so that 755 is NOT the bit mask 0x02f3, but seen
- * as 0755 octal.
- *
- * @param {string} mode
- * @returns {number|undefined}
- */
-fs.str2mod = function(mode) {};
-
-/**
- * Returns a plain object containing information about a given file,
- * directory or `undefined` on error.
- * Does strictly require one String argument (the path).
- *
- * The returned object has the properties:
- *
- * {
- *    path: String,   // given path (function argument)
- *    size: Number,   // size in bytes
- *    mtime: Date,    // Last modification time
- *    ctime: Date,    // Creation time
- *    atime: Date,    // Last accessed time
- *    owner: String,  // User name of the file owner
- *    group: String,  // Group name of the file group
- *    uid: Number,    // User ID of the owner
- *    gid: Number,    // Group ID of the group
- *    inode: Number,  // Inode of the file
- *    device: Number, // Device identifier/no of the file
- *    mode: String,   // Octal mode representation like "644" or "755"
- *    modeval: Number // Numeric file mode bitmask, use `fs.mod2str(mode)` to convert to a string like 'drwxr-xr-x'.
- * }
- *
- * @param {string} path
- * @returns {object|undefined}
- */
-fs.stat = function(path) {};
-
-/**
- * Returns the file size in bytes of a given file path, or undefined on error.
- * Does strictly require one String argument (the input path).
- *
- * @param {string} path
- * @returns {number|undefined}
- */
-fs.size = function(path) {};
-
-/**
- * Returns the name of the file owner of a given file path, or undefined on error.
- * Does strictly require one String argument (the input path).
- *
- * @param {string} path
- * @returns {string|undefined}
- */
-fs.owner = function(path) {};
-
-/**
- * Returns the group name of a given file path, or undefined on error.
- * Does strictly require one String argument (the input path).
- *
- * @param {string} path
- * @returns {string|undefined}
- */
-fs.group = function(path) {};
-
-/**
- * Returns last modified time a given file path, or undefined on error.
- * Does strictly require one String argument (the input path).
- *
- * @param {string} path
- * @returns {Date|undefined}
- */
-fs.mtime = function(path) {};
-
-/**
- * Returns last access time a given file path, or undefined on error.
- * Does strictly require one String argument (the input path).
- *
- * @param {string} path
- * @returns {Date|undefined}
- */
-fs.atime = function(path) {};
-
-/**
- * Returns creation time a given file path, or undefined on error.
- * Does strictly require one String argument (the input path).
- *
- * @param {string} path
- * @returns {Date|undefined}
- */
-fs.ctime = function(path) {};
-
-/**
- * Returns true if a given path points to an existing "node" in the file system (file, dir, pipe, link ...),
- * false otherwise or undefined on error.
- * Does strictly require one String argument (the input path).
- *
- * @param {string} path
- * @returns {boolean}
- */
-fs.exists = function(path) {};
-
-/**
- * Returns true if a given path points to a regular file, false otherwise or undefined on error.
- * Does strictly require one String argument (the input path).
- *
- * @param {string} path
- * @returns {boolean}
- */
-fs.isfile = function(path) {};
-
-/**
- * Returns true if a given path points to a directory, false otherwise or undefined on error.
- * Does strictly require one String argument (the input path).
- *
- * @param {string} path
- * @returns {boolean}
- */
-fs.isdir = function(path) {};
-
-/**
- * Returns true if a given path points to a link, false otherwise or undefined on error.
- * Does strictly require one String argument (the input path).
- *
- * @param {string} path
- * @returns {boolean}
- */
-fs.islink = function(path) {};
-
-/**
- * Returns true if a given path points to a fifo (named pipe), false otherwise or undefined on error.
- * Does strictly require one String argument (the input path).
- *
- * @param {string} path
- * @returns {boolean}
- */
-fs.isfifo = function(path) {};
-
-/**
- * Returns true if the current user has write permission to a given path,
- * false otherwise or undefined on error.
- * Does strictly require one String argument (the input path).
- *
- * @param {string} path
- * @returns {boolean}
- */
-fs.iswritable = function(path) {};
-
-/**
- * Returns true if the current user has read permission to a given path,
- * false otherwise or undefined on error.
- * Does strictly require one String argument (the input path).
- *
- * @param {string} path
- * @returns {boolean}
- */
-fs.isreadable = function(path) {};
-
-/**
- * Returns true if the current user has execution permission to a given path,
- * false otherwise or undefined on error.
- * Does strictly require one String argument (the input path).
- *
- * @param {string} path
- * @returns {boolean}
- */
-fs.isexecutable = function(path) {};
-
-/**
- * Returns the target path of a symbolic link, returns a String or `undefined` on error.
- * Does strictly require one String argument (the path).
- * Note: Windows: returns undefined, not implemented.
- *
- * @param {string} path
- * @returns {string|undefined}
- */
-fs.readlink = function(path) {};
-
-/**
- * Switches the current working directory to the specified path. Returns true on success, false on error.
- * Does strictly require one String argument (the input path).
- *
- * @param {string} path
- * @returns {boolean}
- */
-fs.chdir = function(path) {};
-
-/**
- * Creates a new empty directory for the specified path. Returns true on success, false on error.
- * Require one String argument (the input path), and one optional option argument.
- * If the options is "p" or "parents" (similar to unix `mkdir -p`), parent directories will be
- * created recursively. If the directory already exists, the function returns success, if the
- * creation of the directory or a parent directory fails, the function returns false.
- * Note that it is possible that the path might be only partially created in this case.
- *
- * @param {string} path
- * @param {string} [options]
- * @returns {boolean}
- */
-fs.mkdir = function(path, options) {};
-
-/**
- * Removes an empty directory specified by a given path. Returns true on success, false on error.
- * Does strictly require one String argument (the input path).
- * Note that the function also fails if the directory is not empty (no recursion),
- *
- * @param {string} path
- * @returns {boolean}
- */
-fs.rmdir = function(path) {};
-
-/**
- * Removes a file or link form the file system. Returns true on success, false on error.
- * Does strictly require one String argument (the input path).
- * Note that the function also fails if the given path is a directory. Use `fs.rmdir()` in this case.
- *
- * @param {string} path
- * @returns {boolean}
- */
-fs.unlink = function(path) {};
-
-/**
- * Changes the modification and access time of a file or directory. Returns true on success, false on error.
- * Does strictly require three argument: The input path (String), the last-modified time (Date) and the last
- * access time (Date).
- *
- * @param {string} path
- * @param {Date} [mtime]
- * @param {Date} [atime]
- * @returns {boolean}
- */
-fs.utime = function(path, mtime, atime) {};
-
-/**
- * Changes the name of a file or directory. Returns true on success, false on error.
- * Does strictly require two String arguments: The input path and the new name path.
- * Note that this is a basic filesystem i/o function that fails if the parent directory,
- * or the new file does already exist.
- *
- * @param {string} path
- * @param {string} new_path
- * @returns {boolean}
- */
-fs.rename = function(path, new_path) {};
-
-/**
- * Creates a symbolic link, returns true on success, false on error.
- *
- * @param {string} path
- * @param {string} link_path
- * @returns {boolean}
- */
-fs.symlink = function(path, link_path) {};
-
-/**
- * Creates a (hard) link, returns true on success, false on error.
- *
- * @param {string} path
- * @param {string} link_path
- * @returns {boolean}
- */
-fs.hardlink = function(path, link_path) {};
-
-/**
- * Creates a (hard) link, returns true on success, false on error.
- *
- * @param {string} path
- * @param {string|number} [mode]
- * @returns {boolean}
- */
-fs.chmod = function(path, mode) {};
-
-/**
- * Lists the contents of a directory (basenames only), undefined if the function failed to open the directory
- * for reading. Results are unsorted.
- *
- * @param {string} path
- * @returns {array|undefined}
- */
-fs.readdir = function(path) {};
-
-/**
- * File pattern (fnmatch) based listing of files.
- *
- * @param {string} pattern
- * @returns {array|undefined}
- */
-fs.glob = function(pattern) {};
-
-/**
- * Contains the (execution path) PATH separator,
- * e.g. ":" for Linux/Unix or ";" for win32.
- *
- * @var {string}
- */
-fs.pathseparator = "";
-/**
- * Contains the directory separator, e.g. "/"
- * for Linux/Unix or "\" for win32.
- *
- * @var {string}
- */
-fs.directoryseparator = "";
-
-/**
- * print(a,b,c, ...). Writes data stringifyed to STDOUT.
- *
- * @param {...*} args
- */
-print = function(args) {};
-
-/**
- * alert(a,b,c, ...). Writes data stringifyed to STDERR.
- *
- * @param {...*} args
- */
-alert = function(args) {};
-
-/**
- * Returns a first character entered as string. First function argument
- * is a text that is printed before reading the input stream (without newline,
- * "?" or ":"). The input is read from STDIN.
- *
- * @param {string} text
- * @returns {string}
- */
-confirm = function(text) {};
-
-/**
- * Returns a line entered via the input stream STDIN.
- *
- * @returns {string}
- */
-prompt = function() {};
-
-/**
- * Console object known from various JS implementations.
- */
-console = {};
-
-/**
- * Writes a line to the log stream (automatically appends a newline).
- * The default log stream is STDERR.
- *
- * @param {...*} args
- */
-console.log = function(args) {};
-
-/**
- * Write to STDOUT without any conversion, whitespaces between the given arguments,
- * and without newline at the end.
- *
- * @param {...*} args
- */
-console.write = function(args) {};
-
-/**
- * Read from STDIN until EOF. Using the argument `arg` it is possible
- * to use further functionality:
- *
- *  - By default (if `arg` is undefined or not given) the function
- *    returns a string when all data are read.
- *
- *  - If `arg` is boolean and `true`, then the input is read into
- *    a buffer variable, not a string. The function returns when
- *    all data are read.
- *
- * - If `arg` is a function, then a string is read line by line,
- *   and each line passed to this callback function. If the function
- *   returns `true`, then the line is added to the output. The
- *   function may also preprocess line and return a String. In this
- *   case the returned string is added to the output.
- *   Otherwise, if `arg` is not `true` and no string, the line is
- *   skipped.
- *
- * @param {function|boolean} arg
- * @returns {string|buffer}
- */
-console.read = function(arg) {};
-
-/**
- * C style formatted output to STDOUT. Note that not
- * all formats can be used like in C/C++ because ECMA
- * is has no strong type system. E.g. %u, %ul etc does
- * not make sense because numbers are intrinsically
- * floating point, and the (data type) size of the number
- * matters when using %u. If unsupported arguments are
- * passed the method will throw an exception.
- *
- * Supported formatters are:
- *
- *  - %d, %ld, %lld: The ECMA number is coerced
- *    into an integer and printed. Digits and sign
- *    are supported (%4d, %+06l).
- *
- *  - %f, %lf, %g: Floating point format, also with additional
- *    format specs like %.8f, %+10.5f etc.
- *
- *  - %x: Hexadecimal representation of numbers (also %08x
- *    or %4X etc supported).
- *
- *  - %o: Octal representation of numbers (also %08o)
- *
- *  - %s: String coercing with optional minimum width (e.g. %10s)
- *
- *  - %c: When number given, the ASCII code of the lowest byte
- *        (e.g. 65=='A'). When string given the first character
- *        of the string.
- *
- * Not supported:
- *
- *  - Parameter argument (like "%2$d", the "2$" would apply the
- *    same format to two arguments passed to the function).
- *
- *  - Dynamic width (like "%*f", the "*" would be used to pass
- *    the output width of the floating point number as argument).
- *
- *  - Unsigned %u, %n
- *
- * @param {string} format
- * @param {...*} args
- */
-printf = function(format, args) {};
-
-/**
- * C style formatted output into a string. For
- * formatting details please @see printf.
- *
- * @param {string} format
- * @param {...*} args
- * @returns {string}
- */
-sprintf = function(format, args) {};
-
-/**
- * Exits the script interpreter with a specified exit code.
- *
- * @param {number} status_code
- */
-exit = function(status_code) {};
-
-/**
- * Includes a JS file and returns the result of
- * the last statement.
- * Note that `include()` is NOT recursion protected.
- *
- * @param {string} file
- * @return {any}
- */
-include = function(path) {};
-
-/**
- * Execute a process, optionally fetch stdout, stderr or pass stdin data.
- *
- * - The `program` is the path to the executable.
- *
- * - The `arguments` (if not omitted/undefined) is an array with values, which
- *   are coercible to strings.
- *
- * - The `options` is a plain object with additional flags and options.
- *   All these options are optional and have sensible default values:
- *
- *    {
- *      // Plain object for environment variables to set.
- *      env     : {object}={},
- *
- *      // Optional text that is passed to the program via stdin piping.
- *      stdin   : {String}="",
- *
- *      // If true the output is an object containing the fetched output in the property `stdout`.
- *      // The exit code is then stored in the property `exitcode`.
- *      // If it is a function, see callbacks below.
- *      stdout  : {boolean|function}=false,
- *
- *      // If true the output is an object containing the fetched output in the property `stderr`.
- *      // The exit code is then stored in the property `exitcode`.
- *      // If the value is "stdout", then the stderr output is redirected to stdout, and the
- *      // option `stdout` is implicitly set to `true` if it was `false`.
- *      // If it is a function, see callbacks below.
- *      stderr  : {boolean|function|"stdout"}=false,
- *
- *      // Normally the user environment is also available for the executed child process. That
- *      // might cause issues, e.g. with security. To prevent passing through the current environment,
- *      // set this property to `true`.
- *      noenv   : {boolean}=false,
- *
- *      // Normally the execution also uses the search path variable ($PATH) to determine which
- *      // program to run - Means setting the `program` to `env` or `/usr/bin/env` is pretty much
- *      // the same. However, you might not want that programs are searched. By setting this option
- *      // to true, you must use `/usr/bin/env`.
- *      nopath  : {boolean}=false,
- *
- *      // Normally the function throws exceptions on execution errors.
- *      // If that is not desired, set this option to `true`, and the function will return
- *      // `undefined` on errors. However, it is possible that invalid arguments or script
- *      // engine errors still throw.
- *      noexcept: {boolean}=false,
- *
- *      // The function can be called like `fs.exec( {options} )` (options 1st argument). In this
- *      // case the program to execute can be specified using the `program` property.
- *      program : {string},
- *
- *      // The function can also be called with the options as first or second argument. In both
- *      // cases the command line arguments to pass on to the execution can be passed as the `args`
- *      // property.
- *      args    : {array},
- *
- *      // Process run timeout in ms, the process will be terminated (and SIGKILL killed later if
- *      // not terminating itself) if it runs longer than this timeout.
- *      timeout : {number}
- *
- *    }
- *
- * - The return value is:
- *
- *    - the exit code of the process, is no stdout nor stderr fetching is switched on,
- *
- *    - a plain object if any fetching is enabled:
- *
- *        {
- *          exitcode: {number},
- *          stdout  : {string},
- *          stderr  : {string}
- *        }
- *
- *    - `undefined` if exec exceptions are disabled and an error occurs.
- *
- * @throws {Error}
- * @param {string} program
- * @param {array} [arguments]
- * @param {object} [options]
- * @returns {number|object}
- */
-sys.exec = function(program, arguments, options) {};
-
-/**
- * Execute a shell command and return the STDOUT output. Does
- * not throw exceptions. Returns an empty string on error. Does
- * not redirect stderr to stdout, this can be done in the shell
- * command itself. The command passed to the shell is intentionally
- * NOT escaped (no "'" to "\'" and no "\" to "\\").
- *
- * @throws {Error}
- * @param {string} command
- * @returns {string}
- */
-sys.shell = function(command) {};
+var sys = {};
 
 /**
  * Returns the ID of the current process or `undefined` on error.
@@ -1200,4 +1138,103 @@ sys.clock = function(clock_source) {};
  * @returns {boolean}
  */
 sys.isatty = function(descriptorName) {};
+
+/** @file: mod.sys.exec.hh */
+
+/**
+ * Execute a process, optionally fetch stdout, stderr or pass stdin data.
+ *
+ * - The `program` is the path to the executable.
+ *
+ * - The `arguments` (if not omitted/undefined) is an array with values, which
+ *   are coercible to strings.
+ *
+ * - The `options` is a plain object with additional flags and options.
+ *   All these options are optional and have sensible default values:
+ *
+ *    {
+ *      // Plain object for environment variables to set.
+ *      env     : {object}={},
+ *
+ *      // Optional text that is passed to the program via stdin piping.
+ *      stdin   : {String}="",
+ *
+ *      // If true the output is an object containing the fetched output in the property `stdout`.
+ *      // The exit code is then stored in the property `exitcode`.
+ *      // If it is a function, see callbacks below.
+ *      stdout  : {boolean|function}=false,
+ *
+ *      // If true the output is an object containing the fetched output in the property `stderr`.
+ *      // The exit code is then stored in the property `exitcode`.
+ *      // If the value is "stdout", then the stderr output is redirected to stdout, and the
+ *      // option `stdout` is implicitly set to `true` if it was `false`.
+ *      // If it is a function, see callbacks below.
+ *      stderr  : {boolean|function|"stdout"}=false,
+ *
+ *      // Normally the user environment is also available for the executed child process. That
+ *      // might cause issues, e.g. with security. To prevent passing through the current environment,
+ *      // set this property to `true`.
+ *      noenv   : {boolean}=false,
+ *
+ *      // Normally the execution also uses the search path variable ($PATH) to determine which
+ *      // program to run - Means setting the `program` to `env` or `/usr/bin/env` is pretty much
+ *      // the same. However, you might not want that programs are searched. By setting this option
+ *      // to true, you must use `/usr/bin/env`.
+ *      nopath  : {boolean}=false,
+ *
+ *      // Normally the function throws exceptions on execution errors.
+ *      // If that is not desired, set this option to `true`, and the function will return
+ *      // `undefined` on errors. However, it is possible that invalid arguments or script
+ *      // engine errors still throw.
+ *      noexcept: {boolean}=false,
+ *
+ *      // The function can be called like `fs.exec( {options} )` (options 1st argument). In this
+ *      // case the program to execute can be specified using the `program` property.
+ *      program : {string},
+ *
+ *      // The function can also be called with the options as first or second argument. In both
+ *      // cases the command line arguments to pass on to the execution can be passed as the `args`
+ *      // property.
+ *      args    : {array},
+ *
+ *      // Process run timeout in ms, the process will be terminated (and SIGKILL killed later if
+ *      // not terminating itself) if it runs longer than this timeout.
+ *      timeout : {number}
+ *
+ *    }
+ *
+ * - The return value is:
+ *
+ *    - the exit code of the process, is no stdout nor stderr fetching is switched on,
+ *
+ *    - a plain object if any fetching is enabled:
+ *
+ *        {
+ *          exitcode: {number},
+ *          stdout  : {string},
+ *          stderr  : {string}
+ *        }
+ *
+ *    - `undefined` if exec exceptions are disabled and an error occurs.
+ *
+ * @throws {Error}
+ * @param {string} program
+ * @param {array} [arguments]
+ * @param {object} [options]
+ * @returns {number|object}
+ */
+sys.exec = function(program, arguments, options) {};
+
+/**
+ * Execute a shell command and return the STDOUT output. Does
+ * not throw exceptions. Returns an empty string on error. Does
+ * not redirect stderr to stdout, this can be done in the shell
+ * command itself. The command passed to the shell is intentionally
+ * NOT escaped (no "'" to "\'" and no "\" to "\\").
+ *
+ * @throws {Error}
+ * @param {string} command
+ * @returns {string}
+ */
+sys.shell = function(command) {};
 

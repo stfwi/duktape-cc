@@ -5,8 +5,8 @@ Thumbs.db
 nbproject
 .project
 .metadata
-cli/djs
 cli/js
+cli/djs
 cli/dev
 /bin
 /doc/stdmods.js
@@ -23,3 +23,4 @@ tmp/
 /duktape/*.tar
 /duktape/*.tgz
 /duktape/duktape-releases
+function-list.md

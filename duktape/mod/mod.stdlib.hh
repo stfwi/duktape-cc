@@ -66,7 +66,7 @@ struct stdlib {
    * the last statement.
    * Note that `include()` is NOT recursion protected.
    *
-   * @param {string} file
+   * @param {string} path
    * @return {any}
    */
   include = function(path) {};

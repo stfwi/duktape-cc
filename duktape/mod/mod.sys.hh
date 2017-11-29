@@ -61,6 +61,16 @@
 #endif
 // </editor-fold>
 
+// <editor-fold desc="jsdoc" defaultstate="collapsed">
+#if(0 && JSDOC)
+/**
+ * Operating system functionality object.
+ * @var {object}
+ */
+var sys = {};
+#endif
+// </editor-fold>
+
 namespace duktape { namespace detail {
 
 // <editor-fold desc="conv<unix_timestamp>" defaultstate="collapsed">

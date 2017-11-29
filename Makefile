@@ -12,7 +12,7 @@ LD=$(CXX)
 FLAGSCXX=-std=c++11 -W -Wall -Wextra -pedantic
 FLAGSCXX+=-Iduktape
 DUKOPTS+=-std=c++11 -fstrict-aliasing -fdata-sections -ffunction-sections -Os -DDUK_USE_CPP_EXCEPTIONS
-DUKTAPE_VERSION=2.1.0
+DUKTAPE_VERSION=2.2.0
 DUKTAPE_ARCHIVE=duktape/duktape-releases/duktape-$(DUKTAPE_VERSION).tar.xz
 GIT_COMMIT_VERSION:=$(shell git log --pretty=format:%h -1)
 
@@ -61,6 +61,10 @@ ifeq ($(WITH_EXPERIMENTAL),1)
   FLAGSCXX+=-DWITH_EXPERIMENTAL
 endif
 
+ifeq ($(WITH_DEFAULT_STRICT_INCLUDE),1)
+  FLAGSCXX+=-DWITH_DEFAULT_STRICT_INCLUDE
+endif
+
 # Test selection
 wildcardr=$(foreach d,$(wildcard $1*),$(call wildcardr,$d/,$2) $(filter $(subst *,%,$2),$d))
 DEVBINARY=dev$(BINARY_EXTENSION)
@@ -89,7 +93,7 @@ MAIN_TESTJS:=$(wildcard main.js)
 #---------------------------------------------------------------------------------------------------
 # make targets
 #---------------------------------------------------------------------------------------------------
-.PHONY: clean all binary documentation dev test test-binaries test-clean-all test-clean help static-code-analysis
+.PHONY: clean all binary documentation documentation-clean dev test test-binaries test-clean-all test-clean help static-code-analysis
 
 all: binary test documentation
 
@@ -169,11 +173,20 @@ cli/example.o: cli/example.cc $(HEADER_DEPS) $(TEST_BINARIES_SOURCES)
 #---------------------------------------------------------------------------------------------------
 # Documentation
 #---------------------------------------------------------------------------------------------------
-documentation: doc/stdmods.js
+documentation-clean:
+	@rm -f doc/stdmods.js doc/src/function-list.md
+	
+documentation: documentation-clean doc/stdmods.js doc/src/function-list.md readme.md
 
 # JS documentation (searching the mods for JSDOC preprocessor tags and collecting the contents.
-doc/stdmods.js: $(STDMOD_SOURCES) cli/$(BINARY) doc/mkjsdoc.js
-	@cli/$(BINARY) doc/mkjsdoc.js > $@
+doc/stdmods.js: $(STDMOD_SOURCES) cli/$(BINARY) doc/src/mkjsdoc.js
+	@cli/$(BINARY) doc/src/mkjsdoc.js > $@
+
+doc/src/function-list.md: doc/stdmods.js cli/$(BINARY)
+	@cat "$<" | cli/$(BINARY) doc/src/mkfnlist.js > "$@"
+
+readme.md: doc/src/readme.src.md doc/src/function-list.md doc/src/mkreadme.js
+	@cli/$(BINARY) doc/src/mkreadme.js > $@
 
 #---------------------------------------------------------------------------------------------------
 # Tests

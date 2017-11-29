@@ -148,8 +148,10 @@ struct stdio
   #if(0 && JSDOC)
   /**
    * Console object known from various JS implementations.
+   * 
+   * @var {object}
    */
-  console = {};
+  var console = {};
   #endif
 
   #if(0 && JSDOC)

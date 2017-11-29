@@ -176,6 +176,16 @@ namespace duktape { namespace detail { namespace filesystem {
 }}}
 // </editor-fold>
 
+// <editor-fold desc="jsdoc" defaultstate="collapsed">
+#if(0 && JSDOC)
+/**
+ * Global file system object.
+ * @var {object}
+ */
+var fs = {};
+#endif
+// </editor-fold>
+
 // <editor-fold desc="generic c++ file i/o" defaultstate="collapsed">
 namespace duktape { namespace detail { namespace filesystem { namespace generic {
 
@@ -652,7 +662,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
    * @param {string} [flags]
    * @returns {string|undefined}
    */
-  fs.mod2str = function(mode, flags='') {};
+  fs.mod2str = function(mode, flags) {};
   #endif
   template <typename=void>
   std::string mod2str(unsigned mod, char how='o')
