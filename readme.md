@@ -7,36 +7,111 @@ capabilities into native applications (for details please refer to
 [https://github.com/svaarala/duktape](https://github.com/svaarala/duktape)).
 
 
-The set of c++ templates in this repository facilitates embedding the Duktape
-ECMA script engine into C++ applications by providing
+The set of c++ templates (with sensible default types) in this repository
+facilitates embedding the Duktape ECMA script engine into C++ applications
+by providing:
 
-  - a thin wrapper around the C-API of Duktape (`duktape::api` class),
+  - A thin wrapper around the C-API of Duktape (`duktape::api` class) as
+    basic interfacing layer. This class has only one instance variable, the
+    `duk_context` it refers to, so all operations refer to the stack. Methods
+    are named after the wrapped `duk_` functions. Only convenience duplicate
+    function are omitted:
 
-  - type conversion traits from JavaScript types to C++ types and STL
-    containers,
+      ```c++
+      duktape::api stack(ctx);
+      int top1 = stack.get_top();     // --> duk_get_top(ctx)
+      stack.set_top(0);               // --> duk_set_top(ctx, 0)
+      stack.push_boolean(true);       // --> duk_push_boolean(ctx_, (duk_bool_t) val)
+      stack.push_string("test");      // --> duk_push_lstring(ctx_, ...)
+      int i = stack.get_int(1);       // --> duk_get_int(ctx, 1)
+      ```
 
-  - a `duktape::engine` class allowing to declare constants, variables,
-    and native functions in the JS context, as well as evaluating script
-    code, and including `js` files. The class also provides template based
-    "automatic wrapping" of c++ functions and implicit selection of arguments
-    passed to the ECMA context depending on the types in c++.
+      For more "c++ convenience", type safety and possibilities to implement
+      template based functionality, the `duktape::api` also provides c++ style
+      methods and template overloads for automatic type selection and conversion:
 
-  - optional modules for Linux/BSD/Windows for `stdio`, file system
-    operations, executing programs with `stdout`/`stderr`/`stdin` piping,
-    basic user and system information, etc.
-    All module features, including basic functionality like `exit()`,
-    `print()`, `alert()` and the like, are optional and selectable either
-    individually or as whole module.
+      ```c++
+      // c++ style Duktape API wrappers
+      auto top = stack.top();         // --> duk_get_top(ctx)
+      stack.top(0);                   // --> duk_set_top(ctx, 0)
+      stack.push(true);               // --> duk_push_boolean(ctx_, val), template selected
+      stack.push("test");             // --> duk_push_lstring(ctx_, ...), template selected;
+      stack.push(vector<int>{1,2,3}); // --> duk_push_array() + duk_push_int() for each element.
+      int i = stack.get<int>(1);      // --> duk_get_int(ctx, 1);
+      string s = stack.to<string>(0); // --> duk_to_lstring(ctx ...)
+      auto buf = stack.buffer<vector<uint8_t>>(1) // --> duk_get_buffer(ctx,1) + type conversion.
+
+      // Added functionality
+      string callstack = stack.callstack(); // Returns JS callstack as string
+      bool b = stack.is_date(-1);     // Uses instanceof to check if a stack entry is a date object
+      bool b = stack.is_regex(-1);    // Uses instanceof to check if a stack entry is a regex object
+      stack.set("prop", "value");     // Sets a property of the object on the stack top (index -1)
+      ```
+
+    In summary, this class gives you the complete flexibility that the Duktape API provides.
+
+  - Type conversion traits from JavaScript types to C++ types / STL containers are builtin.
+    As shown in the examples above, there are type converters from JS to c++ and vice versa for
+    all numeric types, `string` and `vector` (`Array`). It is easy to add own conversions, as e.g.
+    done in the system module a conversion for `struct ::timespec <--> Date` is added.
+    Conversion traits make your implementation more flexible, shorter, and better readable.
+
+  - The class actually instantiating and freeing a Duktape heap is the `duktape::engine` class.
+    It creates the heap on construction and frees it on destruction. But this class is also
+    the "main control" of the script execution and features, providing only a few methods with
+    several overloads. Here you can
+
+      - pick which functionality you like to have in the ECMA script,
+      - add own native functions, define constants, etc,
+      - evaluate code or run script files and fetch the return values in c++.
+      - access the Duktape stack directly using the `stack()` method.
+
+    The class also provides template based "automatic wrapping" of c++ functions and implicit
+    selection of arguments passed to the ECMA context depending on the types in c++. A brief
+    code snipplet:
+
+      ```c++
+        // Step 1: Prepare the functionality of your script engine
+        duktape::engine js;                   // Create heap, initialise some basics
+        duktape::mod::stdio::define_in(js);   // Pick all functions that the stdio module provides.
+        duktape::mod::stdlib::define_in(js);  // Blacklist picking: pick all stdlib functions, ...
+        js.undef("exit");                     // ... but not the exit function.
+        js.define("my");                      // Define empty global object named "my".
+        js.define("my.version", "v1.0.2");    // Define string property in "my".
+        js.define("my.answer", 42);           // Define numeric property in "my".
+        int top1 = js.stack().top();          // Direct access to the Duktape stack of this engine.
+        // [...]
+
+        // Step 2: Run JS code
+        string s = js.include<string>(path);  // Run a script, fetch its last statement result.
+        js.eval(string_passed_from_app);      // or evaluate code from string
+
+        // Step 3: Analyse results, use JS functions as callbacks, etc etc
+        // ... e.g. programmatic app configuration via js:
+        string ip = js.call<string>("getConfig", "ip");   // getConfig(key) implemented in script file
+        int timeout = js.eval<int>("config.timeout");     // script file sets variables and constants
 
 
-The features of the optional (native c++) modules are, in contrast to the
-way JavaScript is mostly used, *NOT* implemented promise/event based. Instead
-the functions and methods are blocking until they return. Callbacks are only
-used for filtering while reading larger files or the `stdout` of an executed
-process (please see the "notes" section for details).
+        void on_message_received(string msg)              // Script implements callback functions for
+        { js.call("my.messageCallback", msg); }           // whatever events of the native app.
+
+      ```
+
+  - Optional modules for Linux/BSD/Windows for `stdio`, file system operations, executing
+    programs with `stdout`/`stderr`/`stdin` piping, basic user and system information, etc.
+    All module features, including basic functionality like `exit()`, `print()`, `alert()`
+    and the like, are optional and selectable either individually or as whole module.
+
+  - Exception propagation from ECMA to c++ and vice versa: If a native c++ function throws
+    a `std::exception`, this exception is caught and passed to the calling ECMA code as thrown
+    `Error`. An ECMA exception/`Error` can be caught as `duktape::script_error` in a normal
+    `try-catch` block. Uncaught exceptions are forwarded to the caller, no matter if ECMA
+    or c++. This can go up to the first `include()`, `eval()` or `call()` in your engine
+    instance - if you don't catch it there the default c++ exception handling applies, aborting
+    your application. `duktape::script_error` is derived from `std::exception`.
 
 
-## Building
+## Building the CLI application / embedding in your application
 
 A good starting point is to take a look at the Makefile, the CLI application
 `main.cc` and the tests. The directory structure looks like:
@@ -77,11 +152,11 @@ Invoking `make` produces the CLI application as default target:
       $ make
       [c++ ] cli/main.cc  cli/main.o
       [c++ ] duktape/duktape.c  duktape/duktape.o
-      [ld  ] cli/main.o duktape/duktape.o  cli/js
-      [note] binary is cli/js
+      [ld  ] cli/main.o duktape/duktape.o  cli/djs
+      [note] binary is cli/djs
 
       # Quick test using inline eval:
-      $ ./cli/js -e 'var a=10; print("-> a is " + a + ".");'
+      $ ./cli/djs -e 'var a=10; print("-> a is " + a + ".");'
       -> a is 10.
 
 `duktape.c` is compiled with the c++ compiler and `DUK_USE_CPP_EXCEPTIONS` must
@@ -91,7 +166,7 @@ like
 
       g++ -c -o cli/main.o cli/main.cc -std=c++11 -Iduktape -I.
       g++ -c -o duktape/duktape.o duktape/duktape.c -std=c++11 -DDUK_USE_CPP_EXCEPTIONS
-      g++ -o cli/js cli/main.o duktape/duktape.o -lm -lrt
+      g++ -o cli/djs cli/main.o duktape/duktape.o -lm -lrt
 
 (omitted flags that are also used in the Makefile: `-W` `-Wall` `-Wextra`
 `-pedantic` `-Os` `-fomit-frame-pointer` `-fdata-sections` `-ffunction-sections`).

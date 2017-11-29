@@ -151,7 +151,7 @@ namespace duktape {
 // </editor-fold>
 
 // <editor-fold desc="auxiliary functions" defaultstate="collapsed">
-namespace duktape { namespace detail { 
+namespace duktape { namespace detail {
 
 namespace {
 template <typename=void>
@@ -609,6 +609,10 @@ namespace duktape { namespace detail {
       }
       return data;
     }
+
+    template <typename ContainerType,  bool NoCoercing=false>
+    ContainerType buffer(index_t index) const
+    { return get_buffer(index); }
 
     ::duk_c_function get_c_function(index_t index) const
     { return duk_get_c_function(ctx_, index); }
