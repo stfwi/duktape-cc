@@ -65,12 +65,12 @@ function scan_js_docs() {
       docs[fs.basename(path)] = doc;
     }
   });
-  
+
   // First fixed order, then by sort order
   var sorted_docs = "";
-  var append_doc = function(key) { 
+  var append_doc = function(key) {
     sorted_docs += "/** @file: " + key + " */\n\n";
-    sorted_docs += docs[key]; delete docs[key]; 
+    sorted_docs += docs[key]; delete docs[key];
   };
   append_doc("duktape.hh");
   append_doc("mod.stdlib.hh");
@@ -80,12 +80,12 @@ function scan_js_docs() {
   append_doc("mod.fs.file.hh");
   append_doc("mod.sys.hh");
   append_doc("mod.sys.exec.hh");
-  for(var key in docs) { 
+  for(var key in docs) {
     sorted_docs += "/** @file: " + key + " */\n\n";
     sorted_docs += docs[key];
   }
-  return sorted_docs.replace(/[\s]+$/, "") + "\n";
+  return (sorted_docs.replace(/[\s]+$/, "") + "\n").replace(/[\r]/g,'');
 }
 
 // result to stdout
-print(scan_js_docs()); 
+console.write(scan_js_docs());

@@ -6,6 +6,7 @@
 #include <duktape/mod/mod.fs.file.hh>
 #include <duktape/mod/mod.sys.hh>
 #include <duktape/mod/mod.sys.exec.hh>
+#include <duktape/mod/mod.sys.hash.hh>
 #include <exception>
 #include <stdexcept>
 #include <iostream>
@@ -98,6 +99,7 @@ int main(int argc, const char** argv)
     duktape::mod::filesystem::fileobject::define_in(js);
     duktape::mod::system::define_in(js);
     duktape::mod::system::exec::define_in(js);
+    duktape::mod::system::hash::define_in(js);
     js.define("sys.args", args);
     js.define("sys.script", script_path);
     vector<string>().swap(args);

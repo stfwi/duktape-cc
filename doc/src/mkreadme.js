@@ -7,6 +7,6 @@ readme_src = readme_src.replace(/\[\]\(\!include[\s]+([\w\d\-\\/\.]+)\)/g, funct
   return contents;
 });
 
-readme_src = readme_src.replace(/[\s]+$/, '') + "\n";
+readme_src = (readme_src.replace(/[\s]+$/, '') + "\n").replace(/[\r]/g,'');
 
-print(readme_src);
+console.write(readme_src);

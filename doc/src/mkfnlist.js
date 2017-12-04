@@ -43,5 +43,5 @@ for(var it in objects) {
   text += list_object_functions(it);
 }
 
-text = text.replace(/[\s]+$/,'\n');
+text = text.replace(/[\s]+$/,'\n').replace(/[\r]/g, '');
 console.write(text);

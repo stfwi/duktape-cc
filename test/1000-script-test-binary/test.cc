@@ -6,14 +6,13 @@
 #include <mod/mod.fs.file.hh>
 #include <mod/mod.sys.hh>
 #include <mod/mod.sys.exec.hh>
+#include <mod/mod.sys.hash.hh>
 #include <exception>
 #include <stdexcept>
 #include <iostream>
 #include <string>
 
 using namespace std;
-
-
 
 void test(duktape::engine& js)
 {
@@ -25,6 +24,8 @@ void test(duktape::engine& js)
   duktape::mod::filesystem::fileobject::define_in(js);
   duktape::mod::system::define_in(js);
   duktape::mod::system::exec::define_in(js);
+  duktape::mod::system::hash::define_in(js);
+
   // reset some stdio to to testenv
   js.define("print", ecma_print); // may be overwritten by stdio
   js.define("alert", ecma_warn); // may be overwritten by stdio

@@ -584,35 +584,33 @@ namespace duktape { namespace detail {
     bool get_boolean(index_t index) const
     { return duk_get_boolean(ctx_, index) != 0; }
 
-    // @sw: concider kicking this function in favour of the template
     const void* get_buffer(index_t index, size_t& out_size) const
     { return (const void*) duk_get_buffer(ctx_, index, &out_size); }
 
-    // @sw: concider kicking this function in favour of the template
     const void* get_buffer_data(index_t index, size_t& out_size) const
     { return (const void*) duk_get_buffer_data(ctx_, index, &out_size); }
 
-    template <typename ContainerType,  bool NoCoercing=false>
+    template <typename ContainerType>
     ContainerType get_buffer(index_t index) const
     {
       ContainerType data;
       duk_size_t size = 0;
       const char* buffer = nullptr;
-      if(NoCoercing) {
-        buffer = reinterpret_cast<const char*>(duk_get_buffer_data(ctx_, index, &size));
-      } else {
+      if(is_buffer(index)) {
         buffer = reinterpret_cast<const char*>(duk_get_buffer(ctx_, index, &size));
+      } else if(is_buffer_data(index)) {
+        buffer = reinterpret_cast<const char*>(duk_get_buffer_data(ctx_, index, &size));
       }
-      if(size) {
+      if(buffer && size) {
         data.resize(size);
         std::copy(&(buffer[0]), &(buffer[size]), data.begin());
       }
       return data;
     }
 
-    template <typename ContainerType,  bool NoCoercing=false>
+    template <typename ContainerType>
     ContainerType buffer(index_t index) const
-    { return get_buffer(index); }
+    { return get_buffer<ContainerType>(index); }
 
     ::duk_c_function get_c_function(index_t index) const
     { return duk_get_c_function(ctx_, index); }

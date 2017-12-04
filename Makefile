@@ -95,7 +95,7 @@ MAIN_TESTJS:=$(wildcard main.js)
 #---------------------------------------------------------------------------------------------------
 .PHONY: clean all binary documentation documentation-clean dev test test-binaries test-clean-all test-clean help static-code-analysis
 
-all: binary test documentation
+all: binary test
 
 test-clean:
 	@echo "[note] Cleaning test logs"
@@ -175,7 +175,7 @@ cli/example.o: cli/example.cc $(HEADER_DEPS) $(TEST_BINARIES_SOURCES)
 #---------------------------------------------------------------------------------------------------
 documentation-clean:
 	@rm -f doc/stdmods.js doc/src/function-list.md
-	
+
 documentation: documentation-clean doc/stdmods.js doc/src/function-list.md readme.md
 
 # JS documentation (searching the mods for JSDOC preprocessor tags and collecting the contents.
