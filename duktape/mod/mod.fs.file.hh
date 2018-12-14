@@ -386,7 +386,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     {
       // unfortunately no way to use readfile without actually reading
       LARGE_INTEGER pos, size;
-      return (SetFilePointerEx(fd2handle(fd), 0, &pos, FILE_CURRENT))
+      size.QuadPart = 0;
+      return (::SetFilePointerEx(fd2handle(fd), size, &pos, FILE_CURRENT))
           && (GetFileSizeEx(fd2handle(fd), &size))
           && (pos.QuadPart >= size.QuadPart);
     }

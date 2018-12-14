@@ -5,6 +5,7 @@ Thumbs.db
 nbproject
 .project
 .metadata
+.vscode
 cli/js
 cli/djs
 cli/dev

@@ -1093,7 +1093,7 @@ namespace duktape { namespace detail {
     { duk_set_prototype(ctx_, index); }
 
     void* steal_buffer(index_t index, size_t *size)
-    { return *duk_steal_buffer(ctx_, index, size); }
+    { return duk_steal_buffer(ctx_, index, size); }
 
     thread_state_t suspend() const
     { thread_state_t state; duk_suspend(ctx_, &state); return state; }

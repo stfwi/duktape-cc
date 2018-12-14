@@ -6,6 +6,7 @@ capabilities into native applications (for details please refer to
 [duktape.org](http://duktape.org/) and the corresponding Github repository
 [https://github.com/svaarala/duktape](https://github.com/svaarala/duktape)).
 
+
 The set of c++ templates (with sensible default types) in this repository
 facilitates embedding the Duktape ECMA script engine into C++ applications
 by providing:
@@ -346,9 +347,4 @@ int main(int argc, const char** argv)
   - sys.isatty(descriptorName)
   - sys.exec(program, arguments, options)
   - sys.shell(command)
-  - sys.hash.crc8(data)
-  - sys.hash.crc16(data)
-  - sys.hash.crc32(data)
-  - sys.hash.md5(data, isfile)
-  - sys.hash.sha1(data, isfile)
-  - sys.hash.sha1(data, isfile)
+

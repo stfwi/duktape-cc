@@ -22,7 +22,7 @@ int wrapped_engine_call(duktape::api& stack)
       test_fail("wrapped_engine_call() did not catch an exception");
     }
     return 0;
-  } catch(duktape::script_error e) {
+  } catch(const duktape::script_error& e) {
     test_pass(string("wrapped_engine_call(): ") + e.what() );
     throw;
   }
@@ -40,7 +40,7 @@ int wrapped_engine_eval(duktape::api& stack)
       test_fail("wrapped_engine_eval() did not catch an exception");
     }
     return 0;
-  } catch(duktape::script_error e) {
+  } catch(const duktape::script_error& e) {
     test_pass(string("wrapped_engine_eval(): ") + e.what() );
     throw;
   }
@@ -62,7 +62,7 @@ int wrapped_apistack_call(duktape::api& stack)
       test_fail("wrapped_apistack_call() did not catch an exception");
     }
     return 0;
-  } catch(duktape::script_error e) {
+  } catch(const duktape::script_error& e) {
     test_pass(string("wrapped_engine_eval(): ") + e.what() );
     throw;
   }

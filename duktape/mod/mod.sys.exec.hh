@@ -77,6 +77,9 @@
 #else
   #define clog__(X) { ; }
 #endif
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 // </editor-fold>
 
 namespace duktape { namespace detail { namespace system { namespace exec {
@@ -1200,6 +1203,7 @@ namespace duktape { namespace mod { namespace system { namespace exec {
 
 // <editor-fold desc="undefs" defaultstate="collapsed">
 #undef clog__
+#pragma GCC diagnostic pop
 // </editor-fold>
 
 #endif

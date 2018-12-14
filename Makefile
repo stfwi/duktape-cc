@@ -12,8 +12,6 @@ LD=$(CXX)
 FLAGSCXX=-std=c++11 -W -Wall -Wextra -pedantic
 FLAGSCXX+=-Iduktape
 DUKOPTS+=-std=c++11 -fstrict-aliasing -fdata-sections -ffunction-sections -Os -DDUK_USE_CPP_EXCEPTIONS
-DUKTAPE_VERSION=2.2.0
-DUKTAPE_ARCHIVE=duktape/duktape-releases/duktape-$(DUKTAPE_VERSION).tar.xz
 GIT_COMMIT_VERSION:=$(shell git log --pretty=format:%h -1)
 
 #---------------------------------------------------------------------------------------------------

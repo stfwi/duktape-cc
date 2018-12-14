@@ -46,6 +46,8 @@
 #define return_false { stack.push(false); return 1; }
 #define return_true { stack.push(true); return 1; }
 #define return_undefined { return 0; }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 // </editor-fold>
 
 namespace duktape { namespace detail { namespace filesystem { namespace extended {
@@ -429,9 +431,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
    * @throws {Error}
    * @param {string} path
    * @param {string|Object} [options]
+   * @param {function} [filter]
    * @returns {array|undefined}
    */
-  fs.find = function(path, options) {};
+  fs.find = function(path, options, filter) {};
   #endif
   template <typename PathAccessor>
   int findfiles(duktape::api& stack)
@@ -473,11 +476,13 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         return stack.throw_exception("Invalid configuration for find function");
       }
     }
-
     if(ftype.find_first_not_of("dflpscbh") != ftype.npos) {
       return stack.throw_exception("Invalid file type filter character");
     }
-
+    if(stack.is_function(2)) {
+      if(filter_function !=0 ) return stack.throw_exception("Two filter function given, use either the options.filter or the third argument");
+      filter_function = 2;
+    }
     duktape::api::array_index_t array_item_index=0;
     auto array_stack_index = stack.push_array();
     if(recurse_directory(
@@ -908,7 +913,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace extended {
   template <typename PathAccessor=path_accessor<std::string>>
   static void define_in(duktape::engine& js)
   {
-    js.define("fs.find", findfiles<PathAccessor>, 2);
+    js.define("fs.find", findfiles<PathAccessor>, 3);
     js.define("fs.copy", copyfile<PathAccessor>, 3);
     js.define("fs.move", movefile<PathAccessor>, 3);
     js.define("fs.remove", removefile<PathAccessor>, 2);
@@ -921,6 +926,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace extended {
 #undef return_true
 #undef return_false
 #undef return_undefined
+#pragma GCC diagnostic pop
 // </editor-fold>
 
 #endif

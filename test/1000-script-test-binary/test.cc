@@ -14,6 +14,8 @@
 
 using namespace std;
 
+
+
 void test(duktape::engine& js)
 {
   duktape::mod::stdlib::define_in(js);
@@ -25,7 +27,7 @@ void test(duktape::engine& js)
   duktape::mod::system::define_in(js);
   duktape::mod::system::exec::define_in(js);
   duktape::mod::system::hash::define_in(js);
-
+  
   // reset some stdio to to testenv
   js.define("print", ecma_print); // may be overwritten by stdio
   js.define("alert", ecma_warn); // may be overwritten by stdio

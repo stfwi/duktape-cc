@@ -274,7 +274,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
     std::string contents;
     try {
       if(!filter_function) {
-        std::ifstream fis(path.c_str(), binary ? (std::ios::in|std::ios::binary) : (std::ios::in));
+        std::ifstream fis(path.c_str(), std::ios::in|std::ios::binary);
         contents.assign((std::istreambuf_iterator<char>(fis)), std::istreambuf_iterator<char>());
         if(!fis.good() && !fis.eof()) return 0; // not accessible/existing/read error
         if(!binary) {
@@ -345,10 +345,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
    *
    * @param {string} path
    * @param {string|buffer|number|boolean|object} data
-   * @param {string|object} [flags]
    * @returns {boolean}
    */
-  fs.filewrite = function(path, data, flags) {};
+  fs.writefile = function(path, data) {};
   #endif
   template <typename PathAccessor, bool Append=false>
   int filewrite(duktape::api& stack)
@@ -369,6 +368,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
       mode |= std::ios::binary;
     } else {
       data = stack.to<std::string>(1);
+      mode |= std::ios::binary;
     }
     try {
       std::ofstream fos(path.c_str(), mode);
