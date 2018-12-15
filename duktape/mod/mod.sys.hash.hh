@@ -15,14 +15,14 @@
  * Duktape ECMA engine C++ wrapper, hashing functions.
  *
  * Contains classes/functions of swlib-cc template library encompassing:
- * 
+ *
  *  - CRC8  (PEC polynomial, init value and final XOR) for string and buffer.
  *  - CRC16 (USB polynomial, init value and final XOR) for string and buffer.
  *  - CRC32 (CITT polynomial, init value and final XOR) for string and buffer.
  *  - MD5 for string, buffer and file
  *  - SHA1 for string, buffer and file
  *  - SHA512 for string, buffer and file
- * 
+ *
  * Note: The CRC algorithms are already quite old (not in contemporary
  *       c++ style), but they are approved to work. Versions tracking
  *       of the original library files is via the GIT commits of the
@@ -229,7 +229,7 @@ namespace sw {
  * @ldflags
  * @platform linux, bsd, windows
  * @standard >= c++98
- * 
+ *
  * CRC8 (PEC)
  * @param const void *data
  * @param uint8_t size
@@ -1081,14 +1081,14 @@ namespace duktape { namespace detail { namespace system { namespace hash {
    * Hashing functionality of the system object.
    * @var {object}
    */
-  var sys.hash = {};
+  sys.hash = {};
   #endif
 
   #if(0 && JSDOC)
   /**
    * CRC8 (PEC) of a string or buffer.
    * (PEC CRC is: polynomial: 0x07, initial value: 0x00, final XOR: 0x00)
-   * 
+   *
    * @param {string|buffer} data
    * @returns {number}
    */
@@ -1108,13 +1108,13 @@ namespace duktape { namespace detail { namespace system { namespace hash {
     } else {
       return stack.throw_exception("crc8 input data have to be a string of buffer");
     }
-  }  
-  
+  }
+
   #if(0 && JSDOC)
   /**
    * CRC16 (USB) of a string or buffer.
    * (USB CRC is: polynomial: 0x8005, initial value: 0xffff, final XOR: 0xffff)
-   * 
+   *
    * @param {string|buffer} data
    * @returns {number}
    */
@@ -1134,11 +1134,11 @@ namespace duktape { namespace detail { namespace system { namespace hash {
       return stack.throw_exception("crc16 input data have to be a string of buffer");
     }
   }
-  
+
   #if(0 && JSDOC)
   /**
    * CRC32 (CITT) of a string or buffer.
-   * 
+   *
    * @param {string|buffer} data
    * @returns {number}
    */
@@ -1162,7 +1162,7 @@ namespace duktape { namespace detail { namespace system { namespace hash {
   #if(0 && JSDOC)
   /**
    * MD5 of a string, buffer or file (if `isfile==true`).
-   * 
+   *
    * @param {string|buffer} data
    * @param {boolean} [isfile=false]
    * @returns {string}
@@ -1195,11 +1195,11 @@ namespace duktape { namespace detail { namespace system { namespace hash {
       return stack.throw_exception("md5 input data have to be a string of buffer");
     }
   }
-  
+
   #if(0 && JSDOC)
   /**
    * SHA1 of a string, buffer or file (if `isfile==true`).
-   * 
+   *
    * @param {string|buffer} data
    * @param {boolean} [isfile=false]
    * @returns {string}
@@ -1232,11 +1232,11 @@ namespace duktape { namespace detail { namespace system { namespace hash {
       return stack.throw_exception("SHA1 input data have to be a string of buffer");
     }
   }
-  
+
   #if(0 && JSDOC)
   /**
    * SHA512 of a string, buffer or file (if `isfile==true`).
-   * 
+   *
    * @param {string|buffer} data
    * @param {boolean} [isfile=false]
    * @returns {string}
@@ -1269,7 +1269,7 @@ namespace duktape { namespace detail { namespace system { namespace hash {
       return stack.throw_exception("SHA512 input data have to be a string of buffer");
     }
   }
-  
+
 }}}}
 
 // </editor-fold>

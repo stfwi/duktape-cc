@@ -210,10 +210,9 @@ fs.readfile = function(path, conf) {};
  *
  * @param {string} path
  * @param {string|buffer|number|boolean|object} data
- * @param {string|object} [flags]
  * @returns {boolean}
  */
-fs.writefile = function(path, data, flags) {};
+fs.writefile = function(path, data) {};
 
 /**
  * Returns the current working directory or `undefined` on error.
@@ -652,9 +651,10 @@ fs.directoryseparator = "";
  * @throws {Error}
  * @param {string} path
  * @param {string|Object} [options]
+ * @param {function} [filter]
  * @returns {array|undefined}
  */
-fs.find = function(path, options) {};
+fs.find = function(path, options, filter) {};
 
 /**
  * Moves a file or directory from one location `source_path` to another (`target_path`),
@@ -1237,3 +1237,64 @@ sys.exec = function(program, arguments, options) {};
  * @returns {string}
  */
 sys.shell = function(command) {};
+
+/** @file: mod.sys.hash.hh */
+
+/**
+ * Hashing functionality of the system object.
+ * @var {object}
+ */
+sys.hash = {};
+
+/**
+ * CRC8 (PEC) of a string or buffer.
+ * (PEC CRC is: polynomial: 0x07, initial value: 0x00, final XOR: 0x00)
+ *
+ * @param {string|buffer} data
+ * @returns {number}
+ */
+sys.hash.crc8 = function(data) {};
+
+/**
+ * CRC16 (USB) of a string or buffer.
+ * (USB CRC is: polynomial: 0x8005, initial value: 0xffff, final XOR: 0xffff)
+ *
+ * @param {string|buffer} data
+ * @returns {number}
+ */
+sys.hash.crc16 = function(data) {};
+
+/**
+ * CRC32 (CITT) of a string or buffer.
+ *
+ * @param {string|buffer} data
+ * @returns {number}
+ */
+sys.hash.crc32 = function(data) {};
+
+/**
+ * MD5 of a string, buffer or file (if `isfile==true`).
+ *
+ * @param {string|buffer} data
+ * @param {boolean} [isfile=false]
+ * @returns {string}
+ */
+sys.hash.md5 = function(data, isfile) {};
+
+/**
+ * SHA1 of a string, buffer or file (if `isfile==true`).
+ *
+ * @param {string|buffer} data
+ * @param {boolean} [isfile=false]
+ * @returns {string}
+ */
+sys.hash.sha1 = function(data, isfile) {};
+
+/**
+ * SHA512 of a string, buffer or file (if `isfile==true`).
+ *
+ * @param {string|buffer} data
+ * @param {boolean} [isfile=false]
+ * @returns {string}
+ */
+sys.hash.sha1 = function(data, isfile) {};

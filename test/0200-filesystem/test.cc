@@ -127,8 +127,8 @@ void test_filemod_functions(duktape::engine& js)
   test_expect( js.eval<bool>(string("fs.mod2str(") + to_string(0700) + ", 'l') === 'rwx------'") );
   #ifndef WINDOWS
   test_expect( js.eval<bool>("fs.mod2str(fs.stat('/dev/null').modeval, 'e')[0] === 'c'") );
-    test_expect( js.eval<bool>("fs.mod2str(fs.stat('/dev/sda').modeval, 'e')[0] === 'b'") );
-    // @sw: note test for pipe, link, sock
+  if(::access("/dev/sda", F_OK)==0) test_expect( js.eval<bool>("fs.mod2str(fs.stat('/dev/sda').modeval, 'e')[0] === 'b'") );
+  // @sw: note test for pipe, link, sock
   #endif
   test_expect( js.eval<bool>("fs.str2mod() === undefined") );
   test_expect( js.eval<bool>("fs.str2mod(799) === undefined") );

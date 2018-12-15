@@ -15,6 +15,9 @@
  * Duktape ECMA engine C++ wrapper.
  *
  * Optional file system functionality.
+ * Note: Due to c++11 compiancy std::filesystem cannot be used here,
+ *       therefore the functionality is implemented using posix where
+ *       possible, and platform specific where needed.
  *
  * -----------------------------------------------------------------------------
  * License: http://opensource.org/licenses/MIT
@@ -1649,6 +1652,12 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     duktape::api::array_index_t i=0;
     auto array_stack_index = stack.push_array();
     int error = 0;
+    // Note: Explicitly using readdir_r until thread safety of `readdir`
+    //       is guaranteed. GCC8 will issue a deprecation warning here,
+    //       so this is ignored until the function is obsolete or `readdir`
+    //       fixed.
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     while(((error = ::readdir_r(dir.dir, &entry, &de)) == 0) && (de != nullptr)) {
       if(de->d_name[0] == '.') {
         if((de->d_name[1] == '\0') || ((de->d_name[1] == '.') && (de->d_name[2] == '\0'))) {
@@ -1659,6 +1668,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
       if(!stack.put_prop_index(array_stack_index, i)) return 0;
       ++i;
     }
+    #pragma GCC diagnostic pop
     return 1;
     #else
     if(path.length() > ((MAX_PATH)-3)) return 0;

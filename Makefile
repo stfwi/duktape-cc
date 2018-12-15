@@ -91,9 +91,9 @@ MAIN_TESTJS:=$(wildcard main.js)
 #---------------------------------------------------------------------------------------------------
 # make targets
 #---------------------------------------------------------------------------------------------------
-.PHONY: clean all binary documentation documentation-clean dev test test-binaries test-clean-all test-clean help static-code-analysis
+.PHONY: clean all binary documentation documentation-clean dev test test-binaries test-clean-all test-clean mrproper help static-code-analysis
 
-all: binary test
+all: binary | test
 
 test-clean:
 	@echo "[note] Cleaning test logs"
@@ -109,6 +109,8 @@ clean:
 	@rm -f cli/*.o duktape/*.o *.o cli/$(BINARY) cli/$(DEVBINARY) cli/$(EXAMPLEBINARY) cli/*.elf cli/*.exe
 	@rm -f $(TEST_BINARIES_RESULTS) $(TEST_SCRIPT_RESULTS)
 	@rm -f $(TEST_BINARIES) $(TEST_SCRIPT_BINARY)
+
+mrproper: clean test-clean test-clean-all
 
 #---------------------------------------------------------------------------------------------------
 # Duktape base compilation

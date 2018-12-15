@@ -10,7 +10,6 @@ cli/js
 cli/djs
 cli/dev
 /bin
-/doc/stdmods.js
 *.elf
 *.log
 *.exe
