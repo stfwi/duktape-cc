@@ -1297,4 +1297,4 @@ sys.hash.sha1 = function(data, isfile) {};
  * @param {boolean} [isfile=false]
  * @returns {string}
  */
-sys.hash.sha1 = function(data, isfile) {};
+sys.hash.sha512 = function(data, isfile) {};

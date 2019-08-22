@@ -1241,7 +1241,7 @@ namespace duktape { namespace detail { namespace system { namespace hash {
    * @param {boolean} [isfile=false]
    * @returns {string}
    */
-  sys.hash.sha1 = function(data, isfile) {};
+  sys.hash.sha512 = function(data, isfile) {};
   #endif
   template <typename=void>
   int sha512_wrapper(duktape::api& stack)
