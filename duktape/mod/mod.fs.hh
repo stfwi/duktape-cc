@@ -367,7 +367,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
       stack.throw_exception("The file write function cannot use functions as data argument");
       return 0;
     } else if(stack.is_buffer(1)) {
-      data = stack.get_buffer<std::string>(1);
+      data = stack.buffer<std::string>(1);
       mode |= std::ios::binary;
     } else {
       data = stack.to<std::string>(1);

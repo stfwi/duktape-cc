@@ -201,7 +201,7 @@ public:
    * @param size_type size
    * @return acc_type
    */
-  static acc_type calculate(const void *data, register size_type size)
+  static acc_type calculate(const void *data, size_type size)
   {
     // Compiler is gently asked to as much as possible in registers, but depending
     // on the processor it will not to that.

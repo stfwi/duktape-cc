@@ -997,7 +997,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
             stdin_data.clear();
           } else if(stack.is_buffer(-1)) {
             clog__("opts.stdin === buffer");
-            stdin_data = stack.get_buffer<std::string>(-1);
+            stdin_data = stack.buffer<std::string>(-1);
           } else {
             if(!no_exception) stack.throw_exception(std::string("Invalid value for the 'stdin' exec option."));
             return 0;

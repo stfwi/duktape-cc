@@ -9,9 +9,9 @@ TOOLCHAIN=
 
 CXX=$(TOOLCHAIN)g++
 LD=$(CXX)
-FLAGSCXX=-std=c++11 -W -Wall -Wextra -pedantic
+FLAGSCXX=-std=c++17 -W -Wall -Wextra -pedantic
 FLAGSCXX+=-Iduktape
-DUKOPTS+=-std=c++11 -fstrict-aliasing -fdata-sections -ffunction-sections -Os -DDUK_USE_CPP_EXCEPTIONS
+DUKOPTS+=-std=c++17 -fstrict-aliasing -fdata-sections -ffunction-sections -Os -DDUK_USE_CPP_EXCEPTIONS
 GIT_COMMIT_VERSION:=$(shell git log --pretty=format:%h -1)
 
 #---------------------------------------------------------------------------------------------------
@@ -156,16 +156,16 @@ cli/dev.o: cli/dev.cc $(HEADER_DEPS) $(TEST_BINARIES_SOURCES)
 #---------------------------------------------------------------------------------------------------
 # Integration example
 #---------------------------------------------------------------------------------------------------
-example: cli/$(EXAMPLEBINARY)
-	@echo "[note] Running example ..."
-	@cd ./cli; ./$(EXAMPLEBINARY) arg1 arg2 arg2 etc
+example: examples/basic-integration/$(EXAMPLEBINARY)
+	@echo "[note] Running basic integration example ..."
+	@cd ./examples/basic-integration/; ./$(EXAMPLEBINARY) arg1 arg2 arg2 etc
 
-cli/$(EXAMPLEBINARY): cli/example.o duktape/duktape.o
+examples/basic-integration/$(EXAMPLEBINARY): examples/basic-integration/example.o duktape/duktape.o
 	@echo "[ld  ] $^ $@"
 	@$(CXX) -o $@ $^ $(LDSTATIC) $(FLAGSLD) $(LIBS)
 	@if [ ! -z "$(STRIP)" ]; then $(STRIP) $@; fi
 
-cli/example.o: cli/example.cc $(HEADER_DEPS) $(TEST_BINARIES_SOURCES)
+examples/basic-integration/example.o: examples/basic-integration/example.cc $(HEADER_DEPS) $(TEST_BINARIES_SOURCES)
 	@echo "[c++ ] $< $@"
 	@$(CXX) -c -o $@ $< $(FLAGSCXX) $(OPTS) -I.
 	@echo "[note] Example binary is $@"
@@ -235,7 +235,7 @@ endif
 static-code-analysis:
 ifneq ($(OS),win)
 	@echo "[sca ] cppcheck ..."
-	@cppcheck --std=c++11 --force --platform=unix64 --template=gcc \
+	@cppcheck --std=c++17 --force --platform=unix64 --template=gcc \
 	 	  --suppress=missingIncludeSystem --enable=warning \
 		  --enable=information --enable=performance --inconclusive \
 		  -Iduktape \

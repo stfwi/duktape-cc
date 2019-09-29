@@ -1065,7 +1065,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
   template <typename PathAccessor>
   int file_write(duktape::api& stack)
   {
-    std::string data = stack.is_buffer(0) ? stack.get_buffer<std::string>(0) : stack.to<std::string>(0);
+    std::string data = stack.is_buffer(0) ? stack.buffer<std::string>(0) : stack.to<std::string>(0);
     stack.top(0);
     stack.push_this();
     std::string openopts;
