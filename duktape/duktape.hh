@@ -50,6 +50,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <numeric>
 #include <exception>
 #include <stdexcept>
 #include <fstream>
@@ -2216,6 +2217,69 @@ namespace duktape {
     }
 
     /**
+     * Proxy trap for property deletion, which is not allowed.
+     *
+     * @param api::context_t ctx
+     * @return int
+     */
+    static int delprop_proxy(api::context_t ctx)
+    { api(ctx).throw_exception("Properties of native objects cannot be deleted."); return 0; }
+
+    /**
+     * Duktape C function proxy trap for property existence.
+     *
+     * @param api::context_t ctx
+     * @return int
+     */
+    static int hasprop_proxy(api::context_t ctx)
+    {
+      api stack(ctx);
+      try {
+        stack.top(2);             // [target, key]
+        string key = stack.get<std::string>(1);
+        stack.get_prop_string(0, "\xff_accessor");
+        native_object* accessor = reinterpret_cast<native_object*>(stack.get_pointer(-1, nullptr));
+        if(accessor == nullptr) throw script_error(std::string("Native method not called with 'this' being a native object."));
+        if(instance_.get() != accessor) throw engine_error("Inconsistent native object properties.");
+        stack.push(accessor->getters_.find(key) != accessor->getters_.end()); // intentionally not write-only, too.
+        return 1;
+      } catch(const engine_error&) {
+        throw;
+      } catch(const std::exception& e) {
+        stack.throw_exception(e.what());
+      }
+      return 0;
+    }
+
+    /**
+     * Duktape C function proxy trap for property listing
+     * and enumeration.
+     *
+     * @param api::context_t ctx
+     * @return int
+     */
+    static int ownkeys_proxy(api::context_t ctx)
+    {
+      using namespace std;
+      api stack(ctx);
+      try {
+        stack.get_prop_string(0, "\xff_accessor");
+        native_object* accessor = reinterpret_cast<native_object*>(stack.get_pointer(-1, nullptr));
+        if(accessor == nullptr) throw script_error(std::string("Native method not called with 'this' being a native object."));
+        if(instance_.get() != accessor) throw engine_error("Inconsistent native object properties.");
+        auto v = vector<string>();
+        for(const auto& e:accessor->getters_) v.push_back(e.first);
+        stack.push(v);
+        return 1;
+      } catch(const engine_error&) {
+        throw;
+      } catch(const std::exception& e) {
+        stack.throw_exception(e.what());
+      }
+      return 0;
+    }
+
+    /**
      * Constructs a JS object representing a native c++ instance, and
      * assigns metadata that are used for verivication and instance
      * access.
@@ -2248,8 +2312,17 @@ namespace duktape {
         stack.push_c_function(finalizer_proxy, 1);
         stack.set_finalizer(-2);
         stack.freeze(-1);
-        //--
-        stack.push_object();
+        //-- proxy
+        stack.push_bare_object();
+        stack.push_string("deleteProperty");
+        stack.push_c_function(delprop_proxy, 2);
+        stack.def_prop(-3, defflags::convert(defflags::restricted));
+        stack.push_string("has");
+        stack.push_c_function(hasprop_proxy, 2);
+        stack.def_prop(-3, defflags::convert(defflags::restricted));
+        stack.push_string("ownKeys");
+        stack.push_c_function(ownkeys_proxy, 1);
+        stack.def_prop(-3, defflags::convert(defflags::restricted));
         stack.push_c_function(getter_proxy, 3);
         stack.put_prop_string(-2, "get");
         stack.push_c_function(setter_proxy, 4);
@@ -2404,35 +2477,39 @@ namespace duktape {
       instance_ = std::unique_ptr<native_object>(new native_object(*this));
       api& stack = js.stack();
       constexpr defflags::type acf = defflags::restricted;
+      constexpr defflags::type ace = defflags::enumerable;
       std::string name = name_;
-      name = js.define_base(name, defflags::enumerable); // [parent]
-      stack.push_bare_object();                       // [parent proto]
-      stack.swap_top(0);                              // [proto parent]
-      stack.push_string(name);                        // [proto parent classname]
-      stack.push_c_function(constructor_proxy);       // [proto parent classname ctor]
-      stack.push_string("\xff_accessor");             // [proto parent classname ctor acc_key]
-      stack.push_pointer((void*)instance_.get());     // [proto parent classname ctor acc_key acc_ptr]
-      stack.def_prop(-3, defflags::convert(acf));     // [proto parent classname ctor]
-      stack.push_string("prototype");                 // [proto parent classname ctor proto_key]
-      stack.dup(0);                                   // [proto parent classname ctor proto_key proto_val]
-      stack.def_prop(-3, defflags::convert(acf));     // [proto parent classname ctor]
-      stack.freeze(-1);                               // [proto parent classname ctor]
-      stack.def_prop(-3, defflags::convert(acf));     // [proto parent]
-      stack.top(1);                                   // [proto]
+      name = js.define_base(name, ace);               // [... parent]
+      stack.push_string(name);                        // [... parent classname]
+      stack.push_c_function(constructor_proxy);       // [... parent classname ctor]
+      stack.def_prop(-3, defflags::convert(acf));     // [... parent]
+      stack.top(0);                                   // []
+      stack.select(name_);                            // [ctor]
+      stack.push_string("\xff_accessor");             // [ctor acc_key]
+      stack.push_pointer((void*)instance_.get());     // [ctor acc_key acc_ptr]
+      stack.def_prop(-3, defflags::convert(acf));     // [ctor]
+      stack.push_string("prototype");                 // [ctor proto_key]
+      stack.push_bare_object();                       // [ctor proto_key proto]
+      stack.def_prop(-3, defflags::convert(acf));     // [ctor]
+      stack.freeze(-1);                               // [ctor]
+      stack.top(0);                                   // []
       //--
+      stack.select(name_ + ".prototype");             // [... proto]
+      stack.swap_top(0);                              // [proto ...]
+      stack.top(1);                                   // [proto]
       stack.push_string("toString");                  // [proto key]
       stack.push_c_function(default_tostring, 0);     // [proto key fn]
       stack.def_prop(-3, defflags::convert(defflags::defaults)); // [proto]
       //--
       int i=0;
-      for(auto& method:methods_) {
+      for(const auto& method:methods_) {
         stack.top(1);                                 // [proto]
         stack.push_string(std::get<0>(method));       // [proto fnname]
         stack.push_c_function(method_proxy, std::get<2>(method)); // [proto fnname fn]
         stack.push_string("\xff_mp");                 // [proto fnname fn key]
         stack.push(i);                                //
         stack.def_prop(-3, defflags::convert(acf));   // [proto fnname fn]
-        stack.def_prop(-3, defflags::convert(defflags::defaults)); // [proto]
+        stack.def_prop(-3, defflags::convert(acf));   // [proto]
         ++i;
       }
       stack.top(1);                                   // [proto]

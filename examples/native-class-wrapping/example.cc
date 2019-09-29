@@ -56,7 +56,9 @@ int main(int, const char**)
   // Define the native circle wrapper ...
   js.define(
     // First construct a new `native_object` with your class type
-    // and the name in the JS engine.
+    // and the name in the JS engine. This can also be a canonical
+    // name like "Math.geometry.Circle2d". Parent objects will
+    // automatically be created if missing.
     duktape::native_object<circle>("Circle")
     // First action to do should be the constructor. This function
     // shall check the arguments given from the engine (we use the stack)
