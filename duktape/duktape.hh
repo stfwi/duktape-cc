@@ -230,6 +230,63 @@ using defprop_flags = basic_defprop_flags<unsigned>;
 }}
 // </editor-fold>
 
+// <editor-fold desc="stack_guard" defaultstate="collapsed">
+namespace duktape { namespace detail {
+  /**
+   * Saves the current top index of the stack using `duk_get_top()`
+   * during construction and restores this stack top during destruction
+   * (using `duk_set_top()`) IF the top index is greater than the
+   * initial stack top.
+   */
+  template <typename>
+  class basic_stack_guard
+  {
+  public:
+
+    basic_stack_guard() : ctx_(0), initial_top_(0), gc_(false)
+    { ; }
+
+    basic_stack_guard(const basic_stack_guard& g, bool collect_garbage=false)
+            : ctx_(g.ctx_), initial_top_(g.initial_top_), gc_(collect_garbage)
+    { ; }
+
+    basic_stack_guard(duk_context* ctx, bool collect_garbage=false)
+            : ctx_(ctx), initial_top_(-1), gc_(collect_garbage)
+    { if(ctx_) initial_top_ = duk_get_top(ctx_); }
+
+    template <typename T>
+    basic_stack_guard(const basic_api<T>& o, bool collect_garbage=false)
+            : ctx_(o.ctx()), gc_(collect_garbage)
+    { if(ctx_) initial_top_ = duk_get_top(ctx_); }
+
+    ~basic_stack_guard() noexcept
+    {
+      if(!ctx_ || initial_top_ < 0) return;
+      duk_idx_t top = duk_get_top(ctx_);
+      if(top <= initial_top_) return;
+      duk_set_top(ctx_, initial_top_);
+    }
+
+  public:
+
+    duk_context* ctx() const noexcept
+    { return ctx_; }
+
+    duk_idx_t initial_top() const noexcept
+    { return initial_top_; }
+
+    void initial_top(duk_idx_t index) noexcept
+    { initial_top_ = index; }
+
+  private:
+
+    duk_context* ctx_;
+    duk_idx_t initial_top_;
+    bool gc_;
+  };
+}}
+// </editor-fold>
+
 // <editor-fold desc="api" defaultstate="collapsed">
 namespace duktape { namespace detail {
 
@@ -1540,63 +1597,6 @@ namespace duktape { namespace detail {
 
     // </editor-fold>
 
-  };
-}}
-// </editor-fold>
-
-// <editor-fold desc="stack_guard" defaultstate="collapsed">
-namespace duktape { namespace detail {
-  /**
-   * Saves the current top index of the stack using `duk_get_top()`
-   * during construction and restores this stack top during destruction
-   * (using `duk_set_top()`) IF the top index is greater than the
-   * initial stack top.
-   */
-  template <typename>
-  class basic_stack_guard
-  {
-  public:
-
-    basic_stack_guard() : ctx_(0), initial_top_(0), gc_(false)
-    { ; }
-
-    basic_stack_guard(const basic_stack_guard& g, bool collect_garbage=false)
-            : ctx_(g.ctx_), initial_top_(g.initial_top_), gc_(collect_garbage)
-    { ; }
-
-    basic_stack_guard(duk_context* ctx, bool collect_garbage=false)
-            : ctx_(ctx), initial_top_(-1), gc_(collect_garbage)
-    { if(ctx_) initial_top_ = duk_get_top(ctx_); }
-
-    template <typename T>
-    basic_stack_guard(const basic_api<T>& o, bool collect_garbage=false)
-            : ctx_(o.ctx()), gc_(collect_garbage)
-    { if(ctx_) initial_top_ = duk_get_top(ctx_); }
-
-    ~basic_stack_guard() noexcept
-    {
-      if(!ctx_ || initial_top_ < 0) return;
-      duk_idx_t top = duk_get_top(ctx_);
-      if(top <= initial_top_) return;
-      duk_set_top(ctx_, initial_top_);
-    }
-
-  public:
-
-    duk_context* ctx() const noexcept
-    { return ctx_; }
-
-    duk_idx_t initial_top() const noexcept
-    { return initial_top_; }
-
-    void initial_top(duk_idx_t index) noexcept
-    { initial_top_ = index; }
-
-  private:
-
-    duk_context* ctx_;
-    duk_idx_t initial_top_;
-    bool gc_;
   };
 }}
 // </editor-fold>
