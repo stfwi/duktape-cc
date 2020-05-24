@@ -63,6 +63,7 @@ ifeq ($(WITH_DEFAULT_STRICT_INCLUDE),1)
   FLAGSCXX+=-DWITH_DEFAULT_STRICT_INCLUDE
 endif
 
+#---------------------------------------------------------------------------------------------------
 # Test selection
 wildcardr=$(foreach d,$(wildcard $1*),$(call wildcardr,$d/,$2) $(filter $(subst *,%,$2),$d))
 DEVBINARY=dev$(BINARY_EXTENSION)
@@ -87,6 +88,9 @@ endif
 STDMOD_SOURCES:=$(sort $(call wildcardr, duktape/mod, *.hh))
 HEADER_DEPS=duktape/duktape.hh $(STDMOD_SOURCES)
 MAIN_TESTJS:=$(wildcard main.js)
+
+#---------------------------------------------------------------------------------------------------
+MAKEFLAGS+=--no-print-directory --output-sync=target
 
 #---------------------------------------------------------------------------------------------------
 # make targets
