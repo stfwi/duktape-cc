@@ -37,7 +37,6 @@
 #ifndef DUKTAPE_MOD_BASIC_SYSTEM_HH
 #define DUKTAPE_MOD_BASIC_SYSTEM_HH
 
-// <editor-fold desc="preprocessor" defaultstate="collapsed">
 #if defined(_MSCVER)
   #error "not yet implemented"
 #endif
@@ -59,9 +58,7 @@
   #include <pwd.h>
   #include <grp.h>
 #endif
-// </editor-fold>
 
-// <editor-fold desc="jsdoc" defaultstate="collapsed">
 #if(0 && JSDOC)
 /**
  * Operating system functionality object.
@@ -69,124 +66,118 @@
  */
 var sys = {};
 #endif
-// </editor-fold>
 
 namespace duktape { namespace detail {
 
-// <editor-fold desc="conv<unix_timestamp>" defaultstate="collapsed">
-//
-// JS Date <--> c++ time_t like value with keeping sub-seconds.
-//
-// @sw: Has to be checked how accurate the double values
-//      (also stored in the Date object as underlaying
-//      value) actually are when the numbers get bigger.
-//      When Duktape changes the type we should do this,
-//      too.
-//
-namespace {
-  template<typename time_type=double>
-  struct basic_unix_timestamp {
-    time_type t;
-    inline basic_unix_timestamp() : t(0) {}
-    inline basic_unix_timestamp(time_type ts) : t(ts) {}
-    inline basic_unix_timestamp(struct ::timespec ts)
-      : t(time_type(ts.tv_sec) + time_type(ts.tv_nsec) * time_type(1e-9)) {}
+  //
+  // JS Date <--> c++ time_t like value with keeping sub-seconds.
+  //
+  // @sw: Has to be checked how accurate the double values
+  //      (also stored in the Date object as underlaying
+  //      value) actually are when the numbers get bigger.
+  //      When Duktape changes the type we should do this,
+  //      too.
+  //
+  namespace {
+    template<typename time_type=double>
+    struct basic_unix_timestamp {
+      time_type t;
+      inline basic_unix_timestamp() : t(0) {}
+      inline basic_unix_timestamp(time_type ts) : t(ts) {}
+      inline basic_unix_timestamp(struct ::timespec ts)
+        : t(time_type(ts.tv_sec) + time_type(ts.tv_nsec) * time_type(1e-9)) {}
+    };
+  }
+  using unix_timestamp = basic_unix_timestamp<>;
+
+  template <> struct conv<unix_timestamp>
+  {
+    using type = unix_timestamp;
+
+    static constexpr int nret() noexcept
+    { return 1; }
+
+    static constexpr const char* cc_name() noexcept
+    { return "unix_timestamp"; }
+
+    static constexpr const char* ecma_name() noexcept
+    { return "Date"; }
+
+    static bool is(duk_context* ctx, int index) noexcept
+    { return duktape::api(ctx).is_date(index); }
+
+    static type get(duk_context* ctx, int index) noexcept
+    { return to(ctx, index); }
+
+    static type req(duk_context* ctx, int index) noexcept
+    { return to(ctx, index); }
+
+    static type to(duk_context* ctx, int index) noexcept
+    {
+      duktape::api stack(ctx);
+      if(!stack.is_date(index)) return type(0);
+      return type(stack.to_number(index) / 1000);
+    }
+
+    static void push(duk_context* ctx, type ts) noexcept
+    {
+      duktape::api stack(ctx);
+      stack.require_stack(2);
+      if(!stack.get_global_string("Date")) return;
+      stack.push(ts.t * 1000);
+      stack.pnew(1);
+    }
   };
-}
-using unix_timestamp = basic_unix_timestamp<>;
 
-template <> struct conv<unix_timestamp>
-{
-  using type = unix_timestamp;
+  #if defined(__linux) || defined(__linux__) || defined(__MINGW32__) || defined(__MINGW64__)
+    template <> struct conv<struct ::timespec>
+    {
+      typedef struct ::timespec type;
 
-  static constexpr int nret() noexcept
-  { return 1; }
+      static constexpr int nret() noexcept
+      { return 1; }
 
-  static constexpr const char* cc_name() noexcept
-  { return "unix_timestamp"; }
+      static constexpr const char* cc_name() noexcept
+      { return "timespec"; }
 
-  static constexpr const char* ecma_name() noexcept
-  { return "Date"; }
+      static constexpr const char* ecma_name() noexcept
+      { return "Date"; }
 
-  static bool is(duk_context* ctx, int index) noexcept
-  { return duktape::api(ctx).is_date(index); }
+      static bool is(duk_context* ctx, int index) noexcept
+      { return duktape::api(ctx).is_date(index); }
 
-  static type get(duk_context* ctx, int index) noexcept
-  { return to(ctx, index); }
+      static type get(duk_context* ctx, int index) noexcept
+      { return to(ctx, index); }
 
-  static type req(duk_context* ctx, int index) noexcept
-  { return to(ctx, index); }
+      static type req(duk_context* ctx, int index) noexcept
+      { return to(ctx, index); }
 
-  static type to(duk_context* ctx, int index) noexcept
-  {
-    duktape::api stack(ctx);
-    if(!stack.is_date(index)) return type(0);
-    return type(stack.to_number(index) / 1000);
-  }
+      static type to(duk_context* ctx, int index) noexcept
+      {
+        duktape::api stack(ctx);
+        if(!stack.is_date(index)) return type{0,0};
+        type ts{0,0};
+        uint64_t v = (uint64_t) stack.to_number(index); // duktape will coerce the \x00Value property.
+        ts.tv_sec = v / 1000;
+        ts.tv_nsec = (v % 1000) * 1000000;
+        return ts;
+      }
 
-  static void push(duk_context* ctx, type ts) noexcept
-  {
-    duktape::api stack(ctx);
-    stack.require_stack(2);
-    if(!stack.get_global_string("Date")) return;
-    stack.push(ts.t * 1000);
-    stack.pnew(1);
-  }
-};
-// </editor-fold>
-
-// <editor-fold desc="conv<struct ::timespec>" defaultstate="collapsed">
-#if defined(__linux) || defined(__linux__) || defined(__MINGW32__) || defined(__MINGW64__)
-template <> struct conv<struct ::timespec>
-{
-  typedef struct ::timespec type;
-
-  static constexpr int nret() noexcept
-  { return 1; }
-
-  static constexpr const char* cc_name() noexcept
-  { return "timespec"; }
-
-  static constexpr const char* ecma_name() noexcept
-  { return "Date"; }
-
-  static bool is(duk_context* ctx, int index) noexcept
-  { return duktape::api(ctx).is_date(index); }
-
-  static type get(duk_context* ctx, int index) noexcept
-  { return to(ctx, index); }
-
-  static type req(duk_context* ctx, int index) noexcept
-  { return to(ctx, index); }
-
-  static type to(duk_context* ctx, int index) noexcept
-  {
-    duktape::api stack(ctx);
-    if(!stack.is_date(index)) return type{0,0};
-    type ts{0,0};
-    uint64_t v = (uint64_t) stack.to_number(index); // duktape will coerce the \x00Value property.
-    ts.tv_sec = v / 1000;
-    ts.tv_nsec = (v % 1000) * 1000000;
-    return ts;
-  }
-
-  static void push(duk_context* ctx, type val) noexcept
-  {
-    duktape::api stack(ctx);
-    stack.require_stack(2);
-    if(!stack.get_global_string("Date")) return;
-    stack.push( ((double) val.tv_sec * 1000) + ((double) (val.tv_nsec / 1000000)) );
-    stack.pnew(1);
-  }
-};
-#endif
-// </editor-fold>
+      static void push(duk_context* ctx, type val) noexcept
+      {
+        duktape::api stack(ctx);
+        stack.require_stack(2);
+        if(!stack.get_global_string("Date")) return;
+        stack.push( ((double) val.tv_sec * 1000) + ((double) (val.tv_nsec / 1000000)) );
+        stack.pnew(1);
+      }
+    };
+  #endif
 
 }}
 
 namespace duktape { namespace detail { namespace system {
 
-  // <editor-fold desc="process/user/group information" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Returns the ID of the current process or `undefined` on error.
@@ -379,9 +370,7 @@ namespace duktape { namespace detail { namespace system {
     stack.push(path);
     return 1;
   }
-  // </editor-fold>
 
-  // <editor-fold desc="platform information" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Returns a plain object containing information about the operating system
@@ -416,9 +405,7 @@ namespace duktape { namespace detail { namespace system {
     #endif
     return 1;
   }
-  // </editor-fold>
 
-  // <editor-fold desc="time functions" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Makes the thread sleep for the given time in seconds (with sub seconds).
@@ -513,9 +500,7 @@ namespace duktape { namespace detail { namespace system {
     stack.push(t);
     return 1;
   }
-  // </editor-fold>
 
-  // <editor-fold desc="misc" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Returns true if the descriptor given as string
@@ -590,13 +575,11 @@ namespace duktape { namespace detail { namespace system {
     stack.push(r);
     return 1;
   }
-  // </editor-fold>
 
 }}}
 
 namespace duktape { namespace mod { namespace system {
 
-  // <editor-fold desc="js decls" defaultstate="collapsed">
   /**
    * Export main relay. Adds all module functions to the specified engine.
    * @param duktape::engine& js
@@ -616,7 +599,7 @@ namespace duktape { namespace mod { namespace system {
     js.define("sys.isatty", isatty_by_name, 1);
     js.define("sys.executable", app_path, 0);
   }
-  // </editor-fold>
+
 
 }}}
 

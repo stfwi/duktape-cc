@@ -1,13 +1,13 @@
-// <editor-fold desc="preprocessor" defaultstate="collapsed">
+
 #include "../testenv.hh"
 #include <mod/mod.stdio.hh>
 #include <mod/mod.sys.hh>
 #include <mod/mod.fs.ext.hh>
 using namespace std;
 using namespace testenv;
-// </editor-fold>
 
-// <editor-fold desc="test_copy_function" defaultstate="collapsed">
+
+
 void test_copy_function(duktape::engine& js)
 {
   test_comment("test_copy_function");
@@ -35,9 +35,9 @@ void test_copy_function(duktape::engine& js)
   // option masking
   test_expect( js.eval<bool>("fs.copy(test_relpath('z'),test_relpath('-K'))") && exists(test_path("-K")) );
 }
-// </editor-fold>
 
-// <editor-fold desc="test_move_function" defaultstate="collapsed">
+
+
 void test_move_function(duktape::engine& js)
 {
   test_comment("test_move_function");
@@ -68,9 +68,9 @@ void test_move_function(duktape::engine& js)
   test_expect( exists(test_path("z")) );
   test_expect_except( js.eval<bool>("fs.move('notexisting', 'a')") );
 }
-// </editor-fold>
 
-// <editor-fold desc="test_remove_function" defaultstate="collapsed">
+
+
 void test_remove_function(duktape::engine& js)
 {
   test_comment("test_remove_function");
@@ -89,9 +89,9 @@ void test_remove_function(duktape::engine& js)
   test_expect_except( js.eval<bool>("fs.remove('b')") && exists(test_path("b")) );
   test_expect( js.eval<bool>("fs.remove(test_abspath('b'), '-r')") && !exists(test_path("b")) );
 }
-// </editor-fold>
 
-// <editor-fold desc="test main" defaultstate="collapsed">
+
+
 void test(duktape::engine& js)
 {
   duktape::mod::system::define_in<>(js);
@@ -109,4 +109,3 @@ void test(duktape::engine& js)
     throw;
   }
 }
-// </editor-fold>

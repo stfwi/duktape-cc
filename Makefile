@@ -143,15 +143,9 @@ dev: cli/$(DEVBINARY)
 	@echo "[note] Running development binary ..."
 	@cd ./cli; ./$(DEVBINARY) dev.js
 
-cli/$(DEVBINARY): cli/dev.o duktape/duktape.o
-	@echo "[ld  ] $^ $@"
-	@$(CXX) -o $@ $^ $(LDSTATIC) $(FLAGSLD) $(LIBS)
-	@if [ ! -z "$(STRIP)" ]; then $(STRIP) $@; fi
-
-cli/dev.o: cli/dev.cc $(HEADER_DEPS) $(TEST_BINARIES_SOURCES)
-	@echo "[c++ ] $< $@"
-	@$(CXX) -c -o $@ $< $(FLAGSCXX) $(OPTS) -I.
-	@echo "[note] Development testing binary is $@"
+cli/$(DEVBINARY): cli/dev.cc duktape/duktape.o
+	@echo "[c++ ] $^ $@"
+	@$(CXX) -o $@ $^ $(FLAGSCXX) $(OPTS) -I. $(FLAGSLD) $(LDSTATIC) $(LIBS)
 
 #---------------------------------------------------------------------------------------------------
 # Integration example

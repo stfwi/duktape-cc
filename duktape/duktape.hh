@@ -34,7 +34,6 @@
 #ifndef DUKTAPE_HH
 #define DUKTAPE_HH
 
-// <editor-fold desc="preprocessor" defaultstate="collapsed">
 #include <limits.h>
 #if (!defined(UINT_MAX)) || (UINT_MAX < 0xffffffffUL)
 #error "This interface requires at least 32 bit integer size for type int."
@@ -76,10 +75,11 @@
   #define DEFAULT_STRICT_INCLUDE (true)
 #endif
 
-// </editor-fold>
-
-// <editor-fold desc="forwards" defaultstate="collapsed">
+/**
+ * Forward declarations required in this file.
+ */
 namespace duktape {
+
   namespace detail {
     template <typename R=void> class basic_api;
     template <typename R=void> class basic_stack_guard;
@@ -91,12 +91,14 @@ namespace duktape {
   using engine = detail::basic_engine<>;
   using stack_guard = detail::basic_stack_guard<>;
 }
-// </editor-fold>
 
-// <editor-fold desc="exceptions" defaultstate="collapsed">
+/**
+ * JS related exception types.
+ */
 namespace duktape {
 
   namespace detail {
+
     template <typename=void>
     class basic_engine_error : public std::runtime_error
     {
@@ -151,86 +153,90 @@ namespace duktape {
    */
   using exit_exception = detail::basic_exit_exception<>;
 }
-// </editor-fold>
-
-// <editor-fold desc="auxiliary functions" defaultstate="collapsed">
-namespace duktape { namespace detail {
-
-namespace {
-template <typename=void>
-struct aux
-{
-  static bool split_selector(std::string name, std::string& base, std::string& tail)
-  {
-    auto p = name.find_last_of('.');
-    if(p == name.npos) {
-      if(name.empty()) {
-        // invalid
-        base.clear();
-        tail.clear();
-        return false;
-      } else {
-        // no "."
-        base.clear();
-        tail.swap(name);
-        return true;
-      }
-    } else {
-      if((!p) || (p == name.length()-1)) {
-        // invalid
-        base.clear();
-        tail.swap(name);
-        return false;
-      } else {
-        // ok
-        tail = name.substr(p+1);
-        base.swap(name);
-        base.resize(p);
-        return true;
-      }
-    }
-  }
-};
-}
 
 /**
- * define(....) : Defines are done using these flags (DUK_DEFPROP_HAVE_... will be
- * automatically added). The default is defining sealed, frozen - means not writable,
- * not configurable, but enumerable.
+ * Duktape property access wrappers.
  */
-template <typename T>
-struct basic_defprop_flags
-{
-  using type = T;
-  static constexpr type restricted = 0;
-  static constexpr type writable = (DUK_DEFPROP_WRITABLE);
-  static constexpr type enumerable = (DUK_DEFPROP_ENUMERABLE);
-  static constexpr type configurable = (DUK_DEFPROP_CONFIGURABLE);
-  static constexpr type defaults = (DUK_DEFPROP_ENUMERABLE);
+namespace duktape { namespace detail {
+
+  namespace {
+
+    template <typename=void>
+    struct aux
+    {
+      static bool split_selector(std::string name, std::string& base, std::string& tail)
+      {
+        auto p = name.find_last_of('.');
+        if(p == name.npos) {
+          if(name.empty()) {
+            // invalid
+            base.clear();
+            tail.clear();
+            return false;
+          } else {
+            // no "."
+            base.clear();
+            tail.swap(name);
+            return true;
+          }
+        } else {
+          if((!p) || (p == name.length()-1)) {
+            // invalid
+            base.clear();
+            tail.swap(name);
+            return false;
+          } else {
+            // ok
+            tail = name.substr(p+1);
+            base.swap(name);
+            base.resize(p);
+            return true;
+          }
+        }
+      }
+    };
+  }
 
   /**
-   * Handles/converts the flags needed for def_prop() from the simplified
-   * `defflags::*` constants.
-   *
-   * @param typename type
-   * @return unsigned
+   * define(....) : Defines are done using these flags (DUK_DEFPROP_HAVE_... will be
+   * automatically added). The default is defining sealed, frozen - means not writable,
+   * not configurable, but enumerable.
    */
-  static unsigned convert(type flags) noexcept
+  template <typename T>
+  struct basic_defprop_flags
   {
-    return (((unsigned)0) | DUK_DEFPROP_FORCE | DUK_DEFPROP_HAVE_VALUE
-      | DUK_DEFPROP_HAVE_WRITABLE | ((flags & writable) ? DUK_DEFPROP_WRITABLE:0)
-      | DUK_DEFPROP_HAVE_CONFIGURABLE | ((flags & configurable) ? DUK_DEFPROP_CONFIGURABLE:0)
-      | DUK_DEFPROP_HAVE_ENUMERABLE | ((flags & enumerable) ? DUK_DEFPROP_ENUMERABLE:0)
-    );
-  }
-};
+    using type = T;
+    static constexpr type restricted = 0;
+    static constexpr type writable = (DUK_DEFPROP_WRITABLE);
+    static constexpr type enumerable = (DUK_DEFPROP_ENUMERABLE);
+    static constexpr type configurable = (DUK_DEFPROP_CONFIGURABLE);
+    static constexpr type defaults = (DUK_DEFPROP_ENUMERABLE);
 
-using defprop_flags = basic_defprop_flags<unsigned>;
+    /**
+     * Handles/converts the flags needed for def_prop() from the simplified
+     * `defflags::*` constants.
+     *
+     * @param typename type
+     * @return unsigned
+     */
+    static unsigned convert(type flags) noexcept
+    {
+      return (((unsigned)0) | DUK_DEFPROP_FORCE | DUK_DEFPROP_HAVE_VALUE
+        | DUK_DEFPROP_HAVE_WRITABLE | ((flags & writable) ? DUK_DEFPROP_WRITABLE:0)
+        | DUK_DEFPROP_HAVE_CONFIGURABLE | ((flags & configurable) ? DUK_DEFPROP_CONFIGURABLE:0)
+        | DUK_DEFPROP_HAVE_ENUMERABLE | ((flags & enumerable) ? DUK_DEFPROP_ENUMERABLE:0)
+      );
+    }
+  };
+
+  using defprop_flags = basic_defprop_flags<unsigned>;
 
 }}
-// </editor-fold>
 
-// <editor-fold desc="stack_guard" defaultstate="collapsed">
+/**
+ * Stack Guard, usage like `lock_guard`, ensures that the stack
+ * top is reset to its original value when leaving the scope.
+ */
 namespace duktape { namespace detail {
   /**
    * Saves the current top index of the stack using `duk_get_top()`
@@ -284,10 +290,12 @@ namespace duktape { namespace detail {
     duk_idx_t initial_top_;
     bool gc_;
   };
-}}
-// </editor-fold>
 
-// <editor-fold desc="api" defaultstate="collapsed">
+}}
+
+/**
+ * Main Duktape API wrapper. Mostly referred to as variables called `stack`.
+ */
 namespace duktape { namespace detail {
 
   /**
@@ -322,8 +330,6 @@ namespace duktape { namespace detail {
   template <typename>
   class basic_api
   {
-    // <editor-fold desc="types" defaultstate="collapsed">
-
   public:
 
     using context_t = duk_context*;
@@ -376,6 +382,7 @@ namespace duktape { namespace detail {
     } safe_call_code_t;
 
     typedef int enumerator_flags;
+
     /**
      * Enumerate also non-enumerable properties (by default only enumerable properties are
      * enumerated)
@@ -404,10 +411,6 @@ namespace duktape { namespace detail {
      */
     static constexpr enumerator_flags enum_sort_array_indices = DUK_ENUM_SORT_ARRAY_INDICES;
 
-    // </editor-fold>
-
-    // <editor-fold desc="c'tor d'tor" defaultstate="collapsed">
-
   public:
 
     basic_api() noexcept : ctx_(0)
@@ -426,10 +429,6 @@ namespace duktape { namespace detail {
     ~basic_api() noexcept
     { ; }
 
-    // </editor-fold>
-
-    // <editor-fold desc="methods" defaultstate="collapsed">
-
   public:
 
     context_t ctx() const noexcept
@@ -437,10 +436,6 @@ namespace duktape { namespace detail {
 
     context_t ctx(context_t ctx) noexcept
     { ctx_ = ctx; return ctx_; }
-
-    // </editor-fold>
-
-    // <editor-fold desc="api methods" defaultstate="collapsed">
 
   public:
 
@@ -1167,10 +1162,6 @@ namespace duktape { namespace detail {
     static void xmove_top(context_t to_ctx, context_t from_ctx, size_t count)
     { duk_xmove_top(to_ctx, from_ctx, duk_idx_t(count)); }
 
-    // </editor-fold>
-
-    // <editor-fold desc="api extended methods" defaultstate="collapsed">
-
   public:
 
     /**
@@ -1587,21 +1578,16 @@ namespace duktape { namespace detail {
     void push_variadic(T val, Args ...args) const
     { push<T>(val); push_variadic(args...); }
 
-    // </editor-fold>
-
-    // <editor-fold desc="instance variables" defaultstate="collapsed">
-
   protected:
 
     duk_context* ctx_;
 
-    // </editor-fold>
-
   };
 }}
-// </editor-fold>
 
-// <editor-fold desc="conversion" defaultstate="collapsed">
+/**
+ * JS <--> c++ type conversion functionality.
+ */
 namespace duktape { namespace detail {
 
   /**
@@ -1611,7 +1597,6 @@ namespace duktape { namespace detail {
   template <typename T>
   struct conv { using type = void; };
 
-  // <editor-fold desc="conv<void>" defaultstate="collapsed">
   template <> struct conv<void>
   {
     using type = void;
@@ -1640,9 +1625,7 @@ namespace duktape { namespace detail {
     static void push(duk_context* ctx)
     { (void)ctx; }
   };
-  // </editor-fold>
 
-  // <editor-fold desc="conv<NUMERIC>" defaultstate="collapsed">
   // @note: The c++ community will kill me for using macros,
   //        but writing it all out or nesting further template
   //        structures is eventually less readable than this.
@@ -1673,9 +1656,7 @@ namespace duktape { namespace detail {
   decl_conv_tmp(double, duk_get_number, duk_require_number, duk_to_number, duk_push_number, duk_is_number, "double");
   decl_conv_tmp(long double, duk_get_number, duk_require_number, duk_to_number, duk_push_number, duk_is_number, "long double");
   #undef decl_conv_tmp
-  // </editor-fold>
 
-  // <editor-fold desc="conv<bool>" defaultstate="collapsed">
   template <> struct conv<bool>
   {
     using type = bool;
@@ -1707,9 +1688,7 @@ namespace duktape { namespace detail {
     static void push(duk_context* ctx, type&& val)
     { return api(ctx).push_boolean(std::move(val)); }
   };
-  // </editor-fold>
 
-  // <editor-fold desc="conv<std::string>" defaultstate="collapsed">
   // @note: Intentionally wstring, u16/u32string omitted.
   template <> struct conv<std::string>
   {
@@ -1742,9 +1721,7 @@ namespace duktape { namespace detail {
     static void push(duk_context* ctx, type&& val)
     { return api(ctx).push_string(std::move(val)); }
   };
-  // </editor-fold>
 
-  // <editor-fold desc="conv<const char*>" defaultstate="collapsed">
   template <> struct conv<const char*>
   {
     using type = const char*;
@@ -1772,9 +1749,7 @@ namespace duktape { namespace detail {
     static void push(duk_context* ctx, type val)
     { return api(ctx).push_string(reinterpret_cast<const char*>(val)); }
   };
-  // </editor-fold>
 
-  // <editor-fold desc="conv<std::vector<T>>" defaultstate="collapsed">
   template <typename T> struct conv<std::vector<T>>
   {
     using type = std::vector<T>;
@@ -1843,9 +1818,7 @@ namespace duktape { namespace detail {
     }
 
   };
-  // </editor-fold>
 
-  // <editor-fold desc="ecma_typename (for debugging use)" defaultstate="collapsed">
   /**
    * Javascript type name query. Note: This is a runtime type query and expensive.
    * Use it only for debugging or in exceptional situations.
@@ -1901,16 +1874,19 @@ namespace duktape { namespace detail {
   const char* ecma_typename(duk_context* ctx, int index)
   { api stack(ctx); return ecma_typename<void>(stack, index); }
 
-  // </editor-fold>
-
 }}
-// </editor-fold>
 
-// <editor-fold desc="function_proxy" defaultstate="collapsed">
+/**
+ * Type for c++ functions callable from the JS engine, instead of a C `ctx`,
+ * a `duktape::api` stack is used as interfacing handle.
+ */
 namespace duktape { namespace detail {
   using native_function_type = int(*)(api&);
 }}
 
+/**
+ * Native wrappers to enable exposing c++ functions to the JS engine.
+ */
 namespace duktape { namespace detail { namespace {
 
   template<unsigned...> struct indices{};
@@ -2015,9 +1991,11 @@ namespace duktape { namespace detail { namespace {
   };
 
 }}}
-// </editor-fold>
 
-// <editor-fold desc="native_object" defaultstate="collapsed">
+/**
+ * Native object interfacing functionality to enable simpler construction
+ * and handling of JS object with a native backend.
+ */
 namespace duktape {
 
   /**
@@ -2531,9 +2509,10 @@ namespace duktape {
   template <typename T>
   std::unique_ptr<native_object<T>> native_object<T>::instance_ = nullptr;
 }
-// </editor-fold>
 
-// <editor-fold desc="engine" defaultstate="collapsed">
+/**
+ * Main "engine", corresponds to a destinct Duktape context.
+ */
 namespace duktape { namespace detail {
 
   /**
@@ -2547,16 +2526,13 @@ namespace duktape { namespace detail {
   {
   public:
 
-    // <editor-fold desc="types" defaultstate="collapsed">
     using api_type = ::duktape::api;
     using stack_guard_type = ::duktape::stack_guard;
     using lock_guard_type = std::lock_guard<MutexType>;
     using defflags = defprop_flags;
-    // </editor-fold>
 
   public:
 
-    // <editor-fold desc="c'tors/d'tor" defaultstate="collapsed">
     /**
      * c' tor
      */
@@ -2573,11 +2549,8 @@ namespace duktape { namespace detail {
     basic_engine(basic_engine&&) = delete;
     basic_engine& operator=(const basic_engine&) = delete;
 
-    // </editor-fold>
-
   public:
 
-    // <editor-fold desc="getters/setters" defaultstate="collapsed">
     /**
      * Returns the `duk_context*` of this engine.
      * @return api_type&
@@ -2608,11 +2581,8 @@ namespace duktape { namespace detail {
     void define_flags(typename defflags::type flags) noexcept
     { define_flags_ = flags; }
 
-    // </editor-fold>
-
   public:
 
-    // <editor-fold desc="standard methods" defaultstate="collapsed">
     #if(0 && JSDOC)
     /**
      * Reference to the global object, mainly useful
@@ -2650,9 +2620,7 @@ namespace duktape { namespace detail {
       stack().top(0);
       stack().gc();
     }
-    // </editor-fold>
 
-    // <editor-fold desc="include/eval" defaultstate="collapsed">
     /**
      * Includes a file, throws a `duktape::script_error` on fail.
      * @param const char* path
@@ -2745,9 +2713,7 @@ namespace duktape { namespace detail {
         }
       }
     }
-    // </editor-fold>
 
-    // <editor-fold desc="call" defaultstate="collapsed">
     /**
      * Call a function, fetch the (strict) return value.
      * @param std::string funct
@@ -2815,9 +2781,6 @@ namespace duktape { namespace detail {
         return conv<ReturnType>::get(ctx(), -1);
       }
     }
-    // </editor-fold>
-
-    // <editor-fold desc="define/undef" defaultstate="collapsed">
 
     /**
      * Remove an object or value (forced). Resolves dot separated names
@@ -3036,11 +2999,8 @@ namespace duktape { namespace detail {
       return tail;
     }
 
-    // </editor-fold>
-
   private:
 
-    // <editor-fold desc="private auxiliary methods/functions" defaultstate="collapsed">
     /**
      * Recursively defines empty parent objects of the given (canonical) name
      * and returns the object key (which is the last part of the given name).
@@ -3120,17 +3080,13 @@ namespace duktape { namespace detail {
       stack().def_prop(-3, defflags::convert(define_flags_));
     }
 
-    // </editor-fold>
-
   private:
 
-    // <editor-fold desc="instance variables" defaultstate="collapsed">
     api_type stack_;
     typename defflags::type define_flags_;
     MutexType mutex_;
-    // </editor-fold>
+
   };
 }}
-// </editor-fold>
 
 #endif

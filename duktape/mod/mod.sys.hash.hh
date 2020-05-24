@@ -49,7 +49,6 @@
 #ifndef DUKTAPE_MOD_HASHES_EXT_HH
 #define DUKTAPE_MOD_HASHES_EXT_HH
 
-// <editor-fold desc="swlib-cc.crc" defaultstate="collapsed">
 // @version: #f84cdfe 2009-11-01T20:38:02+01:00
 /**
  * @package de.atwillys.cc.swl
@@ -252,9 +251,7 @@ namespace sw {
 }
 
 #endif
-// </editor-fold>
 
-// <editor-fold desc="swlib-cc.md5" defaultstate="collapsed">
 // @version: #f84cdfe 2009-11-01T20:38:02+01:00
 /**
  * @package de.atwillys.cc.swl
@@ -516,9 +513,7 @@ namespace sw {
   typedef detail::basic_md5<> md5;
 }
 #endif
-// </editor-fold>
 
-// <editor-fold desc="swlib-cc.sha1" defaultstate="collapsed">
 // @version: #f84cdfe 2009-11-01T20:38:02+01:00
 /**
  * @package de.atwillys.cc.swl
@@ -773,9 +768,7 @@ namespace sw {
 }
 
 #endif
-// </editor-fold>
 
-// <editor-fold desc="swlib-cc.sha512" defaultstate="collapsed">
 // @version: #fd54d17 2015-08-18T21:44:36+02:00
 /**
  * @package de.atwillys.cc.swl
@@ -1068,9 +1061,7 @@ namespace sw {
 }
 
 #endif
-// </editor-fold>
 
-// <editor-fold desc="duktape-cc bindings" defaultstate="collapsed">
 #include "../duktape.hh"
 #include <string>
 
@@ -1272,11 +1263,8 @@ namespace duktape { namespace detail { namespace system { namespace hash {
 
 }}}}
 
-// </editor-fold>
-
 namespace duktape { namespace mod { namespace system { namespace hash {
 
-  // <editor-fold desc="js decls" defaultstate="collapsed">
   using namespace ::duktape::detail::system::hash;
 
   /**
@@ -1293,7 +1281,6 @@ namespace duktape { namespace mod { namespace system { namespace hash {
     js.define("sys.hash.sha1", sha1_wrapper, 2);
     js.define("sys.hash.sha512", sha512_wrapper, 2);
   }
-  // </editor-fold>
 
 }}}}
 

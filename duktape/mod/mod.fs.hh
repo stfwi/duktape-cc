@@ -40,7 +40,6 @@
 #ifndef DUKTAPE_MOD_BASIC_FILESYSTEM_HH
 #define DUKTAPE_MOD_BASIC_FILESYSTEM_HH
 
-// <editor-fold desc="preprocessor" defaultstate="collapsed">
 #if defined(_MSCVER)
   #error "not implemented yet"
 #endif
@@ -108,9 +107,6 @@
 #define return_true { stack.push(true); return 1; }
 #define return_undefined { return 0; }
 
-// </editor-fold>
-
-// <editor-fold desc="path_accessor (trait)" defaultstate="collapsed">
 namespace duktape { namespace detail { namespace filesystem {
 
   /**
@@ -177,9 +173,7 @@ namespace duktape { namespace detail { namespace filesystem {
   };
 
 }}}
-// </editor-fold>
 
-// <editor-fold desc="jsdoc" defaultstate="collapsed">
 #if(0 && JSDOC)
 /**
  * Global file system object.
@@ -187,12 +181,10 @@ namespace duktape { namespace detail { namespace filesystem {
  */
 var fs = {};
 #endif
-// </editor-fold>
 
-// <editor-fold desc="generic c++ file i/o" defaultstate="collapsed">
 namespace duktape { namespace detail { namespace filesystem { namespace generic {
 
-  // <editor-fold desc="fileread (c++ iostream)" defaultstate="collapsed">
+
   #if(0 && JSDOC)
   /**
    * Reads a file, returns the contents or undefined on error.
@@ -339,9 +331,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
     }
     return 0; // invalid execution path.
   }
-  // </editor-fold>
 
-  // <editor-fold desc="filewrite (c++ iostream)" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Writes data into a file Reads a file and returns the contents as text.
@@ -384,13 +374,11 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
       return 1;
     }
   }
-  // </editor-fold>
 
 }}}}
 
 namespace duktape { namespace mod { namespace filesystem { namespace generic {
 
-  // <editor-fold desc="js decls" defaultstate="collapsed">
   using namespace ::duktape::detail::filesystem;
   using namespace ::duktape::detail::filesystem::generic;
   /**
@@ -411,16 +399,11 @@ namespace duktape { namespace mod { namespace filesystem { namespace generic {
     js.define("fs.writefile", filewrite<PathAccessor, false>, 2);
     js.define("fs.appendfile", filewrite<PathAccessor, true>, 2);
   }
-  // </editor-fold>
 
 }}}}
 
-// </editor-fold>
-
-// <editor-fold desc="basic filesystem operations" defaultstate="collapsed">
 namespace duktape { namespace detail { namespace filesystem { namespace basic {
 
-  // <editor-fold desc="location getters (cwd, tmp, home, ...)" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Returns the current working directory or `undefined` on error.
@@ -533,9 +516,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     }
     #endif
   }
-  // </editor-fold>
-
-  // <editor-fold desc="path analysis (realpath, basename, dirname ...)" defaultstate="collapsed">
 
   #if(0 && JSDOC)
   /**
@@ -644,10 +624,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     stack.push(PathAccessor::to_js(std::string(p)));
     return 1;
   }
-
-  // </editor-fold>
-
-  // <editor-fold desc="file information (stat wrappers)" defaultstate="collapsed">
 
   #if(0 && JSDOC)
   /**
@@ -1286,9 +1262,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return 0; // @todo: implement windows.readlink
     #endif
   }
-  // </editor-fold>
 
-  // <editor-fold desc="basic operations (c wrappers)" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Switches the current working directory to the specified path. Returns true on success, false on error.
@@ -1575,10 +1549,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #endif
   }
 
-  // </editor-fold>
-
-  // <editor-fold desc="directory listing" defaultstate="collapsed">
-
   #ifdef WINDOWS
   namespace {
     template <typename PathAccessor>
@@ -1727,9 +1697,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return win32_glob_push_stack<PathAccessor>(stack, path);
     #endif
   }
-  // </editor-fold>
 
-  // <editor-fold desc="filesystem constants" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Contains the (execution path) PATH separator,
@@ -1758,13 +1726,11 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     js.define("fs.directoryseparator", "/");
     #endif
   }
-  // </editor-fold>
 
 }}}}
 
 namespace duktape { namespace mod { namespace filesystem { namespace basic {
 
-  // <editor-fold desc="js decls" defaultstate="collapsed">
   using namespace ::duktape::detail::filesystem;
   using namespace ::duktape::detail::filesystem::basic;
 
@@ -1815,15 +1781,11 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
   //js.define("fs.tempnam", tempnam<PathAccessor>, 1);
     define_constants(js);
   }
-  // </editor-fold>
 
 }}}}
-// </editor-fold>
 
-// <editor-fold desc="undefs" defaultstate="collapsed">
 #undef return_true
 #undef return_false
 #undef return_undefined
-// </editor-fold>
 
 #endif

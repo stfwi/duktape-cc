@@ -37,437 +37,430 @@
 #ifndef DUKTAPE_MOD_FILESYSTEM_FILEOBJECT_HH
 #define DUKTAPE_MOD_FILESYSTEM_FILEOBJECT_HH
 
-// <editor-fold desc="preprocessor" defaultstate="collapsed">
 #include "../duktape.hh"
 #include "mod.fs.hh"    /* Required includes defined already there */
 #include "mod.stdio.hh" /* printf() */
 #include <string>
-// </editor-fold>
 
 namespace duktape { namespace detail { namespace filesystem { namespace fileobject { namespace {
 
-  // <editor-fold desc="linux/*nix interface" defaultstate="collapsed">
   #ifndef WINDOWS
-  template <typename=void>
-  struct native_file_handling
-  {
-    using descriptor_type = int;
-    static constexpr descriptor_type invalid_descriptor = descriptor_type(-1);
-
-    static bool is_open(descriptor_type fd)
-    { return fd >= 0; }
-
-    static void close(descriptor_type fd)
-    { if(fd >= 0) ::close(fd); }
-
-    static void open(descriptor_type& fd, std::string path, std::string options)
+    template <typename=void>
+    struct native_file_handling
     {
-      // Compose flags and mode, the caller guarantees that the option
-      // positions are always the same.
-      int flags = O_CLOEXEC; // also use O_NOFOLLOW ??
-      if(options[1] == 'w') {
-        flags |= ((options[0] == 'r') ? O_RDWR : O_WRONLY);
-        if(options[2] == 'a') flags |= O_APPEND;
-        if(options[3] != 'e') flags |= O_CREAT;
-        if(options[5] == 'x') flags |= O_EXCL;
-        if(options[6] != 'p') flags |= O_TRUNC;
-      } else {
-        flags |= O_RDONLY;
-      }
-      if(options[7] == 'n') flags |= O_NONBLOCK;
-      if(options[8] == 's') flags |= O_SYNC;
-      ::mode_t mode = (::mode_t(options[ 9]-'0'))<<6
-                    | (::mode_t(options[10]-'0'))<<3
-                    | (::mode_t(options[11]-'0'))<<0;
-      fd = ::open(path.c_str(), flags, mode);
-      if(fd < 0) {
-        const char* t = ::strerror(errno);
-        fd = invalid_descriptor;
-        throw std::runtime_error(std::string("Failed to open '") + path + "' (" + std::string(t?t:"Unspecified error") + ")");
-      }
-    }
+      using descriptor_type = int;
+      static constexpr descriptor_type invalid_descriptor = descriptor_type(-1);
 
-    static std::string read(descriptor_type fd, size_t size, bool& iseof)
-    {
-      ssize_t n = -1;
-      std::string s;
-      iseof = false;
-      if(!size) {
-        int i;
-        n = ::read(fd, &i, 0);
-      } else {
-        s.resize(size);
-        if((n=::read(fd, &s[0], s.size())) > 0) {
-          s.resize(size_t(n));
-        } else if(n == 0) {
-          std::string().swap(s);
-          iseof = true;
-        }
-      }
-      if(n < 0) {
-        switch(errno) {
-          case EAGAIN:
-          case EINTR:
-            std::string().swap(s);
-            break;
-          case EPIPE:
-          case EBADF:
-          default: {
-            iseof = true;
-            const char* msg = ::strerror(errno);
-            throw std::runtime_error(std::string("Failed to read file (") + std::string(msg?msg:"Unspecified error") + ")");
-          }
-        }
-      }
-      return s;
-    }
+      static bool is_open(descriptor_type fd)
+      { return fd >= 0; }
 
-    static size_t write(descriptor_type fd, std::string& s)
-    {
-      if(!s.size()) return 0;
-      size_t n_written = 0;
-      while(s.size() > 0) {
-        ssize_t n = ::write(fd, &s[0], s.size());
-        if(n >= 0) {
-          if(n >= ssize_t(s.size())) {
-            std::string().swap(s);
-          } else {
-            s = s.substr(n); // caller can decide if to call write() in a loop.
-          }
-          n_written += size_t(n);
+      static void close(descriptor_type fd)
+      { if(fd >= 0) ::close(fd); }
+
+      static void open(descriptor_type& fd, std::string path, std::string options)
+      {
+        // Compose flags and mode, the caller guarantees that the option
+        // positions are always the same.
+        int flags = O_CLOEXEC; // also use O_NOFOLLOW ??
+        if(options[1] == 'w') {
+          flags |= ((options[0] == 'r') ? O_RDWR : O_WRONLY);
+          if(options[2] == 'a') flags |= O_APPEND;
+          if(options[3] != 'e') flags |= O_CREAT;
+          if(options[5] == 'x') flags |= O_EXCL;
+          if(options[6] != 'p') flags |= O_TRUNC;
         } else {
+          flags |= O_RDONLY;
+        }
+        if(options[7] == 'n') flags |= O_NONBLOCK;
+        if(options[8] == 's') flags |= O_SYNC;
+        ::mode_t mode = (::mode_t(options[ 9]-'0'))<<6
+                      | (::mode_t(options[10]-'0'))<<3
+                      | (::mode_t(options[11]-'0'))<<0;
+        fd = ::open(path.c_str(), flags, mode);
+        if(fd < 0) {
+          const char* t = ::strerror(errno);
+          fd = invalid_descriptor;
+          throw std::runtime_error(std::string("Failed to open '") + path + "' (" + std::string(t?t:"Unspecified error") + ")");
+        }
+      }
+
+      static std::string read(descriptor_type fd, size_t size, bool& iseof)
+      {
+        ssize_t n = -1;
+        std::string s;
+        iseof = false;
+        if(!size) {
+          int i;
+          n = ::read(fd, &i, 0);
+        } else {
+          s.resize(size);
+          if((n=::read(fd, &s[0], s.size())) > 0) {
+            s.resize(size_t(n));
+          } else if(n == 0) {
+            std::string().swap(s);
+            iseof = true;
+          }
+        }
+        if(n < 0) {
           switch(errno) {
-            case EINTR:
             case EAGAIN:
-              return n_written;
+            case EINTR:
+              std::string().swap(s);
+              break;
+            case EPIPE:
+            case EBADF:
             default: {
+              iseof = true;
               const char* msg = ::strerror(errno);
               throw std::runtime_error(std::string("Failed to read file (") + std::string(msg?msg:"Unspecified error") + ")");
             }
           }
         }
+        return s;
       }
-      return n_written;
-    }
 
-    static size_t tell(descriptor_type fd)
-    {
-      auto offs = ::lseek(fd, 0, SEEK_CUR);
-      if(offs < 0) {
-        const char* msg = ::strerror(errno);
-        throw std::runtime_error(std::string("Failed to get file position (") + std::string(msg?msg:"Unspecified error") + ")");
-      } else {
-        return size_t(offs);
-      }
-    }
-
-    static size_t seek(descriptor_type fd, size_t pos, int whence)
-    {
-      auto offs = ::lseek(fd, off_t(pos), (whence==0) ? SEEK_CUR : ((whence>0) ? SEEK_SET : SEEK_END));
-      if(offs < 0) {
-        const char* msg = ::strerror(errno);
-        throw std::runtime_error(std::string("Failed to set file position (") + std::string(msg?msg:"Unspecified error") + ")");
-      } else {
-        return size_t(offs);
-      }
-    }
-
-    static void flush(descriptor_type fd)
-    {
-      (void)fd; // syscall based file i/o does not need flushing, @see sync
-    }
-
-    static size_t size(descriptor_type fd)
-    {
-      auto offs = ::lseek(fd, 0, SEEK_CUR);
-      auto sz = offs;
-      if(offs < 0) {
-        const char* msg = ::strerror(errno);
-        throw std::runtime_error(std::string("Failed to get file size (") + std::string(msg?msg:"Unspecified error") + ")");
-      } else if((sz=::lseek(fd, 0, SEEK_END)) < 0) {
-        const char* cmsg = ::strerror(errno);
-        auto msg = std::string(cmsg ? cmsg:"Unspecified error");
-        ::lseek(fd, offs, SEEK_SET);
-        throw std::runtime_error(std::string("Failed to get file size (") + msg + ")");
-      } else if(::lseek(fd, offs, SEEK_SET) < 0) {
-        const char* msg = ::strerror(errno);
-        throw std::runtime_error(std::string("Failed to set file size (") + std::string(msg?msg:"Unspecified error") + ")");
-      } else {
-        return size_t(sz);
-      }
-    }
-
-    static struct ::stat stat(descriptor_type fd)
-    {
-      struct ::stat st;
-      if(::fstat(fd, &st) != 0) {
-        const char* msg = ::strerror(errno);
-        throw std::runtime_error(std::string("Failed to set file stat (") + std::string(msg?msg:"Unspecified error") + ")");
-      } else {
-        return st;
-      }
-    }
-
-    static void sync(descriptor_type fd, bool content_only)
-    {
-      int r = content_only ? ::fdatasync(fd) : ::fsync(fd);
-      if(r < 0) {
-        const char* msg = ::strerror(errno);
-        throw std::runtime_error(std::string("Failed to sync file (") + std::string(msg?msg:"Unspecified error") + ")");
-      }
-    }
-
-    static bool lock(descriptor_type fd, char access)
-    {
-      int r = ::flock(fd, access=='s' ? LOCK_SH : LOCK_EX);
-      if(r < 0) {
-        switch(errno) {
-          case EAGAIN:
-          case EINTR:
-            return false;
-          default: {
-            const char* msg = ::strerror(errno);
-            throw std::runtime_error(std::string("Failed to lock file (") + std::string(msg?msg:"Unspecified error") + ")");
-          }
-        }
-      }
-      return true;
-    }
-
-    static void unlock(descriptor_type fd)
-    {
-      ::flock(fd, LOCK_UN);
-    }
-
-  };
-  #endif
-  // </editor-fold>
-
-  // <editor-fold desc="windows interface" defaultstate="collapsed">
-  #ifdef WINDOWS
-  template <typename=void>
-  struct native_file_handling
-  {
-    using descriptor_type = long;
-    static constexpr descriptor_type invalid_descriptor = descriptor_type(-1);
-    static HANDLE fd2handle(descriptor_type fd)  { return ((HANDLE)((LONG_PTR)fd)); }
-    static descriptor_type handle2fd(HANDLE hnd) { return descriptor_type(((long)((LONG_PTR)hnd))); }
-
-    static std::string error_message(DWORD eno)
-    {
-      std::string s(256,0);
-      size_t n = ::FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, eno, MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), &s[0], s.size()-1, NULL);
-      if(!n) return std::string();
-      s.resize(n);
-      return s;
-    }
-
-    static std::string error_message()
-    { return error_message(::GetLastError()); }
-
-    static bool is_open(descriptor_type fd)
-    { return fd != invalid_descriptor; }
-
-    static void close(descriptor_type fd)
-    { if(fd != invalid_descriptor) (void)::CloseHandle(fd2handle(fd)); }
-
-    static void open(descriptor_type& fd, std::string path, std::string options)
-    {
-      DWORD access_mode = GENERIC_READ;
-      DWORD share_mode = FILE_SHARE_READ; //|FILE_SHARE_WRITE;
-      DWORD creation_disposition = OPEN_EXISTING;
-      DWORD flags_attr = FILE_ATTRIBUTE_NORMAL;
+      static size_t write(descriptor_type fd, std::string& s)
       {
-        bool w=options.find('w') != options.npos;
-        bool r=options.find('r') != options.npos;
-        bool a=options.find('a') != options.npos;
-        bool e=options.find('e') != options.npos;
-        bool x=options.find('x') != options.npos;
-        bool p=options.find('p') != options.npos;
-        if(w || a) {
-          access_mode = r ? GENERIC_READ|GENERIC_WRITE : GENERIC_WRITE;
-          if(e) {
-            creation_disposition = p ? OPEN_EXISTING : TRUNCATE_EXISTING;
+        if(!s.size()) return 0;
+        size_t n_written = 0;
+        while(s.size() > 0) {
+          ssize_t n = ::write(fd, &s[0], s.size());
+          if(n >= 0) {
+            if(n >= ssize_t(s.size())) {
+              std::string().swap(s);
+            } else {
+              s = s.substr(n); // caller can decide if to call write() in a loop.
+            }
+            n_written += size_t(n);
           } else {
-            creation_disposition = x ? CREATE_NEW : ( p ? OPEN_ALWAYS : CREATE_ALWAYS);
-          }
-          if(a) {
-            if(!::SetFilePointerEx(fd2handle(fd), LARGE_INTEGER(), nullptr, FILE_END)) {
-              throw std::runtime_error(std::string("Failed to set file position (") + error_message() + ")");
+            switch(errno) {
+              case EINTR:
+              case EAGAIN:
+                return n_written;
+              default: {
+                const char* msg = ::strerror(errno);
+                throw std::runtime_error(std::string("Failed to read file (") + std::string(msg?msg:"Unspecified error") + ")");
+              }
             }
           }
-        } else {
-          access_mode = GENERIC_READ;
-          creation_disposition = OPEN_EXISTING;
         }
+        return n_written;
       }
-      fd = handle2fd(::CreateFileA(path.c_str(), access_mode, share_mode, nullptr, creation_disposition, flags_attr, nullptr));
-      if(fd == invalid_descriptor) {
-        throw std::runtime_error(std::string("Failed to open '") + path + "' (" + error_message() + ")");
-      }
-    }
 
-    static std::string read(descriptor_type fd, size_t max_size, bool& iseof)
-    {
-      iseof = false;
-      std::string data;
-      if((fd == invalid_descriptor) || (!max_size)) { iseof=true; return data; }
-      constexpr auto size_limit = size_t(std::numeric_limits<ssize_t>::max()-4096);
-      if(max_size > size_limit) max_size = size_limit; // as many as possible / limit
-      for(;;) {
-        char buffer[4096+1];
-        DWORD n_read=0, size=sizeof(buffer)-1;
-        if(size + data.size() >= max_size) size = max_size - data.size();
-        if(!size) return data;
-        if(!::ReadFile(fd2handle(fd), buffer, size, &n_read, nullptr)) {
-          switch(::GetLastError()) {
-            case ERROR_MORE_DATA:
-              break;
-            case ERROR_HANDLE_EOF:
-            case ERROR_BROKEN_PIPE:
-            case ERROR_PIPE_NOT_CONNECTED:
-              iseof = true;
-            case ERROR_PIPE_BUSY:
-            case ERROR_NO_DATA:
-              return data;
-            case ERROR_INVALID_HANDLE:
-            default:
-              iseof = true;
-              throw std::runtime_error(std::string("Failed to read file (") + error_message() + ")");
-          }
-        } else if(!n_read) {
-          return data;
-        } else {
-          buffer[n_read] = 0;
-          data += std::string(buffer, buffer+n_read);
-        }
-      }
-      return data;
-    }
-
-    static size_t write(descriptor_type fd, std::string& data)
-    {
-      bool keep_writing = true;
-      size_t n_written = 0;
-      while(!data.empty() && keep_writing) {
-        DWORD n = 0;
-        DWORD n_towrite = data.size() > 4096 ? 4096 : data.size();
-        if(!::WriteFile(fd2handle(fd), data.data(), n_towrite, &n, nullptr)) {
-          switch(::GetLastError()) {
-            case ERROR_PIPE_BUSY:
-            case ERROR_NO_DATA:
-              keep_writing = false;
-              break;
-            case ERROR_BROKEN_PIPE:
-            case ERROR_PIPE_NOT_CONNECTED:
-            case ERROR_INVALID_HANDLE:
-            default:
-              throw std::runtime_error(std::string("Failed to write file (") + error_message() + ")");
-          }
-        }
-        if(n) {
-          if(n >= data.size()) {
-            n_written += data.size(); // ensures that the caller does not get higher values (for whatever reason)
-            data.clear();
-            keep_writing = false;
-          } else {
-            n_written += n;
-            data = data.substr(n);
-          }
-        }
-        if(n < n_towrite) {
-          keep_writing = false;
-        }
-      }
-      return n_written;
-    }
-
-    static bool is_eof(descriptor_type fd)
-    {
-      // unfortunately no way to use readfile without actually reading
-      LARGE_INTEGER pos, size;
-      size.QuadPart = 0;
-      return (::SetFilePointerEx(fd2handle(fd), size, &pos, FILE_CURRENT))
-          && (GetFileSizeEx(fd2handle(fd), &size))
-          && (pos.QuadPart >= size.QuadPart);
-    }
-
-    static size_t tell(descriptor_type fd)
-    {
-      LARGE_INTEGER offs = LARGE_INTEGER();
-      if(!::SetFilePointerEx(fd2handle(fd), LARGE_INTEGER(), &offs, FILE_CURRENT)) {
-        throw std::runtime_error(std::string("Failed to get file position (") + error_message() + ")");
-      } else {
-        return size_t(offs.QuadPart);
-      }
-    }
-
-    static size_t seek(descriptor_type fd, size_t pos, int whence)
-    {
-      LARGE_INTEGER offs = LARGE_INTEGER();
-      LARGE_INTEGER soffs; soffs.QuadPart = pos;
-      if(!::SetFilePointerEx(fd2handle(fd), soffs, &offs, (whence==0) ? FILE_CURRENT : ((whence>0) ? FILE_BEGIN : FILE_END))) {
-        throw std::runtime_error(std::string("Failed to set file position (") + error_message() + ")");
-      } else {
-        return size_t(offs.QuadPart);
-      }
-    }
-
-    static void flush(descriptor_type fd)
-    {
-      ::FlushFileBuffers(fd2handle(fd));
-    }
-
-    static size_t size(descriptor_type fd)
-    {
-      LARGE_INTEGER offs = LARGE_INTEGER();
-      if(!::GetFileSizeEx(fd2handle(fd), &offs)) {
-        throw std::runtime_error(std::string("Failed to get file size (") + error_message() + ")");
-      } else {
-        return size_t(offs.QuadPart);
-      }
-    }
-
-    static struct ::stat stat(descriptor_type fd)
-    {
-      std::string path;
+      static size_t tell(descriptor_type fd)
       {
-        char cpath[MAX_PATH+1];
-        if(!::GetFinalPathNameByHandleA(fd2handle(fd), cpath, MAX_PATH, FILE_NAME_OPENED|VOLUME_NAME_DOS)) {
-          throw std::runtime_error(std::string("Failed to get file stat (") + error_message() + ")");
+        auto offs = ::lseek(fd, 0, SEEK_CUR);
+        if(offs < 0) {
+          const char* msg = ::strerror(errno);
+          throw std::runtime_error(std::string("Failed to get file position (") + std::string(msg?msg:"Unspecified error") + ")");
+        } else {
+          return size_t(offs);
         }
-        cpath[MAX_PATH] = '\0';
-        int i=0;
-        while(cpath[i] && cpath[i] != ':') ++i;
-        if(cpath[i] == ':' && (i>0)) --i; else i=0;
-        path = &cpath[i];
       }
-      struct ::stat st;
-      if(::stat(path.c_str(), &st) != 0) {
-        const char* msg = ::strerror(errno);
-        throw std::runtime_error(std::string("Failed to get file stat (") + std::string(msg?msg:"Unspecified error") + ")");
-      } else {
-        return st;
+
+      static size_t seek(descriptor_type fd, size_t pos, int whence)
+      {
+        auto offs = ::lseek(fd, off_t(pos), (whence==0) ? SEEK_CUR : ((whence>0) ? SEEK_SET : SEEK_END));
+        if(offs < 0) {
+          const char* msg = ::strerror(errno);
+          throw std::runtime_error(std::string("Failed to set file position (") + std::string(msg?msg:"Unspecified error") + ")");
+        } else {
+          return size_t(offs);
+        }
       }
-    }
 
-    static void sync(descriptor_type fd, bool content_only)
-    { (void)content_only; flush(fd); }
+      static void flush(descriptor_type fd)
+      {
+        (void)fd; // syscall based file i/o does not need flushing, @see sync
+      }
 
-    static bool lock(descriptor_type fd, char access)
-    {
-      return ::LockFile(fd2handle(fd), 0u,0u, DWORD(0xffffffffu),DWORD(0x7fffffffu));
-      (void)access; // LockFileEx could lock exclusively, but no OVERLAPPED hazzle for now.
-    }
+      static size_t size(descriptor_type fd)
+      {
+        auto offs = ::lseek(fd, 0, SEEK_CUR);
+        auto sz = offs;
+        if(offs < 0) {
+          const char* msg = ::strerror(errno);
+          throw std::runtime_error(std::string("Failed to get file size (") + std::string(msg?msg:"Unspecified error") + ")");
+        } else if((sz=::lseek(fd, 0, SEEK_END)) < 0) {
+          const char* cmsg = ::strerror(errno);
+          auto msg = std::string(cmsg ? cmsg:"Unspecified error");
+          ::lseek(fd, offs, SEEK_SET);
+          throw std::runtime_error(std::string("Failed to get file size (") + msg + ")");
+        } else if(::lseek(fd, offs, SEEK_SET) < 0) {
+          const char* msg = ::strerror(errno);
+          throw std::runtime_error(std::string("Failed to set file size (") + std::string(msg?msg:"Unspecified error") + ")");
+        } else {
+          return size_t(sz);
+        }
+      }
 
-    static void unlock(descriptor_type fd)
-    { ::UnlockFile(fd2handle(fd), 0u,0u, DWORD(0xffffffffu),DWORD(0x7fffffffu)); }
+      static struct ::stat stat(descriptor_type fd)
+      {
+        struct ::stat st;
+        if(::fstat(fd, &st) != 0) {
+          const char* msg = ::strerror(errno);
+          throw std::runtime_error(std::string("Failed to set file stat (") + std::string(msg?msg:"Unspecified error") + ")");
+        } else {
+          return st;
+        }
+      }
 
-  };
+      static void sync(descriptor_type fd, bool content_only)
+      {
+        int r = content_only ? ::fdatasync(fd) : ::fsync(fd);
+        if(r < 0) {
+          const char* msg = ::strerror(errno);
+          throw std::runtime_error(std::string("Failed to sync file (") + std::string(msg?msg:"Unspecified error") + ")");
+        }
+      }
+
+      static bool lock(descriptor_type fd, char access)
+      {
+        int r = ::flock(fd, access=='s' ? LOCK_SH : LOCK_EX);
+        if(r < 0) {
+          switch(errno) {
+            case EAGAIN:
+            case EINTR:
+              return false;
+            default: {
+              const char* msg = ::strerror(errno);
+              throw std::runtime_error(std::string("Failed to lock file (") + std::string(msg?msg:"Unspecified error") + ")");
+            }
+          }
+        }
+        return true;
+      }
+
+      static void unlock(descriptor_type fd)
+      {
+        ::flock(fd, LOCK_UN);
+      }
+
+    };
   #endif
-  // </editor-fold>
 
-  // <editor-fold desc="constructor, finalizer, auxiliaries" defaultstate="collapsed">
+  #ifdef WINDOWS
+    template <typename=void>
+    struct native_file_handling
+    {
+      using descriptor_type = long;
+      static constexpr descriptor_type invalid_descriptor = descriptor_type(-1);
+      static HANDLE fd2handle(descriptor_type fd)  { return ((HANDLE)((LONG_PTR)fd)); }
+      static descriptor_type handle2fd(HANDLE hnd) { return descriptor_type(((long)((LONG_PTR)hnd))); }
+
+      static std::string error_message(DWORD eno)
+      {
+        std::string s(256,0);
+        size_t n = ::FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, eno, MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), &s[0], s.size()-1, NULL);
+        if(!n) return std::string();
+        s.resize(n);
+        return s;
+      }
+
+      static std::string error_message()
+      { return error_message(::GetLastError()); }
+
+      static bool is_open(descriptor_type fd)
+      { return fd != invalid_descriptor; }
+
+      static void close(descriptor_type fd)
+      { if(fd != invalid_descriptor) (void)::CloseHandle(fd2handle(fd)); }
+
+      static void open(descriptor_type& fd, std::string path, std::string options)
+      {
+        DWORD access_mode = GENERIC_READ;
+        DWORD share_mode = FILE_SHARE_READ; //|FILE_SHARE_WRITE;
+        DWORD creation_disposition = OPEN_EXISTING;
+        DWORD flags_attr = FILE_ATTRIBUTE_NORMAL;
+        {
+          bool w=options.find('w') != options.npos;
+          bool r=options.find('r') != options.npos;
+          bool a=options.find('a') != options.npos;
+          bool e=options.find('e') != options.npos;
+          bool x=options.find('x') != options.npos;
+          bool p=options.find('p') != options.npos;
+          if(w || a) {
+            access_mode = r ? GENERIC_READ|GENERIC_WRITE : GENERIC_WRITE;
+            if(e) {
+              creation_disposition = p ? OPEN_EXISTING : TRUNCATE_EXISTING;
+            } else {
+              creation_disposition = x ? CREATE_NEW : ( p ? OPEN_ALWAYS : CREATE_ALWAYS);
+            }
+            if(a) {
+              if(!::SetFilePointerEx(fd2handle(fd), LARGE_INTEGER(), nullptr, FILE_END)) {
+                throw std::runtime_error(std::string("Failed to set file position (") + error_message() + ")");
+              }
+            }
+          } else {
+            access_mode = GENERIC_READ;
+            creation_disposition = OPEN_EXISTING;
+          }
+        }
+        fd = handle2fd(::CreateFileA(path.c_str(), access_mode, share_mode, nullptr, creation_disposition, flags_attr, nullptr));
+        if(fd == invalid_descriptor) {
+          throw std::runtime_error(std::string("Failed to open '") + path + "' (" + error_message() + ")");
+        }
+      }
+
+      static std::string read(descriptor_type fd, size_t max_size, bool& iseof)
+      {
+        iseof = false;
+        std::string data;
+        if((fd == invalid_descriptor) || (!max_size)) { iseof=true; return data; }
+        constexpr auto size_limit = size_t(std::numeric_limits<ssize_t>::max()-4096);
+        if(max_size > size_limit) max_size = size_limit; // as many as possible / limit
+        for(;;) {
+          char buffer[4096+1];
+          DWORD n_read=0, size=sizeof(buffer)-1;
+          if(size + data.size() >= max_size) size = max_size - data.size();
+          if(!size) return data;
+          if(!::ReadFile(fd2handle(fd), buffer, size, &n_read, nullptr)) {
+            switch(::GetLastError()) {
+              case ERROR_MORE_DATA:
+                break;
+              case ERROR_HANDLE_EOF:
+              case ERROR_BROKEN_PIPE:
+              case ERROR_PIPE_NOT_CONNECTED:
+                iseof = true;
+              case ERROR_PIPE_BUSY:
+              case ERROR_NO_DATA:
+                return data;
+              case ERROR_INVALID_HANDLE:
+              default:
+                iseof = true;
+                throw std::runtime_error(std::string("Failed to read file (") + error_message() + ")");
+            }
+          } else if(!n_read) {
+            return data;
+          } else {
+            buffer[n_read] = 0;
+            data += std::string(buffer, buffer+n_read);
+          }
+        }
+        return data;
+      }
+
+      static size_t write(descriptor_type fd, std::string& data)
+      {
+        bool keep_writing = true;
+        size_t n_written = 0;
+        while(!data.empty() && keep_writing) {
+          DWORD n = 0;
+          DWORD n_towrite = data.size() > 4096 ? 4096 : data.size();
+          if(!::WriteFile(fd2handle(fd), data.data(), n_towrite, &n, nullptr)) {
+            switch(::GetLastError()) {
+              case ERROR_PIPE_BUSY:
+              case ERROR_NO_DATA:
+                keep_writing = false;
+                break;
+              case ERROR_BROKEN_PIPE:
+              case ERROR_PIPE_NOT_CONNECTED:
+              case ERROR_INVALID_HANDLE:
+              default:
+                throw std::runtime_error(std::string("Failed to write file (") + error_message() + ")");
+            }
+          }
+          if(n) {
+            if(n >= data.size()) {
+              n_written += data.size(); // ensures that the caller does not get higher values (for whatever reason)
+              data.clear();
+              keep_writing = false;
+            } else {
+              n_written += n;
+              data = data.substr(n);
+            }
+          }
+          if(n < n_towrite) {
+            keep_writing = false;
+          }
+        }
+        return n_written;
+      }
+
+      static bool is_eof(descriptor_type fd)
+      {
+        // unfortunately no way to use readfile without actually reading
+        LARGE_INTEGER pos, size;
+        size.QuadPart = 0;
+        return (::SetFilePointerEx(fd2handle(fd), size, &pos, FILE_CURRENT))
+            && (GetFileSizeEx(fd2handle(fd), &size))
+            && (pos.QuadPart >= size.QuadPart);
+      }
+
+      static size_t tell(descriptor_type fd)
+      {
+        LARGE_INTEGER offs = LARGE_INTEGER();
+        if(!::SetFilePointerEx(fd2handle(fd), LARGE_INTEGER(), &offs, FILE_CURRENT)) {
+          throw std::runtime_error(std::string("Failed to get file position (") + error_message() + ")");
+        } else {
+          return size_t(offs.QuadPart);
+        }
+      }
+
+      static size_t seek(descriptor_type fd, size_t pos, int whence)
+      {
+        LARGE_INTEGER offs = LARGE_INTEGER();
+        LARGE_INTEGER soffs; soffs.QuadPart = pos;
+        if(!::SetFilePointerEx(fd2handle(fd), soffs, &offs, (whence==0) ? FILE_CURRENT : ((whence>0) ? FILE_BEGIN : FILE_END))) {
+          throw std::runtime_error(std::string("Failed to set file position (") + error_message() + ")");
+        } else {
+          return size_t(offs.QuadPart);
+        }
+      }
+
+      static void flush(descriptor_type fd)
+      {
+        ::FlushFileBuffers(fd2handle(fd));
+      }
+
+      static size_t size(descriptor_type fd)
+      {
+        LARGE_INTEGER offs = LARGE_INTEGER();
+        if(!::GetFileSizeEx(fd2handle(fd), &offs)) {
+          throw std::runtime_error(std::string("Failed to get file size (") + error_message() + ")");
+        } else {
+          return size_t(offs.QuadPart);
+        }
+      }
+
+      static struct ::stat stat(descriptor_type fd)
+      {
+        std::string path;
+        {
+          char cpath[MAX_PATH+1];
+          if(!::GetFinalPathNameByHandleA(fd2handle(fd), cpath, MAX_PATH, FILE_NAME_OPENED|VOLUME_NAME_DOS)) {
+            throw std::runtime_error(std::string("Failed to get file stat (") + error_message() + ")");
+          }
+          cpath[MAX_PATH] = '\0';
+          int i=0;
+          while(cpath[i] && cpath[i] != ':') ++i;
+          if(cpath[i] == ':' && (i>0)) --i; else i=0;
+          path = &cpath[i];
+        }
+        struct ::stat st;
+        if(::stat(path.c_str(), &st) != 0) {
+          const char* msg = ::strerror(errno);
+          throw std::runtime_error(std::string("Failed to get file stat (") + std::string(msg?msg:"Unspecified error") + ")");
+        } else {
+          return st;
+        }
+      }
+
+      static void sync(descriptor_type fd, bool content_only)
+      { (void)content_only; flush(fd); }
+
+      static bool lock(descriptor_type fd, char access)
+      {
+        return ::LockFile(fd2handle(fd), 0u,0u, DWORD(0xffffffffu),DWORD(0x7fffffffu));
+        (void)access; // LockFileEx could lock exclusively, but no OVERLAPPED hazzle for now.
+      }
+
+      static void unlock(descriptor_type fd)
+      { ::UnlockFile(fd2handle(fd), 0u,0u, DWORD(0xffffffffu),DWORD(0x7fffffffu)); }
+
+    };
+  #endif
+
   using nfh = native_file_handling<>;
 
   /**
@@ -710,9 +703,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     stack.top(1);
     return 1;
   }
-  // </editor-fold>
 
-  // <editor-fold desc="open, close, opened, closed, eof" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Opens a file given the path and corresponding "open mode". The
@@ -906,9 +897,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     stack.push(iseof);
     return 1;
   }
-  // </editor-fold>
 
-  // <editor-fold desc="read, write, readln, writeln, printf" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Reads data from a file, where the maximum number of bytes
@@ -1172,9 +1161,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     stack.push(true);
     return 1;
   }
-  // </editor-fold>
 
-  // <editor-fold desc="seek, tell, size, stat, lock, unlock, flush, sync" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Returns the current file position.
@@ -1391,13 +1378,11 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     stack.top(1);
     return 1;
   }
-  // </editor-fold>
 
 }}}}}
 
 namespace duktape { namespace mod { namespace filesystem { namespace fileobject {
 
-  // <editor-fold desc="js decls" defaultstate="collapsed">
   using namespace ::duktape::detail::filesystem;
   using namespace ::duktape::detail::filesystem::fileobject;
 
@@ -1444,7 +1429,6 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
       stack.set_prototype(-2);
     }
   }
-  // </editor-fold>
 
 }}}}
 
