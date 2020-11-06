@@ -37,22 +37,19 @@
 #ifndef DUKTAPE_MOD_BASIC_FILESYSTEM_EXT_HH
 #define DUKTAPE_MOD_BASIC_FILESYSTEM_EXT_HH
 
-// <editor-fold desc="preprocessor" defaultstate="collapsed">
 #include "mod.fs.hh" /* All settings and definitions of fs apply */
 #include <regex>
 #ifdef WINDOWS
-#include <Shellapi.h>
+  #include <Shellapi.h>
 #endif
 #define return_false { stack.push(false); return 1; }
 #define return_true { stack.push(true); return 1; }
 #define return_undefined { return 0; }
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
-// </editor-fold>
 
 namespace duktape { namespace detail { namespace filesystem { namespace extended {
 
-  // <editor-fold desc="native auxilliary functions" defaultstate="collapsed">
   #ifdef WINDOWS
   namespace {
 
@@ -109,9 +106,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     }
   }
   #endif
-  // </editor-fold>
 
-  // <editor-fold desc="native recurse_directory()" defaultstate="collapsed">
   template<typename FileCallback, typename ErrorCallback>
   bool recurse_directory(
     std::string path,
@@ -170,154 +165,152 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     }
 
     #if defined(__linux)
-    // <editor-fold desc="linux" defaultstate="collapsed">
-    // struct only to ensure that the fts is closed when
-    // leaving the function scope.
-    struct fts_guard {
-      ::FTS* ptr;
-      explicit fts_guard() noexcept : ptr(nullptr) {}
-      ~fts_guard() noexcept { if(ptr) ::fts_close(ptr); }
-    };
+      // struct only to ensure that the fts is closed when
+      // leaving the function scope.
+      struct fts_guard {
+        ::FTS* ptr;
+        explicit fts_guard() noexcept : ptr(nullptr) {}
+        ~fts_guard() noexcept { if(ptr) ::fts_close(ptr); }
+      };
 
-    auto fts_entcmp = [](const ::FTSENT **a, const ::FTSENT **b) {
-      return ::strcmp((*a)->fts_name, (*b)->fts_name);
-    };
+      auto fts_entcmp = [](const ::FTSENT **a, const ::FTSENT **b) {
+        return ::strcmp((*a)->fts_name, (*b)->fts_name);
+      };
 
-    mode_t mode = 0;
-    (void) f_hidden; // note: hidden has no effect for linux
-    if(!ftype.empty()) {
-      if(f_lnk)  mode |= S_IFLNK;
-      if(f_dir)  mode |= S_IFDIR;
-      if(f_reg)  mode |= S_IFREG;
-      if(f_fifo) mode |= S_IFIFO;
-      if(f_cdev) mode |= S_IFCHR;
-      if(f_bdev) mode |= S_IFBLK;
-      if(f_sock) mode |= S_IFSOCK;
-    } else {
-      mode = S_IFLNK|S_IFDIR|S_IFREG|S_IFIFO|S_IFCHR|S_IFBLK|S_IFSOCK;
-    }
-
-    fts_guard tree;
-    ::FTSENT *f;
-    {
-      char apath[PATH_MAX];
-      memset(apath, 0, sizeof(apath));
-      std::copy(path.begin(), path.end(), apath);
-      char *ppath[] = { apath, nullptr };
-      if(!(tree.ptr = ::fts_open(ppath, FTS_NOCHDIR|FTS_PHYSICAL|(xdev?FTS_XDEV:0x0000), fts_entcmp))) {
-        ecallback(strerror(errno));
-        return 0;
+      mode_t mode = 0;
+      (void) f_hidden; // note: hidden has no effect for linux
+      if(!ftype.empty()) {
+        if(f_lnk)  mode |= S_IFLNK;
+        if(f_dir)  mode |= S_IFDIR;
+        if(f_reg)  mode |= S_IFREG;
+        if(f_fifo) mode |= S_IFIFO;
+        if(f_cdev) mode |= S_IFCHR;
+        if(f_bdev) mode |= S_IFBLK;
+        if(f_sock) mode |= S_IFSOCK;
+      } else {
+        mode = S_IFLNK|S_IFDIR|S_IFREG|S_IFIFO|S_IFCHR|S_IFBLK|S_IFSOCK;
       }
-    }
 
-    errno = 0;
-    while((f=::fts_read(tree.ptr))) {
-      switch(f->fts_info) {
-        case FTS_DNR:
-        case FTS_ERR:
-        case FTS_NS:
-        case FTS_DC:  // recursion warning list?
-          // Add to skipped list ?
-          continue;
-        case FTS_DOT:
-        case FTS_DP:
-          continue;
-        default:
-          if((no_outside && (f->fts_level <= 0)) || (f->fts_level > depth)) {
-            // respect max depth, do not include parent directories.
-            continue;
-          } else if(!f->fts_statp || !(f->fts_statp->st_mode & mode)) {
-            // no mode match.
-            continue;
-          } else if(
-            (S_ISLNK(f->fts_statp->st_mode) && (!f_lnk)) ||
-            (S_ISREG(f->fts_statp->st_mode) && !(S_ISLNK(f->fts_statp->st_mode)) && (!f_reg))
-          ) {
-            // symlinks are regular files, therefore explicit check
-            continue;
-          } else if(!pattern.empty() && (::fnmatch(pattern.c_str(), f->fts_name, FNM_PERIOD) != 0)) {
-            // No detailed pattern match
-            continue;
-          } else if(!fcallback(std::string(f->fts_path))) {
-            // callback said break
-            break;
-          } else {
-            // no match
-          }
+      fts_guard tree;
+      ::FTSENT *f;
+      {
+        char apath[PATH_MAX];
+        memset(apath, 0, sizeof(apath));
+        std::copy(path.begin(), path.end(), apath);
+        char *ppath[] = { apath, nullptr };
+        if(!(tree.ptr = ::fts_open(ppath, FTS_NOCHDIR|FTS_PHYSICAL|(xdev?FTS_XDEV:0x0000), fts_entcmp))) {
+          ecallback(strerror(errno));
+          return 0;
+        }
       }
-    }
-    ::fts_close(tree.ptr);
-    tree.ptr = nullptr;
-    return (!errno);
-    // </editor-fold>
+
+      errno = 0;
+      while((f=::fts_read(tree.ptr))) {
+        switch(f->fts_info) {
+          case FTS_DNR:
+          case FTS_ERR:
+          case FTS_NS:
+          case FTS_DC:  // recursion warning list?
+            // Add to skipped list ?
+            continue;
+          case FTS_DOT:
+          case FTS_DP:
+            continue;
+          default:
+            if((no_outside && (f->fts_level <= 0)) || (f->fts_level > depth)) {
+              // respect max depth, do not include parent directories.
+              continue;
+            } else if(!f->fts_statp || !(f->fts_statp->st_mode & mode)) {
+              // no mode match.
+              continue;
+            } else if(
+              (S_ISLNK(f->fts_statp->st_mode) && (!f_lnk)) ||
+              (S_ISREG(f->fts_statp->st_mode) && !(S_ISLNK(f->fts_statp->st_mode)) && (!f_reg))
+            ) {
+              // symlinks are regular files, therefore explicit check
+              continue;
+            } else if(!pattern.empty() && (::fnmatch(pattern.c_str(), f->fts_name, FNM_PERIOD) != 0)) {
+              // No detailed pattern match
+              continue;
+            } else if(!fcallback(std::string(f->fts_path))) {
+              // callback said break
+              break;
+            } else {
+              // no match
+            }
+        }
+      }
+      ::fts_close(tree.ptr);
+      tree.ptr = nullptr;
+      return (!errno);
+
     #elif defined(WINDOWS)
-    // <editor-fold desc="win32" defaultstate="collapsed">
-    (void) no_outside; (void) f_lnk; (void) f_fifo; (void) f_cdev;
-    (void) f_bdev; (void) f_sock; (void) xdev;
 
-    struct hfind_guard {
-      HANDLE h;
-      explicit hfind_guard() noexcept : h(INVALID_HANDLE_VALUE) {}
-      explicit hfind_guard(HANDLE h_) noexcept : h(h_) {}
-      ~hfind_guard() noexcept { if(h != INVALID_HANDLE_VALUE) ::FindClose(h); }
-    };
+      (void) no_outside; (void) f_lnk; (void) f_fifo; (void) f_cdev;
+      (void) f_bdev; (void) f_sock; (void) xdev;
 
-    WIN32_FIND_DATA ffd;
-    bool ok = true;
-    path += "\\";
-    if(path.size() > MAX_PATH) { ecallback("Path too long"); return false; }
-    hfind_guard hnd(::FindFirstFileA((path+"*").c_str(), &ffd));
-    if(hnd.h == INVALID_HANDLE_VALUE) {
-      if(!recursion_level) {
-        ecallback(win32errstr());
-        return false;
-      } else {
-        return true;
+      struct hfind_guard {
+        HANDLE h;
+        explicit hfind_guard() noexcept : h(INVALID_HANDLE_VALUE) {}
+        explicit hfind_guard(HANDLE h_) noexcept : h(h_) {}
+        ~hfind_guard() noexcept { if(h != INVALID_HANDLE_VALUE) ::FindClose(h); }
+      };
+
+      WIN32_FIND_DATA ffd;
+      bool ok = true;
+      path += "\\";
+      if(path.size() > MAX_PATH) { ecallback("Path too long"); return false; }
+      hfind_guard hnd(::FindFirstFileA((path+"*").c_str(), &ffd));
+      if(hnd.h == INVALID_HANDLE_VALUE) {
+        if(!recursion_level) {
+          ecallback(win32errstr());
+          return false;
+        } else {
+          return true;
+        }
       }
-    }
-    do {
-      if((ffd.cFileName[0] == '.') && (!ffd.cFileName[1])) {
-        ;
-      } else if((ffd.cFileName[0] == '.') && (ffd.cFileName[1] == '.') && (!ffd.cFileName[2])) {
-        ;
-      } else if((!f_hidden) && (ffd.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN)) {
-        ;
-      } else {
-        if((f_dir && (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) || (f_reg && (!(ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)))) {
-          if(pattern.empty() || std::regex_match(ffd.cFileName, re)) {
-            ok = fcallback(path+ffd.cFileName);
+      do {
+        if((ffd.cFileName[0] == '.') && (!ffd.cFileName[1])) {
+          ;
+        } else if((ffd.cFileName[0] == '.') && (ffd.cFileName[1] == '.') && (!ffd.cFileName[2])) {
+          ;
+        } else if((!f_hidden) && (ffd.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN)) {
+          ;
+        } else {
+          if((f_dir && (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) || (f_reg && (!(ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)))) {
+            if(pattern.empty() || std::regex_match(ffd.cFileName, re)) {
+              ok = fcallback(path+ffd.cFileName);
+            }
+          }
+          if(ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            ok = recurse_directory(
+              path+ffd.cFileName, pattern, ftype, depth, no_outside, case_sensitive, xdev,
+              fcallback, ecallback, recursion_level+1
+            );
           }
         }
-        if(ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-          ok = recurse_directory(
-            path+ffd.cFileName, pattern, ftype, depth, no_outside, case_sensitive, xdev,
-            fcallback, ecallback, recursion_level+1
-          );
-        }
-      }
-    } while((::FindNextFileA(hnd.h, &ffd) != 0) && ok);
+      } while((::FindNextFileA(hnd.h, &ffd) != 0) && ok);
 
-    auto e = ::GetLastError();
-    switch(e) {
-      case NO_ERROR:
-      case ERROR_NO_MORE_FILES:
-      case ERROR_NOT_SAME_DEVICE:
-      case ERROR_ACCESS_DENIED:
-        break;
-      default:
-        ecallback(win32errstr(e));
-        return false;
-    }
-    return ok;
-    // </editor-fold>
+      auto e = ::GetLastError();
+      switch(e) {
+        case NO_ERROR:
+        case ERROR_NO_MORE_FILES:
+        case ERROR_NOT_SAME_DEVICE:
+        case ERROR_ACCESS_DENIED:
+          break;
+        default:
+          ecallback(win32errstr(e));
+          return false;
+      }
+      return ok;
+
     #else
       #error "recurse_directory not implemented"
     #endif
   }
-  // </editor-fold>
 
-  // <editor-fold desc="native shell execution" defaultstate="collapsed">
   namespace {
+
     /**
      * Executes args[0], passing args as arguments. Optionally passes
      * a C-string as stdin and closes the stdin-pipe. Implicitly redirects
@@ -329,62 +322,60 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
      * @return int
      */
     #ifndef WINDOWS
-    template <typename=void>
-    int sysexec(std::vector<std::string>&& args, const char* pipe_stdin=nullptr)
-    {
-      // { std::string s; for(auto e:args) { s += string("'") + e + "' "; } std::cerr << s << std::endl; }
-      using fd_t = int;
-      fd_t pi[2] = {-1,-1};
-      ::pid_t pid = -1;
-      std::vector<const char*> argv;
-      for(auto& e:args) argv.push_back(e.c_str());
-      argv.push_back(nullptr);
-      argv.push_back(nullptr);
-      if(::pipe(pi)) return -1;
-      if((pid = ::fork()) < 0) {
-        ::close(pi[0]);
-        ::close(pi[1]);
-        return -2;
-      } else if(pid == 0) {
-        if(::dup2(pi[0], STDIN_FILENO) < 0) _exit(1);
-        ::close(STDOUT_FILENO); ::open("/dev/null", O_WRONLY);
-        ::close(STDERR_FILENO); ::open("/dev/null", O_WRONLY);
-        for(fd_t i=3; i<128; ++i) ::close(i);
-        ::execv(argv[0], (char* const*)(&argv[0]));
-        _exit(1);
-      } else {
-        if(pipe_stdin && pipe_stdin[0]) {
-          ssize_t r=::write(pi[1], pipe_stdin, ::strlen(pipe_stdin));
-          (void)r;
-        }
-        ::close(pi[1]);
-        int status = -1;
-        pid_t p = -1;
-        while((p=::waitpid(pid, &status, 0)) <= 0) {
-          if(p < 0) {
-            switch(errno) {
-              case EAGAIN:
-              case EINTR:
-                break;
-              case ECHILD:
-              default:
-                return -4;
+      template <typename=void>
+      int sysexec(std::vector<std::string>&& args, const char* pipe_stdin=nullptr)
+      {
+        // { std::string s; for(auto e:args) { s += string("'") + e + "' "; } std::cerr << s << std::endl; }
+        using fd_t = int;
+        fd_t pi[2] = {-1,-1};
+        ::pid_t pid = -1;
+        std::vector<const char*> argv;
+        for(auto& e:args) argv.push_back(e.c_str());
+        argv.push_back(nullptr);
+        argv.push_back(nullptr);
+        if(::pipe(pi)) return -1;
+        if((pid = ::fork()) < 0) {
+          ::close(pi[0]);
+          ::close(pi[1]);
+          return -2;
+        } else if(pid == 0) {
+          if(::dup2(pi[0], STDIN_FILENO) < 0) _exit(1);
+          ::close(STDOUT_FILENO); ::open("/dev/null", O_WRONLY);
+          ::close(STDERR_FILENO); ::open("/dev/null", O_WRONLY);
+          for(fd_t i=3; i<128; ++i) ::close(i);
+          ::execv(argv[0], (char* const*)(&argv[0]));
+          _exit(1);
+        } else {
+          if(pipe_stdin && pipe_stdin[0]) {
+            ssize_t r=::write(pi[1], pipe_stdin, ::strlen(pipe_stdin));
+            (void)r;
+          }
+          ::close(pi[1]);
+          int status = -1;
+          pid_t p = -1;
+          while((p=::waitpid(pid, &status, 0)) <= 0) {
+            if(p < 0) {
+              switch(errno) {
+                case EAGAIN:
+                case EINTR:
+                  break;
+                case ECHILD:
+                default:
+                  return -4;
+              }
             }
           }
+          return WEXITSTATUS(status);
         }
-        return WEXITSTATUS(status);
+        return -5;
       }
-      return -5;
-    }
     #endif /*ndef windows*/
   }
-  // </editor-fold>
 
 }}}}
 
 namespace duktape { namespace detail { namespace filesystem { namespace extended {
 
-  // <editor-fold desc="find" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Recursive directory walking. The argument `path` specifies the root directory
@@ -527,9 +518,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
       return 0;
     }
   }
-  // </editor-fold>
 
-  // <editor-fold desc="move" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Moves a file or directory from one location `source_path` to another (`target_path`),
@@ -602,9 +591,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     }
     #endif
   }
-  // </editor-fold>
 
-  // <editor-fold desc="copy" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Copies a file from one location `source_path` to another (`target_path`),
@@ -771,9 +758,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     return 1;
     #endif
   }
-  // </editor-fold>
 
-  // <editor-fold desc="remove" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Deletes a file or directory (`target_path`), similar to the `rm` shell
@@ -897,15 +882,14 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     }
     #endif
   }
-  // </editor-fold>
 
 }}}}
 
 namespace duktape { namespace mod { namespace filesystem { namespace extended {
 
-  // <editor-fold desc="js decls" defaultstate="collapsed">
   using namespace ::duktape::detail::filesystem;
   using namespace ::duktape::detail::filesystem::extended;
+
   /**
    * Export main relay. Adds all module functions to the specified engine.
    * @param duktape::engine& js
@@ -918,15 +902,12 @@ namespace duktape { namespace mod { namespace filesystem { namespace extended {
     js.define("fs.move", movefile<PathAccessor>, 3);
     js.define("fs.remove", removefile<PathAccessor>, 2);
   }
-  // </editor-fold>
 
 }}}}
 
-// <editor-fold desc="undefs" defaultstate="collapsed">
 #undef return_true
 #undef return_false
 #undef return_undefined
 #pragma GCC diagnostic pop
-// </editor-fold>
 
 #endif

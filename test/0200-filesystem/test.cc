@@ -1,13 +1,13 @@
-// <editor-fold desc="preprocessor" defaultstate="collapsed">
+
 #include "../testenv.hh"
 #include <mod/mod.stdio.hh>
 #include <mod/mod.sys.hh>
 #include <mod/mod.fs.hh>
 using namespace std;
 using namespace testenv;
-// </editor-fold>
 
-// <editor-fold desc="test_informational_functions" defaultstate="collapsed">
+
+
 void test_informational_functions(duktape::engine& js)
 {
   test_comment("test_informational_functions");
@@ -38,9 +38,9 @@ void test_informational_functions(duktape::engine& js)
   test_expect( js.eval<bool>("fs.cwd() === fs.tmpdir()") );
   test_expect( js.eval<bool>("fs.realpath('.') === fs.tmpdir()") );
 }
-// </editor-fold>
 
-// <editor-fold desc="test_mkdir" defaultstate="collapsed">
+
+
 void test_mkdir(duktape::engine& js)
 {
   test_comment("test_mkdir");
@@ -74,9 +74,9 @@ void test_mkdir(duktape::engine& js)
   test_expect( js.eval<bool>("fs.isdir('test-dir\\\\5\\\\6\\\\7') === true; // check") );
   #endif
 }
-// </editor-fold>
 
-// <editor-fold desc="test_stat_functions" defaultstate="collapsed">
+
+
 // stat and functions returning partial ::stat information
 void test_stat_functions(duktape::engine& js)
 {
@@ -112,9 +112,9 @@ void test_stat_functions(duktape::engine& js)
   test_expect( js.eval<bool>("fs.stat(testdir).group === fs.group(testdir)") );
   test_expect( js.eval<bool>("fs.stat(testdir).size === fs.size(testdir)") );
 }
-// </editor-fold>
 
-// <editor-fold desc="test_filemod_functions" defaultstate="collapsed">
+
+
 // file mode <-> string conversion
 void test_filemod_functions(duktape::engine& js)
 {
@@ -140,9 +140,9 @@ void test_filemod_functions(duktape::engine& js)
   test_expect( js.eval<bool>(string("fs.str2mod(755) === ") + to_string(0755)) );
   test_expect( js.eval<bool>(string("fs.str2mod('0644') === ") + to_string(0644)) );
 }
-// </editor-fold>
 
-// <editor-fold desc="test_readfile_writefile" defaultstate="collapsed">
+
+
 // readfile / writefile
 void test_readfile_writefile(duktape::engine& js)
 {
@@ -177,9 +177,9 @@ void test_readfile_writefile(duktape::engine& js)
   test_expect( js.eval<bool>("fs.unlink('testfile') === true") );
   #undef LINETEST
 }
-// </editor-fold>
 
-// <editor-fold desc="test_chmod_functions" defaultstate="collapsed">
+
+
 void test_chmod_functions(duktape::engine& js)
 {
   test_comment("test_chmod_functions");
@@ -204,9 +204,9 @@ void test_chmod_functions(duktape::engine& js)
   }
   test_expect( js.eval<bool>("fs.unlink('testfile')") );
 }
-// </editor-fold>
 
-// <editor-fold desc="test_readdir_function" defaultstate="collapsed">
+
+
 void test_readdir_function(duktape::engine& js)
 {
   test_comment("test_readdir_function");
@@ -242,9 +242,9 @@ void test_readdir_function(duktape::engine& js)
   test_comment( "fs.glob('*') = " << js.eval<string>("JSON.stringify(fs.glob('*'))") );
   test_expect( js.eval<string>("fs.glob('*').join(',')") == "1,2,3,4,5" );
 }
-// </editor-fold>
 
-// <editor-fold desc="test_unsafe_functions" defaultstate="collapsed">
+
+
 void test_unsafe_functions(duktape::engine& js)
 {
   test_comment("test_unsafe_functions");
@@ -253,9 +253,9 @@ void test_unsafe_functions(duktape::engine& js)
   test_comment( "fs.tempnam('blaaa') = " << js.eval<string>("fs.tempnam('blaaa')") );
   test_expect( js.eval<bool>("fs.tempnam('blaaa') !== undefined") );
 }
-// </editor-fold>
 
-// <editor-fold desc="test main" defaultstate="collapsed">
+
+
 void test(duktape::engine& js)
 {
   duktape::mod::system::define_in<>(js);
@@ -278,4 +278,3 @@ void test(duktape::engine& js)
     throw;
   }
 }
-// </editor-fold>

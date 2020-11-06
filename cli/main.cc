@@ -1,3 +1,14 @@
+/**
+ * @file main.cc
+ * @package de.atwillys.cc.duktape
+ * @license MIT
+ * @authors Stefan Wilhelm (stfwi, <cerbero s@atwillys.de>)
+ * @platform linux, bsd, windows
+ * @standard >= c++17
+ * @requires duk_config.h duktape.h duktape.c >= v2.5
+ * @requires Duktape CFLAGS -DDUK_USE_CPP_EXCEPTIONS
+ * @cxxflags -std=c++17 -W -Wall -Wextra -pedantic -fstrict-aliasing
+ */
 #include <duktape/duktape.hh>
 #include <duktape/mod/mod.stdio.hh>
 #include <duktape/mod/mod.stdlib.hh>
@@ -15,7 +26,7 @@
 #include <clocale>
 
 #ifndef PROGRAM_NAME
-  #define PROGRAM_NAME "js"
+  #define PROGRAM_NAME "djs"
 #endif
 
 #ifndef PROGRAM_VERSION
@@ -25,7 +36,7 @@
 using namespace std;
 using namespace duktape;
 
-int main(int argc, const char** argv)
+int main(int argc, const char** argv, const char** envv)
 {
   try {
     locale::global(locale("C"));
@@ -103,7 +114,24 @@ int main(int argc, const char** argv)
     js.define("sys.args", args);
     js.define("sys.script", script_path);
     vector<string>().swap(args);
-
+    #ifndef WITHOUT_ENVIRONMENT_VARIABLES
+      // Environment can be opt'ed out using the compiler switch.
+      js.define("sys.env");
+      if(envv) {
+        auto& stack = js.stack();
+        duktape::stack_guard sg(stack, true);
+        stack.select("sys.env");
+        for(int i=0; envv[i]; ++i) {
+          const auto e = string(envv[i]);
+          const auto pos = e.find('=');
+          if((pos != e.npos) && (pos > 0)) {
+            string key = e.substr(0, pos);
+            string val = e.substr(pos+1);
+            stack.set(move(key), move(val));
+          }
+        }
+      }
+    #endif
     if(script_path == "-") {
       script_path = "(piped code)";
       script_code.assign((std::istreambuf_iterator<char>(cin)), std::istreambuf_iterator<char>());

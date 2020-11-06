@@ -20,7 +20,7 @@ void test_exec(duktape::engine& js)
   test_expect( js.eval<int>("sys.exec('###notthere')") == 1 );
 
   #ifndef WINDOWS
-  // <editor-fold desc="linux/bsd" defaultstate="collapsed">
+
   test_expect( js.eval<int>("sys.exec('/bin/cat')") == 0);
   test_expect( js.eval<int>("sys.exec('/bin/echo')") == 0);
   test_expect( js.eval<int>("sys.exec('/bin/ls')") == 0);
@@ -74,9 +74,9 @@ void test_exec(duktape::engine& js)
   test_expect( js.eval<std::string>( "sys.exec('cat', { stdin:'TEST', stdout:function(s){} }).stdout") == "" );
   test_expect( js.eval<std::string>( "sys.exec('/bin/cat', ['--not-existing-option'], {stderr:function(s){return s.replace(/^/mig,'[e] ');} }).stderr").find("[e]") == 0 );
   test_comment( js.eval<std::string>( "sys.exec('/bin/cat', ['--not-existing-option'], {stderr:function(s){return s.replace(/^/mig,'[e] ');} }).stderr")  );
-  // </editor-fold>
+
   #else
-  // <editor-fold desc="windows" defaultstate="collapsed">
+
   test_expect( js.eval<int>("sys.exec('cat.exe')") == 0);
   test_expect( js.eval<int>("sys.exec('ls.exe')") == 0);
   test_expect( js.eval<int>("sys.exec('echo')") == 0);
@@ -130,7 +130,7 @@ void test_exec(duktape::engine& js)
 //  test_expect( js.eval<std::string>( "sys.exec('cat', { stdin:'TEST', stdout:function(s){} }).stdout") == "" );
 //  test_expect( js.eval<std::string>( "sys.exec('/bin/cat', ['--not-existing-option'], {stderr:function(s){return s.replace(/^/mig,'[e] ');} }).stderr").find("[e]") == 0 );
 //  test_comment( js.eval<std::string>( "sys.exec('/bin/cat', ['--not-existing-option'], {stderr:function(s){return s.replace(/^/mig,'[e] ');} }).stderr")  );
-  // </editor-fold>
+
   #endif
 }
 

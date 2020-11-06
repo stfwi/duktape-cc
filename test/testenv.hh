@@ -1,7 +1,7 @@
 #ifndef DUKTAPE_HH_TESTING_ENVIRONMENT_HH
 #define	DUKTAPE_HH_TESTING_ENVIRONMENT_HH
 
-// <editor-fold desc="preprocessor" defaultstate="collapsed">
+
 #include "../duktape/duktape.hh"
 #include "microtest.hh"
 #include <stdexcept>
@@ -18,9 +18,9 @@
     #define WINDOWS
   #endif
 #endif
-// </editor-fold>
 
-// <editor-fold desc="auxiliary fs test functions" defaultstate="collapsed">
+
+
 namespace testenv {
   #ifndef WINDOWS
   int sysshellexec(std::string cmd) {
@@ -151,9 +151,9 @@ namespace testenv {
     test_makesymlink("b/w with whitespace", "lw with whitespace");
   }
 }
-// </editor-fold>
 
-// <editor-fold desc="js testing functions" defaultstate="collapsed">
+
+
 void test(duktape::engine& js);
 std::string test_source_file;
 std::vector<std::string> test_source_lines;
@@ -344,11 +344,11 @@ int ecma_reset(duk_context *ctx)
   stack.push(true);
   return 1;
 }
-// </editor-fold>
 
-// <editor-fold desc="main()" defaultstate="collapsed">
 
-// <editor-fold desc="test functions argument try/catch enclosing" defaultstate="collapsed">
+
+
+
 // Note: The purpose of this function is to find the outer "test_expect()" locations and
 //       converting the arguments into a string to evaluate in the JS engine. The implementation
 //       is working but somewhat clumsy and will be replaced/optimised at a later date.
@@ -484,7 +484,7 @@ std::string replace_expect_function_arguments(std::string&& code, std::string fu
   }
   return code;
 }
-// </editor-fold>
+
 
 void test_include_script(duktape::engine& js)
 {
@@ -568,6 +568,6 @@ int main(int argc, const char **argv)
   ::sw::utest::tmpdir::remove();
   return sw::utest::test::summary();
 }
-// </editor-fold>
+
 
 #endif

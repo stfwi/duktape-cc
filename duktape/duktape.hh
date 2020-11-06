@@ -4,10 +4,10 @@
  * @license MIT
  * @authors Stefan Wilhelm (stfwi, <cerbero s@atwillys.de>)
  * @platform linux, bsd, windows
- * @standard >= c++11
- * @requires duk_config.h duktape.h duktape.c >= v2.1
+ * @standard >= c++17
+ * @requires duk_config.h duktape.h duktape.c >= v2.4
  * @requires Duktape CFLAGS -DDUK_USE_CPP_EXCEPTIONS
- * @cxxflags -std=c++11 -W -Wall -Wextra -pedantic -fstrict-aliasing
+ * @cxxflags -std=c++17 -W -Wall -Wextra -pedantic -fstrict-aliasing
  *
  * -----------------------------------------------------------------------------
  *
@@ -34,7 +34,6 @@
 #ifndef DUKTAPE_HH
 #define DUKTAPE_HH
 
-// <editor-fold desc="preprocessor" defaultstate="collapsed">
 #include <limits.h>
 #if (!defined(UINT_MAX)) || (UINT_MAX < 0xffffffffUL)
 #error "This interface requires at least 32 bit integer size for type int."
@@ -50,6 +49,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <numeric>
 #include <exception>
 #include <stdexcept>
 #include <fstream>
@@ -58,6 +58,8 @@
 #include <memory>
 #include <functional>
 #include <type_traits>
+#include <typeinfo>
+#include <typeindex>
 #include <mutex>
 
 #ifdef WITH_DUKTAPE_HH_ASSERT
@@ -73,10 +75,11 @@
   #define DEFAULT_STRICT_INCLUDE (true)
 #endif
 
-// </editor-fold>
-
-// <editor-fold desc="forwards" defaultstate="collapsed">
+/**
+ * Forward declarations required in this file.
+ */
 namespace duktape {
+
   namespace detail {
     template <typename R=void> class basic_api;
     template <typename R=void> class basic_stack_guard;
@@ -88,12 +91,14 @@ namespace duktape {
   using engine = detail::basic_engine<>;
   using stack_guard = detail::basic_stack_guard<>;
 }
-// </editor-fold>
 
-// <editor-fold desc="exceptions" defaultstate="collapsed">
+/**
+ * JS related exception types.
+ */
 namespace duktape {
 
   namespace detail {
+
     template <typename=void>
     class basic_engine_error : public std::runtime_error
     {
@@ -148,86 +153,149 @@ namespace duktape {
    */
   using exit_exception = detail::basic_exit_exception<>;
 }
-// </editor-fold>
-
-// <editor-fold desc="auxiliary functions" defaultstate="collapsed">
-namespace duktape { namespace detail {
-
-namespace {
-template <typename=void>
-struct aux
-{
-  static bool split_selector(std::string name, std::string& base, std::string& tail)
-  {
-    auto p = name.find_last_of('.');
-    if(p == name.npos) {
-      if(name.empty()) {
-        // invalid
-        base.clear();
-        tail.clear();
-        return false;
-      } else {
-        // no "."
-        base.clear();
-        tail.swap(name);
-        return true;
-      }
-    } else {
-      if((!p) || (p == name.length()-1)) {
-        // invalid
-        base.clear();
-        tail.swap(name);
-        return false;
-      } else {
-        // ok
-        tail = name.substr(p+1);
-        base.swap(name);
-        base.resize(p);
-        return true;
-      }
-    }
-  }
-};
-}
 
 /**
- * define(....) : Defines are done using these flags (DUK_DEFPROP_HAVE_... will be
- * automatically added). The default is defining sealed, frozen - means not writable,
- * not configurable, but enumerable.
+ * Duktape property access wrappers.
  */
-template <typename T>
-struct basic_defprop_flags
-{
-  using type = T;
-  static constexpr type restricted = 0;
-  static constexpr type writable = (DUK_DEFPROP_WRITABLE);
-  static constexpr type enumerable = (DUK_DEFPROP_ENUMERABLE);
-  static constexpr type configurable = (DUK_DEFPROP_CONFIGURABLE);
-  static constexpr type defaults = (DUK_DEFPROP_ENUMERABLE);
+namespace duktape { namespace detail {
+
+  namespace {
+
+    template <typename=void>
+    struct aux
+    {
+      static bool split_selector(std::string name, std::string& base, std::string& tail)
+      {
+        auto p = name.find_last_of('.');
+        if(p == name.npos) {
+          if(name.empty()) {
+            // invalid
+            base.clear();
+            tail.clear();
+            return false;
+          } else {
+            // no "."
+            base.clear();
+            tail.swap(name);
+            return true;
+          }
+        } else {
+          if((!p) || (p == name.length()-1)) {
+            // invalid
+            base.clear();
+            tail.swap(name);
+            return false;
+          } else {
+            // ok
+            tail = name.substr(p+1);
+            base.swap(name);
+            base.resize(p);
+            return true;
+          }
+        }
+      }
+    };
+  }
 
   /**
-   * Handles/converts the flags needed for def_prop() from the simplified
-   * `defflags::*` constants.
-   *
-   * @param typename type
-   * @return unsigned
+   * define(....) : Defines are done using these flags (DUK_DEFPROP_HAVE_... will be
+   * automatically added). The default is defining sealed, frozen - means not writable,
+   * not configurable, but enumerable.
    */
-  static unsigned convert(type flags) noexcept
+  template <typename T>
+  struct basic_defprop_flags
   {
-    return (((unsigned)0) | DUK_DEFPROP_FORCE | DUK_DEFPROP_HAVE_VALUE
-      | DUK_DEFPROP_HAVE_WRITABLE | ((flags & writable) ? DUK_DEFPROP_WRITABLE:0)
-      | DUK_DEFPROP_HAVE_CONFIGURABLE | ((flags & configurable) ? DUK_DEFPROP_CONFIGURABLE:0)
-      | DUK_DEFPROP_HAVE_ENUMERABLE | ((flags & enumerable) ? DUK_DEFPROP_ENUMERABLE:0)
-    );
-  }
-};
+    using type = T;
+    static constexpr type restricted = 0;
+    static constexpr type writable = (DUK_DEFPROP_WRITABLE);
+    static constexpr type enumerable = (DUK_DEFPROP_ENUMERABLE);
+    static constexpr type configurable = (DUK_DEFPROP_CONFIGURABLE);
+    static constexpr type defaults = (DUK_DEFPROP_ENUMERABLE);
 
-using defprop_flags = basic_defprop_flags<unsigned>;
+    /**
+     * Handles/converts the flags needed for def_prop() from the simplified
+     * `defflags::*` constants.
+     *
+     * @param typename type
+     * @return unsigned
+     */
+    static unsigned convert(type flags) noexcept
+    {
+      return (((unsigned)0) | DUK_DEFPROP_FORCE | DUK_DEFPROP_HAVE_VALUE
+        | DUK_DEFPROP_HAVE_WRITABLE | ((flags & writable) ? DUK_DEFPROP_WRITABLE:0)
+        | DUK_DEFPROP_HAVE_CONFIGURABLE | ((flags & configurable) ? DUK_DEFPROP_CONFIGURABLE:0)
+        | DUK_DEFPROP_HAVE_ENUMERABLE | ((flags & enumerable) ? DUK_DEFPROP_ENUMERABLE:0)
+      );
+    }
+  };
+
+  using defprop_flags = basic_defprop_flags<unsigned>;
 
 }}
-// </editor-fold>
 
-// <editor-fold desc="api" defaultstate="collapsed">
+/**
+ * Stack Guard, usage like `lock_guard`, ensures that the stack
+ * top is reset to its original value when leaving the scope.
+ */
+namespace duktape { namespace detail {
+  /**
+   * Saves the current top index of the stack using `duk_get_top()`
+   * during construction and restores this stack top during destruction
+   * (using `duk_set_top()`) IF the top index is greater than the
+   * initial stack top.
+   */
+  template <typename>
+  class basic_stack_guard
+  {
+  public:
+
+    basic_stack_guard() : ctx_(0), initial_top_(0), gc_(false)
+    { ; }
+
+    basic_stack_guard(const basic_stack_guard& g, bool collect_garbage=false)
+            : ctx_(g.ctx_), initial_top_(g.initial_top_), gc_(collect_garbage)
+    { ; }
+
+    basic_stack_guard(duk_context* ctx, bool collect_garbage=false)
+            : ctx_(ctx), initial_top_(-1), gc_(collect_garbage)
+    { if(ctx_) initial_top_ = duk_get_top(ctx_); }
+
+    template <typename T>
+    basic_stack_guard(const basic_api<T>& o, bool collect_garbage=false)
+            : ctx_(o.ctx()), gc_(collect_garbage)
+    { if(ctx_) initial_top_ = duk_get_top(ctx_); }
+
+    ~basic_stack_guard() noexcept
+    {
+      if(!ctx_ || initial_top_ < 0) return;
+      duk_idx_t top = duk_get_top(ctx_);
+      if(top <= initial_top_) return;
+      duk_set_top(ctx_, initial_top_);
+    }
+
+  public:
+
+    duk_context* ctx() const noexcept
+    { return ctx_; }
+
+    duk_idx_t initial_top() const noexcept
+    { return initial_top_; }
+
+    void initial_top(duk_idx_t index) noexcept
+    { initial_top_ = index; }
+
+  private:
+
+    duk_context* ctx_;
+    duk_idx_t initial_top_;
+    bool gc_;
+  };
+
+}}
+
+/**
+ * Main Duktape API wrapper. Mostly referred to as variables called `stack`.
+ */
 namespace duktape { namespace detail {
 
   /**
@@ -262,8 +330,6 @@ namespace duktape { namespace detail {
   template <typename>
   class basic_api
   {
-    // <editor-fold desc="types" defaultstate="collapsed">
-
   public:
 
     using context_t = duk_context*;
@@ -272,6 +338,7 @@ namespace duktape { namespace detail {
     using codepoint_t = duk_codepoint_t;
     using array_index_t = duk_uarridx_t;
     using thread_state_t = duk_thread_state;
+    using string = std::string;
 
     typedef enum {
       compile_default = 0,
@@ -315,6 +382,7 @@ namespace duktape { namespace detail {
     } safe_call_code_t;
 
     typedef int enumerator_flags;
+
     /**
      * Enumerate also non-enumerable properties (by default only enumerable properties are
      * enumerated)
@@ -343,10 +411,6 @@ namespace duktape { namespace detail {
      */
     static constexpr enumerator_flags enum_sort_array_indices = DUK_ENUM_SORT_ARRAY_INDICES;
 
-    // </editor-fold>
-
-    // <editor-fold desc="c'tor d'tor" defaultstate="collapsed">
-
   public:
 
     basic_api() noexcept : ctx_(0)
@@ -365,10 +429,6 @@ namespace duktape { namespace detail {
     ~basic_api() noexcept
     { ; }
 
-    // </editor-fold>
-
-    // <editor-fold desc="methods" defaultstate="collapsed">
-
   public:
 
     context_t ctx() const noexcept
@@ -377,28 +437,24 @@ namespace duktape { namespace detail {
     context_t ctx(context_t ctx) noexcept
     { ctx_ = ctx; return ctx_; }
 
-    // </editor-fold>
-
-    // <editor-fold desc="api methods" defaultstate="collapsed">
-
   public:
 
     void compile(compile_flags_t flags) const
     { duk_compile(ctx_, flags); }
 
-    void compile_file(compile_flags_t flags, const std::string& path) const
+    void compile_file(compile_flags_t flags, const string& path) const
     { duk_compile_lstring_filename(ctx_, flags, path.data(), static_cast<size_t>(path.length())); }
 
-    void compile_string(compile_flags_t flags, const std::string& src) const
+    void compile_string(compile_flags_t flags, const string& src) const
     { duk_compile_lstring(ctx_, flags, src.data(), static_cast<size_t>(src.length())); }
 
     void eval() const
     { duk_eval(ctx_); }
 
-    void eval_string(const std::string& src) const
+    void eval_string(const string& src) const
     { duk_eval_lstring(ctx_, src.data(), static_cast<size_t>(src.length())); }
 
-    void eval_string_noresult(const std::string& src) const
+    void eval_string_noresult(const string& src) const
     { duk_eval_lstring_noresult(ctx_, src.data(), static_cast<size_t>(src.length())); }
 
     void call(int nargs) const
@@ -413,19 +469,19 @@ namespace duktape { namespace detail {
     int pcompile(compile_flags_t flags) const
     { return duk_pcompile(ctx_, flags); }
 
-    int pcompile_string(compile_flags_t flags, const std::string& src) const
+    int pcompile_string(compile_flags_t flags, const string& src) const
     { return duk_pcompile_lstring(ctx_, flags, src.data(), (size_t) src.length()); }
 
-    int pcompile_file(compile_flags_t flags, const std::string& src) const
+    int pcompile_file(compile_flags_t flags, const string& src) const
     { return duk_pcompile_lstring_filename(ctx_, flags, src.data(), (size_t) src.length()); }
 
     int peval() const
     { return duk_peval(ctx_); }
 
-    int peval_string(const std::string& src) const
+    int peval_string(const string& src) const
     { return duk_peval_lstring(ctx_, src.data(), (size_t) src.length()); }
 
-    int peval_string_noresult(const std::string& src) const
+    int peval_string_noresult(const string& src) const
     { return duk_peval_lstring_noresult(ctx_, src.data(), (size_t) src.length()); }
 
     int pcall(int nargs) const
@@ -503,7 +559,7 @@ namespace duktape { namespace detail {
     bool del_prop_string(index_t obj_index, const char* key) const
     { return key && (duk_del_prop_string(ctx_, obj_index, key) != 0); }
 
-    bool del_prop_string(index_t obj_index, const std::string& key) const
+    bool del_prop_string(index_t obj_index, const string& key) const
     { return duk_del_prop_lstring(ctx_, obj_index, key.c_str(), key.length()) != 0; }
 
     bool get_prop(index_t obj_index) const
@@ -515,20 +571,8 @@ namespace duktape { namespace detail {
     bool get_prop_string(index_t obj_index, const char* key) const
     { return key && (duk_get_prop_string(ctx_, obj_index, key) != 0); }
 
-    bool get_prop_string(index_t obj_index, const std::string& key) const
+    bool get_prop_string(index_t obj_index, const string& key) const
     { return duk_get_prop_lstring(ctx_, obj_index, key.c_str(), key.size()) != 0; }
-
-    /**
-     * Get a value from an object or a default if not existing.
-     */
-    template <typename T>
-    T get_prop_string(index_t object_index, const char* property_name, T default_value) const
-    {
-      if(!has_prop_string(object_index, property_name)) return default_value;
-      if(get_prop_string(object_index, property_name)) default_value = get<T>(-1);
-      pop();
-      return default_value;
-    }
 
     void get_prop_desc(index_t obj_index, unsigned flags) const
     { duk_get_prop_desc(ctx_, obj_index, duk_uint_t(flags)); }
@@ -539,7 +583,7 @@ namespace duktape { namespace detail {
     bool get_global_string(const char* key) const
     { return key && (duk_get_global_string(ctx_, key) != 0); }
 
-    bool get_global_string(const std::string& key) const
+    bool get_global_string(const string& key) const
     { return duk_get_global_lstring(ctx_, key.c_str(), key.size()) != 0; }
 
     bool has_prop(index_t obj_index) const
@@ -551,7 +595,7 @@ namespace duktape { namespace detail {
     bool has_prop_string(index_t obj_index, const char* key) const
     { return key && (duk_has_prop_string(ctx_, obj_index, key) != 0); }
 
-    bool has_prop_string(index_t obj_index, const std::string& key) const
+    bool has_prop_string(index_t obj_index, const string& key) const
     { return duk_has_prop_lstring(ctx_, obj_index, key.c_str(), key.size()) != 0; }
 
     void put_function_list(index_t obj_index, const duk_function_list_entry *funcs) const
@@ -560,7 +604,7 @@ namespace duktape { namespace detail {
     bool put_global_string(const char* key)
     { return duk_put_global_string(ctx_, key); }
 
-    bool put_global_string(const std::string& key)
+    bool put_global_string(const string& key)
     { return duk_put_global_lstring(ctx_, key.c_str(), key.size()); }
 
     void put_number_list(index_t obj_index, const duk_number_list_entry *numbers) const
@@ -575,7 +619,7 @@ namespace duktape { namespace detail {
     bool put_prop_string(index_t obj_index, const char* key) const
     { return key && (duk_put_prop_string(ctx_, obj_index, key) != 0); }
 
-    bool put_prop_string(index_t obj_index, const std::string& key) const
+    bool put_prop_string(index_t obj_index, const string& key) const
     { return duk_put_prop_lstring(ctx_, obj_index, key.c_str(), key.size()) != 0; }
 
     index_t normalize_index(index_t index) const
@@ -589,28 +633,6 @@ namespace duktape { namespace detail {
 
     const void* get_buffer_data(index_t index, size_t& out_size) const
     { return (const void*) duk_get_buffer_data(ctx_, index, &out_size); }
-
-    template <typename ContainerType>
-    ContainerType get_buffer(index_t index) const
-    {
-      ContainerType data;
-      duk_size_t size = 0;
-      const char* buffer = nullptr;
-      if(is_buffer(index)) {
-        buffer = reinterpret_cast<const char*>(duk_get_buffer(ctx_, index, &size));
-      } else if(is_buffer_data(index)) {
-        buffer = reinterpret_cast<const char*>(duk_get_buffer_data(ctx_, index, &size));
-      }
-      if(buffer && size) {
-        data.resize(size);
-        std::copy(&(buffer[0]), &(buffer[size]), data.begin());
-      }
-      return data;
-    }
-
-    template <typename ContainerType>
-    ContainerType buffer(index_t index) const
-    { return get_buffer<ContainerType>(index); }
 
     ::duk_c_function get_c_function(index_t index) const
     { return duk_get_c_function(ctx_, index); }
@@ -636,7 +658,10 @@ namespace duktape { namespace detail {
     void* get_pointer(index_t index) const
     { return duk_get_pointer(ctx_, index); }
 
-    std::string get_string(index_t index)  const
+    void* get_pointer(index_t index, void* default_value) const
+    { return duk_get_pointer_default(ctx_, index, default_value); }
+
+    string get_string(index_t index)  const
     { size_t l; const char* s = duk_get_lstring(ctx_, index, &l); return (s && (l>0))?s:""; }
 
     unsigned get_uint(index_t index) const
@@ -687,7 +712,7 @@ namespace duktape { namespace detail {
     bool is_eval_error(index_t index) const
     { return duk_is_eval_error(ctx_, index) != 0; }
 
-    bool duk_is_fixed_buffer(index_t index) const
+    bool is_fixed_buffer(index_t index) const
     { return duk_is_fixed_buffer(ctx_, index) != 0; }
 
     bool is_function(index_t index) const
@@ -768,7 +793,7 @@ namespace duktape { namespace detail {
     void push_buffer_object(index_t buffer_index, size_t byte_offset, size_t byte_length, unsigned flags) const
     { return duk_push_buffer_object(ctx_, buffer_index, duk_size_t(byte_offset), duk_size_t(byte_length), duk_uint_t(flags)); }
 
-    index_t push_c_function(::duk_c_function func, int nargs) const
+    index_t push_c_function(::duk_c_function func, int nargs=DUK_VARARGS) const
     { return duk_push_c_function(ctx_, func, nargs); }
 
     void push_context_dump() const
@@ -804,10 +829,10 @@ namespace duktape { namespace detail {
     void push_string(const char* s) const
     { duk_push_string(ctx_, s ? s : ""); }
 
-    void push_string(const std::string& s) const
+    void push_string(const string& s) const
     { duk_push_lstring(ctx_, s.data(), (size_t) s.length()); }
 
-    void push_string(std::string&& s) const
+    void push_string(string&& s) const
     { duk_push_lstring(ctx_, s.data(), (size_t) s.length()); }
 
     void push_nan() const
@@ -846,6 +871,9 @@ namespace duktape { namespace detail {
     void push_undefined() const
     { duk_push_undefined(ctx_); }
 
+    index_t push_proxy() const
+    { return duk_push_proxy(ctx_, 0); } // proxy_flags unused, must be 0.
+
     void pop() const
     { duk_pop(ctx_); }
 
@@ -870,7 +898,7 @@ namespace duktape { namespace detail {
     int require_int(index_t index) const
     { return duk_require_int(ctx_, index); }
 
-    std::string require_string(index_t index) const
+    string require_string(index_t index) const
     { size_t l; const char* s = duk_require_lstring(ctx_, index, &l); return (s && (l>0))?s:""; }
 
     index_t require_normalize_index(index_t index) const
@@ -914,6 +942,12 @@ namespace duktape { namespace detail {
 
     void require_valid_index(index_t index) const
     { duk_require_valid_index(ctx_, index); }
+
+    void require_constructable(index_t index) const
+    { duk_require_constructable(ctx_, index); }
+
+    void require_constructor_call() const
+    { duk_require_constructor_call(ctx_); }
 
     bool to_boolean(index_t index) const
     { return duk_to_boolean(ctx_, index) != 0; }
@@ -960,11 +994,17 @@ namespace duktape { namespace detail {
     void to_undefined(index_t index) const
     { duk_to_undefined(ctx_, index); }
 
-    std::string to_string(index_t index) const
+    string to_string(index_t index) const
     { size_t l; const char* s = duk_to_lstring(ctx_, index, &l); return (s && (l>0))?s:""; }
 
-    std::string safe_to_string(index_t index) const
-    { size_t l; const char *s = duk_safe_to_lstring(ctx_, index, &l); return std::string(s, s+l); }
+    string safe_to_string(index_t index) const
+    { size_t l; const char *s = duk_safe_to_lstring(ctx_, index, &l); return string(s, s+l); }
+
+    string to_stacktrace(index_t index) const
+    { const char *s = duk_to_stacktrace(ctx_, index); return string(s?s:"Error"); }
+
+    string safe_to_stacktrace(index_t index) const
+    { return string(duk_safe_to_stacktrace(ctx_, index)); }
 
     bool samevalue(index_t index1, index_t index2)
     { return !!duk_samevalue(ctx_, index1, index2); }
@@ -987,10 +1027,10 @@ namespace duktape { namespace detail {
     void json_decode(index_t index) const
     { duk_json_decode(ctx_, index); }
 
-    std::string json_encode(index_t index) const
+    string json_encode(index_t index) const
     { const char* s = duk_json_encode(ctx_, index); return s ? s : ""; }
 
-    std::string base64_encode(index_t index) const
+    string base64_encode(index_t index) const
     { const char* s = duk_base64_encode(ctx_, index); return s ? s : ""; }
 
     void base64_decode(index_t index) const
@@ -999,10 +1039,10 @@ namespace duktape { namespace detail {
     void hex_decode(index_t index) const
     { duk_hex_decode(ctx_, index); }
 
-    std::string hex_encode(index_t index) const
+    string hex_encode(index_t index) const
     { const char* s = duk_hex_encode(ctx_, index); return s ? s : ""; }
 
-    std::string buffer_to_string(index_t index) const
+    string buffer_to_string(index_t index) const
     { const char* s = duk_buffer_to_string(ctx_, index); return s ? s : ""; }
 
     void map_string(index_t index, duk_map_char_function callback, void *udata) const
@@ -1047,10 +1087,10 @@ namespace duktape { namespace detail {
     int throw_exception() const
     { ::duk_throw_raw(ctx_); return 0; }
 
-    int throw_exception(std::string msg) const
+    int throw_exception(string msg) const
     { error(error_code_t::err_ecma, msg); return 0; }
 
-    int error(error_code_t err_code, const std::string& msg, std::string file="(native c++)", int line=0) const
+    int error(error_code_t err_code, const string& msg, string file="(native c++)", int line=0) const
     { duk_error_raw(ctx_, (duk_errcode_t) err_code, file.c_str(), (duk_int_t) line, msg.c_str()); return 0; }
 
     error_code_t get_error_code(index_t index) const
@@ -1065,11 +1105,14 @@ namespace duktape { namespace detail {
     void config_buffer(index_t index, void* data, size_t size)
     { duk_config_buffer(ctx_, index, data, duk_size_t(size)); }
 
-    std::string dump_context() const
+    string dump_context() const
     { stack_guard sg(ctx_); push_context_dump(); return safe_to_string(-1); }
 
     void def_prop(index_t index, unsigned flags) const
     { duk_def_prop(ctx_, index, (duk_uint_t)flags); }
+
+    void def_prop(index_t index) const
+    { duk_def_prop(ctx_, index, detail::defprop_flags::convert(detail::defprop_flags::defaults)); }
 
     void dump_function() const
     { duk_dump_function(ctx_); }
@@ -1077,7 +1120,7 @@ namespace duktape { namespace detail {
     void load_function() const
     { duk_load_function(ctx_); }
 
-    void duk_get_finalizer(index_t index) const
+    void get_finalizer(index_t index) const
     { duk_get_finalizer(ctx_, index); }
 
     void set_finalizer(index_t index) const
@@ -1119,6 +1162,38 @@ namespace duktape { namespace detail {
     static void xmove_top(context_t to_ctx, context_t from_ctx, size_t count)
     { duk_xmove_top(to_ctx, from_ctx, duk_idx_t(count)); }
 
+  public:
+
+    /**
+     * Get a value from an object or a default if not existing.
+     */
+    template <typename T>
+    T get_prop_string(index_t object_index, const char* property_name, T default_value) const
+    {
+      if(!has_prop_string(object_index, property_name)) return default_value;
+      if(get_prop_string(object_index, property_name)) default_value = get<T>(-1);
+      pop();
+      return default_value;
+    }
+
+    template <typename ContainerType>
+    ContainerType buffer(index_t index) const
+    {
+      ContainerType data;
+      duk_size_t size = 0;
+      const char* buffer = nullptr;
+      if(is_buffer(index)) {
+        buffer = reinterpret_cast<const char*>(duk_get_buffer(ctx_, index, &size));
+      } else if(is_buffer_data(index)) {
+        buffer = reinterpret_cast<const char*>(duk_get_buffer_data(ctx_, index, &size));
+      }
+      if(buffer && size) {
+        data.resize(size);
+        std::copy(&(buffer[0]), &(buffer[size]), data.begin());
+      }
+      return data;
+    }
+
     /**
      * Push a (raw) buffer with defined size and in turn push a
      * buffer object of type ArrayBuffer linked to the raw buffer.
@@ -1142,14 +1217,14 @@ namespace duktape { namespace detail {
      * to the key.
      *
      * @param index_t obj_index
-     * @param std::string key
+     * @param string key
      * @return bool
      */
-    bool put_prop_string_hidden(index_t obj_index, std::string key) const
+    bool put_prop_string_hidden(index_t obj_index, string key) const
     {
       if(key.empty() || (!is_object(obj_index))) return false;
       require_stack(1);
-      push_string(std::string("\xff_") + key);
+      push_string(string("\xff_") + key);
       swap(-1,-2);
       def_prop(obj_index, defprop_flags::convert(defprop_flags::restricted));
       return true;
@@ -1160,28 +1235,28 @@ namespace duktape { namespace detail {
      * (key prepended with "\xff_") is retrieved. Uses `get_prop_string()`.
      *
      * @param index_t obj_index
-     * @param const std::string& key
+     * @param const string& key
      * @return bool
      */
-    bool get_prop_string_hidden(index_t obj_index, const std::string& key) const
-    { return get_prop_string(obj_index, std::string("\xff_") + key); }
+    bool get_prop_string_hidden(index_t obj_index, const string& key) const
+    { return get_prop_string(obj_index, string("\xff_") + key); }
 
     /**
      * Like del_prop_string(obj_index, key), except that a hidden property
      * (key prepended with "\xff_") is removed. Uses `del_prop_string()`.
      *
      * @param index_t obj_index
-     * @param const std::string& key
+     * @param const string& key
      * @return bool
      */
-    bool del_prop_string_hidden(index_t obj_index, const std::string& key) const
-    { return del_prop_string(obj_index, std::string("\xff_") + key); }
+    bool del_prop_string_hidden(index_t obj_index, const string& key) const
+    { return del_prop_string(obj_index, string("\xff_") + key); }
 
     template <typename T>
-    T get_prop_string_hidden(index_t object_index, std::string key, T default_value) const
+    T get_prop_string_hidden(index_t object_index, string key, T default_value) const
     {
       if(key.empty()) return default_value;
-      key = std::string("\xff_") + key;
+      key = string("\xff_") + key;
       return get_prop_string(object_index, key, default_value);
     }
 
@@ -1235,7 +1310,7 @@ namespace duktape { namespace detail {
     /**
      * Returns true of a value on the stack corresponds to the c++ type specified
      * with typename T, false otherwise. Note that `const char*` is not valid, use
-     * `std::string` instead. Uses functions `duk_is_*`.
+     * `string` instead. Uses functions `duk_is_*`.
      * @param index_t index
      * @return typename T
      */
@@ -1353,15 +1428,15 @@ namespace duktape { namespace detail {
      * Returns boolean success. If the method fails, then the stack will be
      * unchanged. Otherwise the selected property will be on top of the stack.
      *
-     * @param std::string name
+     * @param string name
      * @return bool
      */
-    bool select(std::string name) const
+    bool select(string name) const
     {
       if(name.empty()) return false;
       index_t initial_top = top();
       push_global_object();
-      std::string s;
+      string s;
       bool err = false;
       for(auto c : name) {
         if(c == '.') {
@@ -1390,7 +1465,7 @@ namespace duktape { namespace detail {
      * Set a property of an object, non forced, no special define attributes.
      */
     template <typename T>
-    bool set(std::string&& key, T&& value)
+    bool set(string&& key, T&& value)
     {
       if(!is_object(-1)) return false;
       push(std::move(key));
@@ -1399,7 +1474,7 @@ namespace duktape { namespace detail {
       return true;
     }
 
-    bool is_date(index_t index)
+    bool is_date(index_t index) const
     {
       index = absindex(index);
       if(!is_object(index)) return false;
@@ -1410,7 +1485,7 @@ namespace duktape { namespace detail {
       return r;
     }
 
-    bool is_regex(index_t index)
+    bool is_regex(index_t index) const
     {
       index = absindex(index);
       if(!is_object(index)) return false;
@@ -1421,13 +1496,13 @@ namespace duktape { namespace detail {
       return r;
     }
 
-    bool is_false(index_t index)
+    bool is_false(index_t index) const
     { return is_boolean(index) && !get_boolean(index); }
 
-    bool is_true(index_t index)
+    bool is_true(index_t index) const
     { return is_boolean(index) && get_boolean(index); }
 
-    engine& parent_engine()
+    engine& parent_engine() const
     {
       stack_guard sg(*this);
       push_heap_stash();
@@ -1438,7 +1513,7 @@ namespace duktape { namespace detail {
       return *reinterpret_cast<engine*>(get_pointer(-1));
     }
 
-    std::string callstack()
+    string callstack() const
     {
       // note: Due to performance tests choosing request of
       //       one stack trace and performing a string
@@ -1446,9 +1521,9 @@ namespace duktape { namespace detail {
       auto currtop = top();
       ::duk_push_error_object_raw(ctx(), DUK_ERR_ERROR, __FILE__, __LINE__, "Trace");
       get_prop_string(-1, "stack");
-      std::string s = get<std::string>(-1);
+      string s = get<string>(-1);
       top(currtop);
-      std::string out;
+      string out;
       s.erase(std::remove(s.begin(), s.end(), '\r'), s.end());
       while(!s.empty() && s.back() == '\n') s.pop_back();
       auto p = s.find('\n');
@@ -1456,7 +1531,7 @@ namespace duktape { namespace detail {
         s = s.substr(p+1); // omit error name
         do {
           p = s.find('\n');
-          std::string line = s.substr(0, p);
+          string line = s.substr(0, p);
           s = s.substr(p+1);
           if(line.find("at [anon] (") != line.npos) continue;
           auto ps = line.rfind(')');
@@ -1475,6 +1550,24 @@ namespace duktape { namespace detail {
       return out;
     }
 
+    /**
+     * Returns a string representation of the current stack
+     * in a c++ function. Use e.g. for debugging purposes.
+     * @return string
+     */
+    string dump() const
+    {
+      string s = "function-stack {\n";
+      for(index_t i=0; i<top(); ++i) {
+        dup(i);
+        string tos = (is_object(-1) && !is_null(-1) && !is_date(-1) && !is_regex(-1)) ? "[object]" : to_string(-1);
+        s += string(" [") +  std::to_string(i) +  "] = (" + get_typename(i) + ") " + tos + "\n";
+        pop();
+      }
+      s += "}";
+      return s;
+    }
+
   private:
 
     template <typename T>
@@ -1485,78 +1578,16 @@ namespace duktape { namespace detail {
     void push_variadic(T val, Args ...args) const
     { push<T>(val); push_variadic(args...); }
 
-    // </editor-fold>
-
-    // <editor-fold desc="instance variables" defaultstate="collapsed">
-
   protected:
 
     duk_context* ctx_;
 
-    // </editor-fold>
-
   };
 }}
-// </editor-fold>
 
-// <editor-fold desc="stack_guard" defaultstate="collapsed">
-namespace duktape { namespace detail {
-  /**
-   * Saves the current top index of the stack using `duk_get_top()`
-   * during construction and restores this stack top during destruction
-   * (using `duk_set_top()`) IF the top index is greater than the
-   * initial stack top.
-   */
-  template <typename>
-  class basic_stack_guard
-  {
-  public:
-
-    basic_stack_guard() : ctx_(0), initial_top_(0), gc_(false)
-    { ; }
-
-    basic_stack_guard(const basic_stack_guard& g, bool collect_garbage=false)
-            : ctx_(g.ctx_), initial_top_(g.initial_top_), gc_(collect_garbage)
-    { ; }
-
-    basic_stack_guard(duk_context* ctx, bool collect_garbage=false)
-            : ctx_(ctx), initial_top_(-1), gc_(collect_garbage)
-    { if(ctx_) initial_top_ = duk_get_top(ctx_); }
-
-    template <typename T>
-    basic_stack_guard(const basic_api<T>& o, bool collect_garbage=false)
-            : ctx_(o.ctx()), gc_(collect_garbage)
-    { if(ctx_) initial_top_ = duk_get_top(ctx_); }
-
-    ~basic_stack_guard() noexcept
-    {
-      if(!ctx_ || initial_top_ < 0) return;
-      duk_idx_t top = duk_get_top(ctx_);
-      if(top <= initial_top_) return;
-      duk_set_top(ctx_, initial_top_);
-    }
-
-  public:
-
-    duk_context* ctx() const noexcept
-    { return ctx_; }
-
-    duk_idx_t initial_top() const noexcept
-    { return initial_top_; }
-
-    void initial_top(duk_idx_t index) noexcept
-    { initial_top_ = index; }
-
-  private:
-
-    duk_context* ctx_;
-    duk_idx_t initial_top_;
-    bool gc_;
-  };
-}}
-// </editor-fold>
-
-// <editor-fold desc="conversion" defaultstate="collapsed">
+/**
+ * JS <--> c++ type conversion functionality.
+ */
 namespace duktape { namespace detail {
 
   /**
@@ -1566,7 +1597,6 @@ namespace duktape { namespace detail {
   template <typename T>
   struct conv { using type = void; };
 
-  // <editor-fold desc="conv<void>" defaultstate="collapsed">
   template <> struct conv<void>
   {
     using type = void;
@@ -1595,9 +1625,7 @@ namespace duktape { namespace detail {
     static void push(duk_context* ctx)
     { (void)ctx; }
   };
-  // </editor-fold>
 
-  // <editor-fold desc="conv<NUMERIC>" defaultstate="collapsed">
   // @note: The c++ community will kill me for using macros,
   //        but writing it all out or nesting further template
   //        structures is eventually less readable than this.
@@ -1628,9 +1656,7 @@ namespace duktape { namespace detail {
   decl_conv_tmp(double, duk_get_number, duk_require_number, duk_to_number, duk_push_number, duk_is_number, "double");
   decl_conv_tmp(long double, duk_get_number, duk_require_number, duk_to_number, duk_push_number, duk_is_number, "long double");
   #undef decl_conv_tmp
-  // </editor-fold>
 
-  // <editor-fold desc="conv<bool>" defaultstate="collapsed">
   template <> struct conv<bool>
   {
     using type = bool;
@@ -1662,9 +1688,7 @@ namespace duktape { namespace detail {
     static void push(duk_context* ctx, type&& val)
     { return api(ctx).push_boolean(std::move(val)); }
   };
-  // </editor-fold>
 
-  // <editor-fold desc="conv<std::string>" defaultstate="collapsed">
   // @note: Intentionally wstring, u16/u32string omitted.
   template <> struct conv<std::string>
   {
@@ -1697,9 +1721,7 @@ namespace duktape { namespace detail {
     static void push(duk_context* ctx, type&& val)
     { return api(ctx).push_string(std::move(val)); }
   };
-  // </editor-fold>
 
-  // <editor-fold desc="conv<const char*>" defaultstate="collapsed">
   template <> struct conv<const char*>
   {
     using type = const char*;
@@ -1727,9 +1749,7 @@ namespace duktape { namespace detail {
     static void push(duk_context* ctx, type val)
     { return api(ctx).push_string(reinterpret_cast<const char*>(val)); }
   };
-  // </editor-fold>
 
-  // <editor-fold desc="conv<std::vector<T>>" defaultstate="collapsed">
   template <typename T> struct conv<std::vector<T>>
   {
     using type = std::vector<T>;
@@ -1798,20 +1818,17 @@ namespace duktape { namespace detail {
     }
 
   };
-  // </editor-fold>
 
-  // <editor-fold desc="ecma_typename (for debugging use)" defaultstate="collapsed">
   /**
    * Javascript type name query. Note: This is a runtime type query and expensive.
    * Use it only for debugging or in exceptional situations.
    *
-   * @param duk_context* ctx
+   * @param api& stack
    * @return int index
    */
   template <typename=void>
-  const char* ecma_typename(duk_context* ctx, int index)
+  const char* ecma_typename(api& stack, int index)
   {
-    api stack(ctx);
     if(index < 0 || index > stack.get_top_index()) {
       return "(invalid stack index)";
     } else if(stack.is_undefined(index)) {
@@ -1845,16 +1862,31 @@ namespace duktape { namespace detail {
     }
     return "(unrecognised script type)";
   }
-  // </editor-fold>
+
+  /**
+   * Javascript type name query. Note: This is a runtime type query and expensive.
+   * Use it only for debugging or in exceptional situations.
+   *
+   * @param duk_context* ctx
+   * @return int index
+   */
+  template <typename=void>
+  const char* ecma_typename(duk_context* ctx, int index)
+  { api stack(ctx); return ecma_typename<void>(stack, index); }
 
 }}
-// </editor-fold>
 
-// <editor-fold desc="function_proxy" defaultstate="collapsed">
+/**
+ * Type for c++ functions callable from the JS engine, instead of a C `ctx`,
+ * a `duktape::api` stack is used as interfacing handle.
+ */
 namespace duktape { namespace detail {
   using native_function_type = int(*)(api&);
 }}
 
+/**
+ * Native wrappers to enable exposing c++ functions to the JS engine.
+ */
 namespace duktape { namespace detail { namespace {
 
   template<unsigned...> struct indices{};
@@ -1959,9 +1991,528 @@ namespace duktape { namespace detail { namespace {
   };
 
 }}}
-// </editor-fold>
 
-// <editor-fold desc="engine" defaultstate="collapsed">
+/**
+ * Native object interfacing functionality to enable simpler construction
+ * and handling of JS object with a native backend.
+ */
+namespace duktape {
+
+  /**
+   * Native c++ object/class/struct wrapper.
+   * Facilitates object instantiation, destruction,
+   * method and property access via defined
+   * wrapper functions/lambdas. Usage:
+   *
+   * // Assuming js is an `engine` instance defined above.
+   * js.define(
+   *   // Native object registrar constructor with the JS class name.
+   *   // All following called methods return a reference to this object,
+   *   // so that they can be chained. Finally `js.define()` is called
+   *   // with the complete c++ class wrapping definition.
+   *   native_object("MyJsClassName")
+   *    // arguments are on the Duktape stack,
+   *    // decide here how to construct your c++
+   *    // instance and return the instance pointer
+   *    // created using the `new` operator.
+   *    // When the JS object is destroyed, the
+   *    // created native c++ instance will be
+   *    // `delete`d automatically.
+   *    .constructor([](api& stack){
+   *      return new my_cpp_class();
+   *    })
+   *    // --- define property getters (like `image.size` or `vec3d.x`)
+   *    // You get the Duktape stack and the reference to your created
+   *    // c++ instance. Push a value on the stack that shall be returned.
+   *    .getter("my_property_name", [](api& stack, my_cpp_class& instance){
+   *      stack.push(instance.my_prop());
+   *    })
+   *    // Same for setters, you get the Duktape stack and the reference to your
+   *    // created c++ instance. The value to set is the last value on the stack.
+   *    // You might want to check the type etc beforehand.
+   *    .setter("my_property_name", [](api& stack, my_cpp_class& instance){
+   *      if(!stack.is<my_cpp_class::my_property_type>(-1)) {
+   *        throw script_error("Wrong type for setting MyJsClassName.my_property_name");
+   *      }
+   *      my_cpp_class::my_property_type new_value = stack.get<my_cpp_class::my_property_type>(-1);
+   *      instance.my_prop(new_value);
+   *    })
+   *    // Example for calling a method if the c++ instance
+   *    // All arguments are on the Duktape stack. For toString()
+   *    // we ignore these. The value that you push on the stack
+   *    // will be returned. Return `true` if you have something
+   *    // to return, `false` if your function return is `void`.
+   *    .method("toString", [](api& stack, my_cpp_class& instance) {
+   *      stack.push(instance.to_string());
+   *      return true;
+   *    })
+   *  );
+   */
+  template <typename NativeType>
+  class native_object
+  {
+  public:
+
+    using value_type = NativeType;
+    using constructor_type = std::function<value_type*(api& stack)>;
+    using method_type = std::function<bool(api& stack, value_type&)>;
+    using getter_type = std::function<void(api& stack, value_type&)>; // not using const value_type& here, as the wrapped classes may not be const correct.
+    using setter_type = std::function<void(api& stack, value_type&)>;
+    using string = std::string;
+
+  public:
+
+    native_object() = default;
+    native_object(const native_object&) = default;
+    native_object(native_object&&) = default;
+    ~native_object() = default;
+
+    explicit native_object(std::string name) : name_(name), constructor_([](api&){return new value_type();}),
+                                               methods_(), getters_(), setters_()
+    {}
+
+  public:
+
+    /**
+     * Assigned to all objects in the JS constructor function.
+     * Shall free the native c++ instance when the garbage
+     * collector cleans up the JS object.
+     */
+    static int finalizer_proxy(api::context_t ctx)
+    {
+      try {
+        api stack(ctx);
+        stack.get_prop_string(-1, "\xff_op");
+        void* p = stack.get_pointer(-1);
+        if(!p) return 0;
+        delete reinterpret_cast<value_type*>(p);
+      } catch(...) {
+        // we're not allowed to throw, so if the object
+        // does not have the right type we currently may
+        // get a leak.
+        // @todo -> move native objects in a c++ kv container
+        //          with pointer as key, maybe wrapped in a
+        //          std::any/uniqptr. Allows safe leakless cleanup.
+        //          The engine needs to own that container.
+      }
+      return 0;
+    }
+
+    /**
+     * Duktape C function proxy for getters. Checks the
+     * JS object data integrity and accesses the native
+     * instance pointer, passing it to the getter that
+     * was created for that property name. Returns
+     * `undefined` if no such property was defined.
+     *
+     * @param api::context_t ctx
+     * @return int
+     */
+    static int getter_proxy(api::context_t ctx)
+    {
+      api stack(ctx);
+      try {
+        stack.top(2);             // [target, key]
+        string key = stack.get<std::string>(1);
+        stack.top(1);             // [target]
+        stack.get_prototype(0);   // [target proto]
+        stack.get_prop_string(-1, key); // [target proto prop]
+        if(stack.is_callable(-1)) return 1; // it's a method
+        stack.top(1);             // [target]
+        stack.get_prop_string(-1, "\xff_accessor");
+        native_object* accessor = reinterpret_cast<native_object*>(stack.get_pointer(-1, nullptr));
+        if(accessor == nullptr) throw script_error(std::string("Native method not called with 'this' being a native object."));
+        if(instance_.get() != accessor) throw engine_error("Inconsistent native object properties.");
+        auto it = accessor->getters_.find(key);
+        if(it == accessor->getters_.end()) {
+          if((key.find("Symbol.toPrimitive") != key.npos) || (key.find("valueOf") != key.npos)) return 0;
+          throw script_error(string("Native object does not have the property '") + key + "'");
+        }
+        stack.top(1);             // [target]
+        stack.get_prop_string(-1, "\xff_op");
+        value_type* ptr = reinterpret_cast<value_type*>(stack.get_pointer(-1, nullptr));
+        stack.top(0);
+        it->second(stack, *ptr);
+        return (stack.top() > 0) ? 1 : 0;
+      } catch(const engine_error&) {
+        throw;
+      } catch(const std::exception& e) {
+        stack.throw_exception(e.what());
+      }
+      return 0;
+    }
+
+    /**
+     * Duktape C function proxy for setters. Checks the
+     * JS object data integrity and accesses the native
+     * instance pointer, passing it to the setter that
+     * was created for that property name. Throws
+     * a JS exception if the property explicitly registered.
+     *
+     * @param api::context_t ctx
+     * @return int
+     */
+    static int setter_proxy(api::context_t ctx)
+    {
+      api stack(ctx);
+      try {
+        stack.top(3);             // [target key value]
+        string key = stack.get<std::string>(1);
+        stack.swap(1, 2);         // [target value key]
+        stack.top(2);             // [target value]
+        stack.swap(0, 1);         // [value target]
+        stack.get_prop_string(-1, "\xff_op");
+        value_type* ptr = reinterpret_cast<value_type*>(stack.get_pointer(-1, nullptr));
+        stack.top(2);             // [target value]
+        stack.get_prototype(-1);  // [value target proto]
+        stack.get_prop_string(-1, key); // [value target proto prop]
+        if(stack.is_callable(-1)) throw script_error(std::string("Native methods are not to be overwritten."));
+        stack.top(2);             // [value target]
+        stack.get_prop_string(-1, "\xff_accessor");
+        native_object* accessor = reinterpret_cast<native_object*>(stack.get_pointer(-1, nullptr));
+        if(accessor == nullptr) throw script_error(std::string("Native setter not called with 'this' being a native object."));
+        if(instance_.get() != accessor) throw engine_error("Inconsistent native object properties.");
+        auto its = accessor->setters_.find(key);
+        if(its == accessor->setters_.end()) {
+          if(accessor->getters_.find(key) == accessor->getters_.end()) {
+            throw script_error(string("Native object does not have the property '") + key + "'");
+          } else {
+            throw script_error(string("Native object property " + key + " is readonly."));
+          }
+        }
+        stack.top(1);
+        if(!ptr) throw script_error(string("Native setter: native object is missing."));
+        its->second(stack, *ptr);
+        return 0;
+      } catch(const engine_error&) {
+        throw;
+      } catch(const script_error& e) {
+        return stack.throw_exception(e.what());
+      } catch(const std::exception& e) {
+        return stack.throw_exception(e.what());
+      }
+      return 0;
+    }
+
+    /**
+     * Proxy trap for property deletion, which is not allowed.
+     *
+     * @param api::context_t ctx
+     * @return int
+     */
+    static int delprop_proxy(api::context_t ctx)
+    { api(ctx).throw_exception("Properties of native objects cannot be deleted."); return 0; }
+
+    /**
+     * Duktape C function proxy trap for property existence.
+     *
+     * @param api::context_t ctx
+     * @return int
+     */
+    static int hasprop_proxy(api::context_t ctx)
+    {
+      api stack(ctx);
+      try {
+        stack.top(2);             // [target, key]
+        string key = stack.get<std::string>(1);
+        stack.get_prop_string(0, "\xff_accessor");
+        native_object* accessor = reinterpret_cast<native_object*>(stack.get_pointer(-1, nullptr));
+        if(accessor == nullptr) throw script_error(std::string("Native method not called with 'this' being a native object."));
+        if(instance_.get() != accessor) throw engine_error("Inconsistent native object properties.");
+        stack.push(accessor->getters_.find(key) != accessor->getters_.end()); // intentionally not write-only, too.
+        return 1;
+      } catch(const engine_error&) {
+        throw;
+      } catch(const std::exception& e) {
+        stack.throw_exception(e.what());
+      }
+      return 0;
+    }
+
+    /**
+     * Duktape C function proxy trap for property listing
+     * and enumeration.
+     *
+     * @param api::context_t ctx
+     * @return int
+     */
+    static int ownkeys_proxy(api::context_t ctx)
+    {
+      using namespace std;
+      api stack(ctx);
+      try {
+        stack.get_prop_string(0, "\xff_accessor");
+        native_object* accessor = reinterpret_cast<native_object*>(stack.get_pointer(-1, nullptr));
+        if(accessor == nullptr) throw script_error(std::string("Native method not called with 'this' being a native object."));
+        if(instance_.get() != accessor) throw engine_error("Inconsistent native object properties.");
+        auto v = vector<string>();
+        for(const auto& e:accessor->getters_) v.push_back(e.first);
+        stack.push(v);
+        return 1;
+      } catch(const engine_error&) {
+        throw;
+      } catch(const std::exception& e) {
+        stack.throw_exception(e.what());
+      }
+      return 0;
+    }
+
+    /**
+     * Constructs a JS object representing a native c++ instance, and
+     * assigns metadata that are used for verivication and instance
+     * access.
+     *
+     * @param api::context_t ctx
+     * @return int
+     */
+    static int constructor_proxy(api::context_t ctx)
+    {
+      using defflags = duktape::detail::defprop_flags;
+      api stack(ctx);
+      try {
+        if(!stack.is_constructor_call()) throw script_error("Function has to be called as constructor (forgot new?)");
+        auto top = stack.top();
+        stack.push_current_function();
+        stack.get_prop_string(-1, "\xff_accessor");
+        native_object* accessor = reinterpret_cast<native_object*>(stack.get_pointer(-1, nullptr));
+        stack.top(top);
+        if(instance_.get() != accessor) throw engine_error("Inconsistent native object properties.");
+        void* o = accessor->constructor_(stack);
+        if(o == nullptr) throw script_error("Failed to create native object instance.");
+        stack.top(0);
+        stack.push_this();
+        stack.push_string("\xff_op");
+        stack.push_pointer(o);
+        stack.def_prop(-3, defflags::convert(defflags::restricted));
+        stack.push_string("\xff_accessor");
+        stack.push_pointer(accessor);
+        stack.def_prop(-3, defflags::convert(defflags::restricted));
+        stack.push_c_function(finalizer_proxy, 1);
+        stack.set_finalizer(-2);
+        stack.freeze(-1);
+        //-- proxy
+        stack.push_bare_object();
+        stack.push_string("deleteProperty");
+        stack.push_c_function(delprop_proxy, 2);
+        stack.def_prop(-3, defflags::convert(defflags::restricted));
+        stack.push_string("has");
+        stack.push_c_function(hasprop_proxy, 2);
+        stack.def_prop(-3, defflags::convert(defflags::restricted));
+        stack.push_string("ownKeys");
+        stack.push_c_function(ownkeys_proxy, 1);
+        stack.def_prop(-3, defflags::convert(defflags::restricted));
+        stack.push_c_function(getter_proxy, 3);
+        stack.put_prop_string(-2, "get");
+        stack.push_c_function(setter_proxy, 4);
+        stack.put_prop_string(-2, "set");
+        stack.push_proxy();
+        stack.seal(-1);
+        stack.freeze(-1);
+        return 1;
+      } catch(const engine_error&) {
+        throw;
+      } catch(const script_error& e) {
+        stack.throw_exception(e.what());
+      } catch(const std::exception& e) {
+        throw engine_error(std::string("Fatal error constructing native object:") + e.what());
+      }
+      return 0;
+    }
+
+    /**
+     * Returns JS type name and c++ (dynamic typeid) name of the object.
+     * Can be overwritten with `method("toString", ...)` for more detailed
+     * string data.
+     *
+     * @param api::context_t ctx
+     * @return int
+     */
+    static int default_tostring(api::context_t ctx)
+    {
+      api stack(ctx);
+      try {
+        stack.push_this();
+        stack.get_prop_string(-1, "\xff_accessor");
+        native_object* accessor = reinterpret_cast<native_object*>(stack.get_pointer(-1, nullptr));
+        if(instance_.get() != accessor) throw engine_error("Inconsistent native object properties.");
+        stack.top(1);
+        stack.get_prop_string(-1, "\xff_op");
+        value_type* ptr = reinterpret_cast<value_type*>(stack.get_pointer(-1, nullptr));
+        stack.top(0);
+        if(!ptr) { stack.push("nullptr"); return 1; } // assumption: not my object or not initialised correctly.
+        stack.push(((std::string("[") + accessor->name_ + " object (native: " + typeid(value_type).name()) + ")]"));
+        return 1;
+      } catch(const engine_error&) {
+        throw;
+      } catch(const std::exception& e) {
+        stack.throw_exception(e.what());
+      }
+      return 0;
+    }
+
+    /**
+     * Relay function for calling native c++ instance methods via JS.
+     *
+     * @param api::context_t ctx
+     * @return int
+     */
+    static int method_proxy(api::context_t ctx)
+    {
+      api stack(ctx);
+      try {
+        api::index_t argtop = stack.top();
+        stack.push_this();
+        stack.get_prop_string(-1, "\xff_accessor");
+        native_object* accessor = reinterpret_cast<native_object*>(stack.get_pointer(-1, nullptr));
+        if(accessor == nullptr) throw script_error(std::string("Native method not called with 'this' being a native object."));
+        if(instance_.get() != accessor) throw engine_error("Inconsistent native object properties.");
+        stack.top(argtop+1);
+        stack.get_prop_string(-1, "\xff_op");
+        value_type* ptr = reinterpret_cast<value_type*>(stack.get_pointer(-1, nullptr));
+        if(!ptr) throw script_error("Native object missing.");
+        stack.top(argtop);
+        stack.push_current_function();
+        stack.get_prop_string(-1, "\xff_mp");
+        int method_index = stack.get<int>(-1);
+        stack.top(argtop);
+        if((method_index < 0) || (size_t(method_index) >= accessor->methods_.size())) throw engine_error("Inconsistent native object properties (unregistered method).");
+        return std::get<1>(accessor->methods_[method_index])(stack, *ptr);
+      } catch(const engine_error&) {
+        throw;
+      } catch(const std::exception& e) {
+        stack.throw_exception(e.what());
+      }
+      return 0;
+    }
+
+  public:
+
+    const std::string& name() const noexcept
+    { return name_; }
+
+    /**
+     * Used to define a `new` c++ instance depending on the
+     * arguments passed as duktape stack. Must be used exactly
+     * once for a `native_object`.
+     *
+     * @param constructor_type ctor
+     * @return native_object&
+     */
+    native_object& constructor(constructor_type ctor)
+    { constructor_ = ctor; return *this; }
+
+    /**
+     * Registers a wrapper method in the JS engine for a method
+     * of the c++ instance. Can return values, and receives the
+     * parameters via the duktape stack for flexibility. Can optionally
+     * throw a `script_error()` exception if the given values are not
+     * acceptable.
+     *
+     * @param std::string name
+     * @param method_type fn
+     * @param int nargs
+     * @return native_object&
+     */
+    native_object& method(std::string name, method_type fn, int nargs=DUK_VARARGS)
+    { methods_.push_back(make_tuple(std::move(name), std::move(fn), nargs)); return *this; }
+
+    /**
+     * Getter relay for a JS property. The given getter may directly return public c++ instance
+     * variables, function or method results, whatever needed. Push the result on top of the
+     * duktape stack.
+     *
+     * @param std::string name
+     * @param getter_type fn
+     * @return native_object&
+     */
+    native_object& getter(std::string name, getter_type fn)
+    { getters_.insert(std::make_pair(std::move(name), std::move(fn))); return *this; }
+
+    /**
+     * Setter relay for a JS property. The given setter function can retrieve the value to
+     * set from the top of the duktape stack perform a setting action in the c++ instance,
+     * or optionally throw a `script_error()` exception if the given value is not acceptable.
+     *
+     * @param name
+     * @param fn
+     * @return
+     */
+    native_object& setter(std::string name, setter_type fn)
+    { setters_.insert(std::make_pair(std::move(name), std::move(fn))); return *this; }
+
+  public:
+
+    /**
+     * Registers the current `native_object` in the JS engine.
+     *
+     * @param engine& js
+     * @return native_object&
+     */
+    template <typename M, bool S>
+    native_object& define_in(detail::basic_engine<M,S>& js)
+    {
+      using defflags = duktape::detail::defprop_flags;
+      instance_ = std::unique_ptr<native_object>(new native_object(*this));
+      api& stack = js.stack();
+      constexpr defflags::type acf = defflags::restricted;
+      constexpr defflags::type ace = defflags::enumerable;
+      std::string name = name_;
+      name = js.define_base(name, ace);               // [... parent]
+      stack.push_string(name);                        // [... parent classname]
+      stack.push_c_function(constructor_proxy);       // [... parent classname ctor]
+      stack.def_prop(-3, defflags::convert(acf));     // [... parent]
+      stack.top(0);                                   // []
+      stack.select(name_);                            // [ctor]
+      stack.push_string("\xff_accessor");             // [ctor acc_key]
+      stack.push_pointer((void*)instance_.get());     // [ctor acc_key acc_ptr]
+      stack.def_prop(-3, defflags::convert(acf));     // [ctor]
+      stack.push_string("prototype");                 // [ctor proto_key]
+      stack.push_bare_object();                       // [ctor proto_key proto]
+      stack.def_prop(-3, defflags::convert(acf));     // [ctor]
+      stack.freeze(-1);                               // [ctor]
+      stack.top(0);                                   // []
+      //--
+      stack.select(name_ + ".prototype");             // [... proto]
+      stack.swap_top(0);                              // [proto ...]
+      stack.top(1);                                   // [proto]
+      stack.push_string("toString");                  // [proto key]
+      stack.push_c_function(default_tostring, 0);     // [proto key fn]
+      stack.def_prop(-3, defflags::convert(defflags::defaults)); // [proto]
+      //--
+      int i=0;
+      for(const auto& method:methods_) {
+        stack.top(1);                                 // [proto]
+        stack.push_string(std::get<0>(method));       // [proto fnname]
+        stack.push_c_function(method_proxy, std::get<2>(method)); // [proto fnname fn]
+        stack.push_string("\xff_mp");                 // [proto fnname fn key]
+        stack.push(i);                                //
+        stack.def_prop(-3, defflags::convert(acf));   // [proto fnname fn]
+        stack.def_prop(-3, defflags::convert(acf));   // [proto]
+        ++i;
+      }
+      stack.top(1);                                   // [proto]
+      stack.freeze(-1);                               // [proto]
+      stack.top(0);                                   // []
+      return *this;
+    }
+
+  private:
+
+    const std::string name_;
+    constructor_type constructor_;
+    std::vector<std::tuple<std::string, method_type, int>> methods_;
+    std::unordered_map<std::string, getter_type> getters_;
+    std::unordered_map<std::string, setter_type> setters_;
+    static std::unique_ptr<native_object> instance_;
+  };
+
+  template <typename T>
+  std::unique_ptr<native_object<T>> native_object<T>::instance_ = nullptr;
+}
+
+/**
+ * Main "engine", corresponds to a destinct Duktape context.
+ */
 namespace duktape { namespace detail {
 
   /**
@@ -1975,16 +2526,13 @@ namespace duktape { namespace detail {
   {
   public:
 
-    // <editor-fold desc="types" defaultstate="collapsed">
     using api_type = ::duktape::api;
     using stack_guard_type = ::duktape::stack_guard;
     using lock_guard_type = std::lock_guard<MutexType>;
     using defflags = defprop_flags;
-    // </editor-fold>
 
   public:
 
-    // <editor-fold desc="c'tors/d'tor" defaultstate="collapsed">
     /**
      * c' tor
      */
@@ -2001,11 +2549,8 @@ namespace duktape { namespace detail {
     basic_engine(basic_engine&&) = delete;
     basic_engine& operator=(const basic_engine&) = delete;
 
-    // </editor-fold>
-
   public:
 
-    // <editor-fold desc="getters/setters" defaultstate="collapsed">
     /**
      * Returns the `duk_context*` of this engine.
      * @return api_type&
@@ -2036,11 +2581,8 @@ namespace duktape { namespace detail {
     void define_flags(typename defflags::type flags) noexcept
     { define_flags_ = flags; }
 
-    // </editor-fold>
-
   public:
 
-    // <editor-fold desc="standard methods" defaultstate="collapsed">
     #if(0 && JSDOC)
     /**
      * Reference to the global object, mainly useful
@@ -2078,9 +2620,7 @@ namespace duktape { namespace detail {
       stack().top(0);
       stack().gc();
     }
-    // </editor-fold>
 
-    // <editor-fold desc="include/eval" defaultstate="collapsed">
     /**
      * Includes a file, throws a `duktape::script_error` on fail.
      * @param const char* path
@@ -2173,9 +2713,7 @@ namespace duktape { namespace detail {
         }
       }
     }
-    // </editor-fold>
 
-    // <editor-fold desc="call" defaultstate="collapsed">
     /**
      * Call a function, fetch the (strict) return value.
      * @param std::string funct
@@ -2243,9 +2781,6 @@ namespace duktape { namespace detail {
         return conv<ReturnType>::get(ctx(), -1);
       }
     }
-    // </editor-fold>
-
-    // <editor-fold desc="define/undef" defaultstate="collapsed">
 
     /**
      * Remove an object or value (forced). Resolves dot separated names
@@ -2287,7 +2822,7 @@ namespace duktape { namespace detail {
      * @return void
      */
     void define(std::string name)
-    { stack_guard_type sg(ctx()); define_r(name); }
+    { stack_guard_type sg(ctx()); define_r(name, define_flags_); }
 
     /**
      * Defines a (Duktape convention) C function in the global object of the engine. Canonical
@@ -2358,13 +2893,7 @@ namespace duktape { namespace detail {
       lock_guard_type lck(mutex_);
       stack_guard_type sg(ctx());
       name = define_base(name);
-      stack().push_string(name);
-      stack().push_c_function(function_proxy<int, api_type&>::func, nargs >= 0 ? nargs : DUK_VARARGS); ///@sw: replace these template params with auto det
-      stack().def_prop(-3, defflags::convert(define_flags_));
-      stack().get_prop_string(-1, name);
-      stack().push_string("\xff_fp");
-      stack().push_pointer((void*)fn); //@sw: double check / alternative: fn pointer vs data pointers size.
-      stack().def_prop(-3, defflags::convert(define_flags_));
+      define_function_proxy(name, fn, nargs);
     }
 
     /**
@@ -2439,34 +2968,57 @@ namespace duktape { namespace detail {
       stack().def_prop(-3, defflags::convert(define_flags_));
     }
 
-    // </editor-fold>
+    /**
+     * Registers native object in this engine.
+     *
+     * @param native_object<NativeClassType> registrar
+     */
+    template <typename NativeClassType>
+    void define(native_object<NativeClassType>& registrar)
+    {
+      lock_guard_type lck(mutex_);
+      stack_guard_type sg(ctx());
+      registrar.define_in(*this);
+    }
 
-  private:
-
-    // <editor-fold desc="private auxiliary methods/functions" defaultstate="collapsed">
     /**
      * Recursively defines empty parent objects of the given (canonical) name
      * and returns the object key (which is the last part of the given name).
      *
      * @param std::string name
+     * @param defflags::type flags
      * @return std::string name
      */
-    std::string define_base(std::string name)
+    std::string define_base(std::string name, defflags::type flags)
     {
       std::string base, tail;
       if(!aux<>::split_selector(name, base, tail)) {
         throw engine_error(std::string("Invalid selector: '") + name + "'");
       }
-      define_r(base);
+      define_r(base, flags);
       return tail;
     }
+
+  private:
+
+    /**
+     * Recursively defines empty parent objects of the given (canonical) name
+     * and returns the object key (which is the last part of the given name).
+     * Private function because it depends on the internal state of the engine,
+     * meaning the `define_flags_`.
+     *
+     * @param std::string name
+     * @return std::string name
+     */
+    std::string define_base(std::string name)
+    { return define_base(name, define_flags_); }
 
     /**
      * Defines empty objects recursively from a canonical name.
      *
      * @param std::string name
      */
-    void define_r(std::string name)
+    void define_r(std::string name, defflags::type flags)
     {
       stack().push_global_object();
       if(name.empty()) return;
@@ -2481,7 +3033,7 @@ namespace duktape { namespace detail {
             if(!stack().has_prop_string(-1, s.c_str())) {
               stack().push_string(s);
               stack().push_object();
-              stack().def_prop(-3, defflags::convert(define_flags_));
+              stack().def_prop(-3, defflags::convert(flags));
               stack().get_prop_string(-1, s);
             } else {
               stack().get_prop_string(-1, s);
@@ -2501,24 +3053,40 @@ namespace duktape { namespace detail {
         if(!stack().has_prop_string(-1, s.c_str())) {
           stack().push_string(s);
           stack().push_object();
-          stack().def_prop(-3, defflags::convert(define_flags_));
+          stack().def_prop(-3, defflags::convert(flags));
           stack().get_prop_string(-1, s);
         } else {
           stack().get_prop_string(-1, s);
         }
       }
     }
-    // </editor-fold>
+
+    /**
+     * Registers a native function in the engine context,
+     * without thread locking and stack reset.
+     *
+     * @param std::string name
+     * @param native_function_type fn
+     * @param int nargs
+     */
+    void define_function_proxy(std::string name, native_function_type fn, int nargs)
+    {
+      stack().push_string(name);
+      stack().push_c_function(function_proxy<int, api_type&>::func, nargs >= 0 ? nargs : DUK_VARARGS);
+      stack().def_prop(-3, defflags::convert(define_flags_));
+      stack().get_prop_string(-1, name);
+      stack().push_string("\xff_fp");
+      stack().push_pointer((void*)fn);
+      stack().def_prop(-3, defflags::convert(define_flags_));
+    }
 
   private:
 
-    // <editor-fold desc="instance variables" defaultstate="collapsed">
     api_type stack_;
     typename defflags::type define_flags_;
     MutexType mutex_;
-    // </editor-fold>
+
   };
 }}
-// </editor-fold>
 
 #endif

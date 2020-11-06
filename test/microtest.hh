@@ -104,7 +104,7 @@
 #ifndef SW_UTEST_HH
 #define SW_UTEST_HH
 
-// <editor-fold desc="preprocessor" defaultstate="collapsed">
+
 #include <sstream>
 #include <iostream>
 #include <string>
@@ -130,11 +130,11 @@
   #include <sys/stat.h>
   #include <time.h>
 #endif
-// </editor-fold>
+
 
 namespace sw { namespace utest {
 
-// <editor-fold desc="std common code" defaultstate="collapsed">
+
 #ifdef __MSC_VER
 // fix of the century joke
 namespace std { template <typename T> bool isnan(T d) { return !!_isnan(d); } }
@@ -142,7 +142,7 @@ namespace std { template <typename T> bool isnan(T d) { return !!_isnan(d); } }
 
 namespace { namespace templates {
 
-  // <editor-fold desc="buildinfo" defaultstate="collapsed">
+
   template <typename T=void>
   struct buildinfo
   {
@@ -244,9 +244,9 @@ namespace { namespace templates {
       #endif
     }
   };
-  // </editor-fold>
 
-  // <editor-fold desc="tmpfile" defaultstate="collapsed">
+
+
   template <typename T=void>
   class tmp_file
   {
@@ -346,7 +346,7 @@ namespace { namespace templates {
     tmp_file(const tmp_file&) {}
     std::string file_;
   };
-  // </editor-fold>
+
 
   template <typename=void>
   struct auxfn
@@ -359,9 +359,9 @@ namespace { namespace templates {
 
 using buildinfo = templates::buildinfo<>;
 using tmp_file = templates::tmp_file<>;
-// </editor-fold>
 
-// <editor-fold desc="test_ macros" defaultstate="collapsed">
+
+
 
 #define test_fail(...) (::sw::utest::test::fail   (__FILE__, __LINE__, __VA_ARGS__))
 
@@ -437,9 +437,9 @@ using tmp_file = templates::tmp_file<>;
     #ARG " | Unexpected exception") )); \
 }
 
-// </editor-fold>
 
-// <editor-fold desc="wrappers for platform dependencies" defaultstate="collapsed">
+
+
 /**
  * isnan forward for platform trouble prevention
  * @param typename T n
@@ -459,9 +459,9 @@ template <typename T>
 static T round(T v, T dim)
 { return std::round((double)v / dim) * dim; }
 
-// </editor-fold>
 
-// <editor-fold desc="random" defaultstate="collapsed">
+
+
 namespace random_generators {
 
   /**
@@ -606,9 +606,9 @@ namespace random_generators {
 template <typename R, typename ...Args>
 static R random(Args ...args)
 { R r; random_generators::rnd(r, std::forward<Args>(args)...); return std::forward<R>(r); }
-// </editor-fold>
 
-// <editor-fold desc="class utest" defaultstate="collapsed">
+
+
 namespace detail {
 
   template <typename=void>
@@ -616,7 +616,7 @@ namespace detail {
   {
   public:
 
-    // <editor-fold desc="class var getters / setters" defaultstate="collapsed">
+
     /**
      * Returns the number of failed checks
      * @return unsigned long
@@ -637,9 +637,9 @@ namespace detail {
      */
     static void stream(std::ostream& os) noexcept
     { osout = &os; }
-    // </editor-fold>
 
-    // <editor-fold desc="pass, fail, comment, summary, buildinfo" defaultstate="collapsed">
+
+
     /**
      * Register a succeeded expectation, increases test counter, prints message.
      * @param std::string file
@@ -739,11 +739,11 @@ namespace detail {
     static void buildinfo(const char* file, int line)
     { osout("info", file, line, templates::buildinfo<>::info()); }
 
-    // </editor-fold>
+
 
   private:
 
-    // <editor-fold desc="stream output" defaultstate="collapsed">
+
     template <typename ...Args>
     static void osout(const char* what, std::string file,
             int line, Args ...args) noexcept
@@ -778,32 +778,32 @@ namespace detail {
     template <typename T>
     static void push_stream(std::ostream& os, T&& v)
     { os << v; }
-    // </editor-fold>
 
-    // <editor-fold desc="variables" defaultstate="collapsed">
+
+
     static std::atomic<unsigned long> num_checks_;
     static std::atomic<unsigned long> num_fails_;
     static std::atomic<unsigned long> num_warnings_;
     static std::ostream* os_;
     static std::mutex iolock_;
-    // </editor-fold>
+
 
   };
 
-  // <editor-fold desc="statics init" defaultstate="collapsed">
+
   template <typename T> std::atomic<unsigned long> utest<T>::num_checks_(0);
   template <typename T> std::atomic<unsigned long> utest<T>::num_fails_(0);
   template <typename T> std::atomic<unsigned long> utest<T>::num_warnings_(0);
   template <typename T> std::ostream* utest<T>::os_ = &std::cout;
   template <typename T> std::mutex utest<T>::iolock_;
-  // </editor-fold>
+
 
 }
 
 using test = detail::utest<>;
-// </editor-fold>
 
-// <editor-fold desc="tmpdir" defaultstate="collapsed">
+
+
 #ifndef WITHOUT_TMPDIR
   namespace detail {
 
@@ -923,7 +923,7 @@ using test = detail::utest<>;
   #define test_tmpdir()        (::sw::utest::tmpdir::path().c_str())
   #define test_tmpdir_remove() { ::sw::utest::tmpdir::remove(); }
 #endif
-// </editor-fold>
+
 
 }}
 #endif

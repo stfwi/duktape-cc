@@ -36,7 +36,6 @@
 #ifndef DUKTAPE_MOD_BASIC_PROCESS_EXEC_UNISTD_HH
 #define DUKTAPE_MOD_BASIC_PROCESS_EXEC_UNISTD_HH
 
-// <editor-fold desc="preprocessor" defaultstate="collapsed">
 #include "../duktape.hh"
 #include <iostream>
 #include <string>
@@ -80,11 +79,9 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
-// </editor-fold>
 
 namespace duktape { namespace detail { namespace system { namespace exec {
 
-  // <editor-fold desc="escape_shell_arg" defaultstate="collapsed">
   template <typename=void>
   std::string escape_shell_arg(std::string arg)
   {
@@ -117,603 +114,601 @@ namespace duktape { namespace detail { namespace system { namespace exec {
     return s;
     #endif
   }
-  // </editor-fold>
 
   #ifndef WINDOWS
-  // <editor-fold desc="execute_backend: linux" defaultstate="collapsed">
-  template <typename StdOutCallback, typename StdErrCallback>
-  void execute_backend(
-    std::string program,
-    std::vector<std::string> arguments,
-    std::vector<std::string> environment,
-    int& exit_code,
-    StdOutCallback stdout_proc,
-    StdErrCallback stderr_proc,
-    std::string stdin_data,
-    bool ignore_stdout,
-    bool ignore_stderr,
-    bool redirect_stderr_to_stdout,
-    bool without_path_search,
-    bool dont_inherit_environment,
-    int timeout_ms,
-    bool& was_timeout,
-    bool no_argument_escaping=false
-  )
-  {
-    (void) no_argument_escaping;
-    using fd_t = int;
-    auto start_time = std::chrono::steady_clock::now();
 
-    auto unblock = [](fd_t fd) {
-      int o;
-      if((fd >=0) && (o=::fcntl(fd, F_GETFL, 0)) >= 0) {
-        ::fcntl(fd, F_SETFL, o|O_NONBLOCK);
-      }
-    };
-
-    auto close_pipe = [](fd_t& fd) {
-      if(fd >= 0) {
-        clog__("close_pipe(" << fd << ")");
-        ::close(fd); fd = -1;
-      }
-    };
-
-    struct proc_guard
+    template <typename StdOutCallback, typename StdErrCallback>
+    void execute_backend(
+      std::string program,
+      std::vector<std::string> arguments,
+      std::vector<std::string> environment,
+      int& exit_code,
+      StdOutCallback stdout_proc,
+      StdErrCallback stderr_proc,
+      std::string stdin_data,
+      bool ignore_stdout,
+      bool ignore_stderr,
+      bool redirect_stderr_to_stdout,
+      bool without_path_search,
+      bool dont_inherit_environment,
+      int timeout_ms,
+      bool& was_timeout,
+      bool no_argument_escaping=false
+    )
     {
-      ::pid_t& pid;
-      fd_t& ifd;
-      fd_t& ofd;
-      fd_t& efd;
+      (void) no_argument_escaping;
+      using fd_t = int;
+      auto start_time = std::chrono::steady_clock::now();
 
-      explicit proc_guard(::pid_t& pid__, fd_t& ifd__, fd_t& ofd__, fd_t& efd__) noexcept :
-        pid(pid__), ifd(ifd__), ofd(ofd__), efd(efd__)
-      { }
+      auto unblock = [](fd_t fd) {
+        int o;
+        if((fd >=0) && (o=::fcntl(fd, F_GETFL, 0)) >= 0) {
+          ::fcntl(fd, F_SETFL, o|O_NONBLOCK);
+        }
+      };
 
-      ~proc_guard() noexcept
+      auto close_pipe = [](fd_t& fd) {
+        if(fd >= 0) {
+          clog__("close_pipe(" << fd << ")");
+          ::close(fd); fd = -1;
+        }
+      };
+
+      struct proc_guard
       {
-        clog__("~proc_guard() p=" << pid << ", i=" << ifd << ", o=" << ofd << ", e=" << efd);
-        if(ifd >= 0) ::close(ifd);
-        if(ofd >= 0) ::close(ofd);
-        if(efd >= 0) ::close(efd);
-        ifd = ofd = efd = -1;
-        if(pid > 0) {
-          ::kill(pid, SIGTERM);
-          ::sleep(0);
-          int status = -1, r;
-          if(((r=::waitpid((const ::pid_t) pid, &status, WNOHANG)) == 0) || (r<0 && (errno == ECHILD))) {
-            ::kill(pid, SIGKILL);
-          }
-          r = ::waitpid((const ::pid_t) pid, &status, 0);
-        } else {
-          pid = -1;
-        }
-      }
-    };
+        ::pid_t& pid;
+        fd_t& ifd;
+        fd_t& ofd;
+        fd_t& efd;
 
-    ::pid_t pid = -1;
-    fd_t ifd=-1, ofd=-1, efd=-1;
+        explicit proc_guard(::pid_t& pid__, fd_t& ifd__, fd_t& ofd__, fd_t& efd__) noexcept :
+          pid(pid__), ifd(ifd__), ofd(ofd__), efd(efd__)
+        { }
 
-    {
-      std::vector<const char*> argv, envv;
-      argv.push_back(program.c_str());
-      for(auto& e:arguments) argv.push_back(e.c_str());
-      argv.push_back(nullptr);
-
-      // note: we do this composition before forking.
-      if(!dont_inherit_environment) {
-        // for ::setenv()
-        for(auto& e:environment) envv.push_back(e.c_str());
-        envv.push_back(nullptr);
-        envv.push_back(nullptr);
-      } else {
-        // for execve()/execvpe()
-        if(!environment.empty()) {
-          {
-            if(environment.size() & 1) environment.push_back("");
-            std::vector<std::string> tenv;
-            for(size_t i=0; i<environment.size()-1; i+=2) {
-              tenv.emplace_back(environment[i] + "=" + environment[i+1]);
+        ~proc_guard() noexcept
+        {
+          clog__("~proc_guard() p=" << pid << ", i=" << ifd << ", o=" << ofd << ", e=" << efd);
+          if(ifd >= 0) ::close(ifd);
+          if(ofd >= 0) ::close(ofd);
+          if(efd >= 0) ::close(efd);
+          ifd = ofd = efd = -1;
+          if(pid > 0) {
+            ::kill(pid, SIGTERM);
+            ::sleep(0);
+            int status = -1, r;
+            if(((r=::waitpid((const ::pid_t) pid, &status, WNOHANG)) == 0) || (r<0 && (errno == ECHILD))) {
+              ::kill(pid, SIGKILL);
             }
-            environment.swap(tenv);
-          }
-          for(auto& e:environment) envv.push_back(e.c_str());
-        }
-        envv.push_back(nullptr);
-      }
-
-      // for(auto e:argv) std::cerr << (e ? e : "<nullptr>") << ", "; cerr << std::endl;
-      // for(auto e:envv) std::cerr << (e ? e : "<nullptr>") << ", "; cerr << std::endl;
-      int err = 0;
-      fd_t pi[2] = {-1,-1}, po[2] = {-1,-1}, pe[2] = {-1,-1};
-
-      if(::pipe(pi)) {
-        err = errno; pi[0] = pi[1] = -1;
-      } else if(::pipe(po)) {
-        err = errno; po[0] = po[1] = -1;
-      } else if((!redirect_stderr_to_stdout) && ::pipe(pe)) {
-        err = errno; pe[0] = pe[1] = -1;
-      } else if(((pid = ::fork()) < 0)) {
-        err = errno; pid = -1;
-      }
-
-      if(err) {
-        close_pipe(pi[0]); close_pipe(pi[1]);
-        close_pipe(po[0]); close_pipe(po[1]);
-        close_pipe(pe[0]); close_pipe(pe[1]);
-        throw std::runtime_error(std::string("Failed to execute (pipe or fork failed): ") + ::strerror(err));
-      }
-
-      if(pid == 0) {
-        // Child
-        if(1
-          && (::dup2(pi[0], STDIN_FILENO) >= 0)
-          && (::dup2(po[1], STDOUT_FILENO) >= 0)
-          && (::dup2((pe[1]>=0)?(pe[1]):(po[1]), STDERR_FILENO) >= 0)
-        ) {
-          for(int i=3; i<1024; ++i) ::close(i); // @sw: check how to safely get the highest fd.
-          if(ignore_stdout) { ::close(STDOUT_FILENO); ::open("/dev/null", O_WRONLY); }
-          if(ignore_stderr) { ::close(STDERR_FILENO); ::open("/dev/null", O_WRONLY); }
-          if(!dont_inherit_environment) {
-            // Set additional environment over the own process env and run
-            for(size_t i=0; (i < envv.size()-2) && envv[i] && envv[i+1]; i+=2) ::setenv(envv[i], envv[i+1], 1);
-            if(without_path_search) {
-              ::execv(program.c_str(), (char* const*)(&argv[0]));
-            } else {
-              ::execvp(program.c_str(), (char* const*)(&argv[0]));
-            }
+            r = ::waitpid((const ::pid_t) pid, &status, 0);
           } else {
-            if(without_path_search) {
-              ::execve(program.c_str(), (char* const*)(&argv[0]), (char* const*)(&envv[0]));
+            pid = -1;
+          }
+        }
+      };
+
+      ::pid_t pid = -1;
+      fd_t ifd=-1, ofd=-1, efd=-1;
+
+      {
+        std::vector<const char*> argv, envv;
+        argv.push_back(program.c_str());
+        for(auto& e:arguments) argv.push_back(e.c_str());
+        argv.push_back(nullptr);
+
+        // note: we do this composition before forking.
+        if(!dont_inherit_environment) {
+          // for ::setenv()
+          for(auto& e:environment) envv.push_back(e.c_str());
+          envv.push_back(nullptr);
+          envv.push_back(nullptr);
+        } else {
+          // for execve()/execvpe()
+          if(!environment.empty()) {
+            {
+              if(environment.size() & 1) environment.push_back("");
+              std::vector<std::string> tenv;
+              for(size_t i=0; i<environment.size()-1; i+=2) {
+                tenv.emplace_back(environment[i] + "=" + environment[i+1]);
+              }
+              environment.swap(tenv);
+            }
+            for(auto& e:environment) envv.push_back(e.c_str());
+          }
+          envv.push_back(nullptr);
+        }
+
+        // for(auto e:argv) std::cerr << (e ? e : "<nullptr>") << ", "; cerr << std::endl;
+        // for(auto e:envv) std::cerr << (e ? e : "<nullptr>") << ", "; cerr << std::endl;
+        int err = 0;
+        fd_t pi[2] = {-1,-1}, po[2] = {-1,-1}, pe[2] = {-1,-1};
+
+        if(::pipe(pi)) {
+          err = errno; pi[0] = pi[1] = -1;
+        } else if(::pipe(po)) {
+          err = errno; po[0] = po[1] = -1;
+        } else if((!redirect_stderr_to_stdout) && ::pipe(pe)) {
+          err = errno; pe[0] = pe[1] = -1;
+        } else if(((pid = ::fork()) < 0)) {
+          err = errno; pid = -1;
+        }
+
+        if(err) {
+          close_pipe(pi[0]); close_pipe(pi[1]);
+          close_pipe(po[0]); close_pipe(po[1]);
+          close_pipe(pe[0]); close_pipe(pe[1]);
+          throw std::runtime_error(std::string("Failed to execute (pipe or fork failed): ") + ::strerror(err));
+        }
+
+        if(pid == 0) {
+          // Child
+          if(1
+            && (::dup2(pi[0], STDIN_FILENO) >= 0)
+            && (::dup2(po[1], STDOUT_FILENO) >= 0)
+            && (::dup2((pe[1]>=0)?(pe[1]):(po[1]), STDERR_FILENO) >= 0)
+          ) {
+            for(int i=3; i<1024; ++i) ::close(i); // @sw: check how to safely get the highest fd.
+            if(ignore_stdout) { ::close(STDOUT_FILENO); ::open("/dev/null", O_WRONLY); }
+            if(ignore_stderr) { ::close(STDERR_FILENO); ::open("/dev/null", O_WRONLY); }
+            if(!dont_inherit_environment) {
+              // Set additional environment over the own process env and run
+              for(size_t i=0; (i < envv.size()-2) && envv[i] && envv[i+1]; i+=2) ::setenv(envv[i], envv[i+1], 1);
+              if(without_path_search) {
+                ::execv(program.c_str(), (char* const*)(&argv[0]));
+              } else {
+                ::execvp(program.c_str(), (char* const*)(&argv[0]));
+              }
             } else {
-              ::execvpe(program.c_str(), (char* const*)(&argv[0]), (char* const*)(&envv[0]));
+              if(without_path_search) {
+                ::execve(program.c_str(), (char* const*)(&argv[0]), (char* const*)(&envv[0]));
+              } else {
+                ::execvpe(program.c_str(), (char* const*)(&argv[0]), (char* const*)(&envv[0]));
+              }
+            }
+            std::cerr << "Failed to run ''" << program << "': " << ::strerror(errno) << std::endl;
+          }
+          _exit(1);
+        } else {
+          // Parent, close unused fds and set variables used further on.
+          ifd = pi[1]; unblock(ifd); close_pipe(pi[0]);
+          ofd = po[0]; unblock(ofd); close_pipe(po[1]);
+          efd = pe[0]; unblock(efd); close_pipe(pe[1]);
+          if(stdin_data.empty()) close_pipe(ifd);
+          if(ignore_stdout) close_pipe(ofd);
+          if(ignore_stderr) close_pipe(efd);
+        }
+      }
+
+      proc_guard proc(pid, ifd, ofd, efd);
+      bool done = false;
+      constexpr int force_kill_after_additional_ms = 2500;
+      while((pid > 0) || (ofd >= 0) || (efd >= 0)) {
+        using namespace std::chrono;
+        if((timeout_ms > 1) && (pid > 0)) {
+          auto dt = int(duration_cast<milliseconds>(steady_clock::now() - start_time).count());
+          clog__("timeout left == " << timeout_ms-dt);
+          if(dt > timeout_ms) {
+            if(!was_timeout) {
+              was_timeout = true;
+              clog__("timeout: " << dt <<  " --> kill(child pid=" << pid << ", SIGINT)");
+              ::kill(pid, SIGINT);
+              ::kill(pid, SIGQUIT);
+            } else if(dt > (timeout_ms + force_kill_after_additional_ms)) {
+              clog__("timeout: " << dt <<  " --> kill(child pid=" << pid << ", KILL)");
+              ::kill(pid, SIGKILL);
+              break;
             }
           }
-          std::cerr << "Failed to run ''" << program << "': " << ::strerror(errno) << std::endl;
         }
-        _exit(1);
-      } else {
-        // Parent, close unused fds and set variables used further on.
-        ifd = pi[1]; unblock(ifd); close_pipe(pi[0]);
-        ofd = po[0]; unblock(ofd); close_pipe(po[1]);
-        efd = pe[0]; unblock(efd); close_pipe(pe[1]);
-        if(stdin_data.empty()) close_pipe(ifd);
-        if(ignore_stdout) close_pipe(ofd);
-        if(ignore_stderr) close_pipe(efd);
+
+        // Write to child stdin if bytes left
+        if(ifd >= 0) {
+          size_t size = stdin_data.length();
+          const void* data = stdin_data.data();
+          int r;
+          if(size <= 0) {
+            close_pipe(ifd);
+          } else if((r=::write(ifd, data, size)) < 0) {
+            switch(errno) {
+              case EINTR:
+              case EAGAIN:
+                break;
+              default:
+                clog__("Failed to write n=" << std::dec << size << " bytes to child stdin: " << ::strerror(errno));
+                std::string().swap(stdin_data);
+            }
+          } else if((!r) || (((size_t)r) == stdin_data.length())) {
+            std::string().swap(stdin_data);
+          } else {
+            stdin_data = stdin_data.substr(r);
+          }
+          if(stdin_data.empty()) {
+            close_pipe(ifd);
+          }
+        }
+
+        // Read/check stderr and stdout pipes
+        {
+          int r = -1;
+          struct ::pollfd pfd[2] = {{0,0,0},{0,0,0}};
+          if(!done) {
+            pfd[0].fd = ofd; pfd[0].events = POLLIN|POLLPRI; pfd[0].revents = 0;
+            pfd[1].fd = efd; pfd[1].events = POLLIN|POLLPRI; pfd[1].revents = 0;
+            r=::poll(pfd, sizeof(pfd)/sizeof(struct ::pollfd), 100);
+            if(!r || (r < 0 && (errno == EAGAIN || errno == EINTR))) {
+              // continue;
+            }
+          }
+          if((ofd >= 0) && (pfd[0].revents || r < 0)) { // r<0: force read to close broken pipes
+            char data[4096];
+            ssize_t r = ::read(ofd, data, sizeof(data));
+            while(r > 0) {
+              if(!stdout_proc(std::string(data, data+size_t(r)))) {
+                r = 0;
+              } else {
+                r = ::read(ofd, data, sizeof(data));
+              }
+            }
+            if((!r) || ((r<0) && (errno != EAGAIN) && (errno != EINTR))) {
+              close_pipe(ofd);
+            }
+          }
+          if((efd >= 0) && (pfd[1].revents || r < 0)) {
+            char data[4096];
+            ssize_t r = ::read(efd, data, sizeof(data));
+            while(r > 0) {
+              if(!stderr_proc(std::string(data, data+size_t(r)))) {
+                r = 0;
+              } else {
+                r = ::read(efd, data, sizeof(data));
+              }
+            }
+            if((!r) || ((r<0) && (errno != EAGAIN) && (errno != EINTR))) {
+              close_pipe(efd);
+            }
+          }
+        }
+
+        if(pid < 0) {
+          //
+          // That delays exiting the loop one iteration, so that pending
+          // data can be
+          //
+          // Important: while loop break point here.
+          if(done) break;
+          done = true;
+        } else {
+          // Check if the child process has terminated
+          int r, status = 0;
+          if((r=::waitpid((const ::pid_t)pid, &status, WNOHANG)) < 0) {
+            switch(errno) {
+              case EAGAIN:
+              case EINTR:
+                break;
+              case ECHILD:
+                r = pid;
+                break;
+              default:
+                clog__("waitpid() error '" << ::strerror(errno) << "'");
+            }
+          }
+          if(r == pid) {
+            exit_code = WEXITSTATUS(status);
+            pid = -1;
+          }
+        }
       }
     }
 
-    proc_guard proc(pid, ifd, ofd, efd);
-    bool done = false;
-    constexpr int force_kill_after_additional_ms = 2500;
-    while((pid > 0) || (ofd >= 0) || (efd >= 0)) {
-      using namespace std::chrono;
-      if((timeout_ms > 1) && (pid > 0)) {
-        auto dt = int(duration_cast<milliseconds>(steady_clock::now() - start_time).count());
-        clog__("timeout left == " << timeout_ms-dt);
-        if(dt > timeout_ms) {
-          if(!was_timeout) {
-            was_timeout = true;
-            clog__("timeout: " << dt <<  " --> kill(child pid=" << pid << ", SIGINT)");
-            ::kill(pid, SIGINT);
-            ::kill(pid, SIGQUIT);
-          } else if(dt > (timeout_ms + force_kill_after_additional_ms)) {
-            clog__("timeout: " << dt <<  " --> kill(child pid=" << pid << ", KILL)");
-            ::kill(pid, SIGKILL);
-            break;
+  #else
+
+    template <typename StdOutCallback, typename StdErrCallback>
+    void execute_backend(
+      std::string program,
+      std::vector<std::string> arguments,
+      std::vector<std::string> environment,
+      int& exit_code,
+      StdOutCallback stdout_proc,
+      StdErrCallback stderr_proc,
+      std::string stdin_data,
+      bool ignore_stdout,
+      bool ignore_stderr,
+      bool redirect_stderr_to_stdout,
+      bool without_path_search,
+      bool dont_inherit_environment,
+      int timeout_ms,
+      bool& was_timeout,
+      bool no_argument_escaping=false
+    )
+    {
+      struct pipe_handles
+      {
+        pipe_handles() noexcept : r(nullptr), w(nullptr)
+        {
+          SECURITY_ATTRIBUTES sattr = SECURITY_ATTRIBUTES();
+          sattr.nLength = sizeof(SECURITY_ATTRIBUTES);
+          sattr.bInheritHandle = TRUE;
+          sattr.lpSecurityDescriptor = nullptr;
+          ::CreatePipe(&r, &w, &sattr, 0);
+        }
+        ~pipe_handles() noexcept { close(); }
+        void close() noexcept { if(r){::CloseHandle(r);} if(w){::CloseHandle(w);} r=w=nullptr; }
+        HANDLE r, w;
+      };
+
+      struct process_handles
+      {
+        process_handles() : pi() { }
+
+        ~process_handles() noexcept
+        {
+          if(pi.hProcess) {
+            if(::WaitForSingleObject(pi.hProcess, 0) == WAIT_TIMEOUT) {
+              ::TerminateProcess(pi.hProcess, 1);
+            }
+            ::CloseHandle(pi.hProcess);
           }
+          if(pi.hThread) {
+            ::CloseHandle(pi.hThread);
+          }
+        }
+
+        PROCESS_INFORMATION pi;
+      };
+
+      auto errstr = []() -> std::string {
+        std::string s(256,0);
+        size_t n = ::FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, ::GetLastError(), MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), &s[0], s.size()-1, NULL);
+        if(!n) return std::string();
+        s.resize(n);
+        return s;
+      };
+
+      auto start_time = std::chrono::steady_clock::now();
+      exit_code = -1;
+      if(program.empty()) throw std::runtime_error("No program to execute given.");
+      pipe_handles in, out, err;
+      process_handles proc;
+      {
+        if(
+          !in.r || !in.w || !out.r || !out.w || !err.r || !err.w ||
+          !::SetHandleInformation(in.w, HANDLE_FLAG_INHERIT, 0) || // ensures heathen end are not inherited by the child
+          !::SetHandleInformation(out.r, HANDLE_FLAG_INHERIT, 0) ||
+          !::SetHandleInformation(err.r, HANDLE_FLAG_INHERIT, 0)
+          // No SetNamedPipeHandleState(in.w etc, &PIPE_NOWAIT,0,0), see MSDN SetNamedPipeHandleState->PIPE_NOWAIT.
+        ) {
+          throw std::runtime_error("Creating pipes failed.");
         }
       }
 
-      // Write to child stdin if bytes left
-      if(ifd >= 0) {
-        size_t size = stdin_data.length();
-        const void* data = stdin_data.data();
-        int r;
-        if(size <= 0) {
-          close_pipe(ifd);
-        } else if((r=::write(ifd, data, size)) < 0) {
-          switch(errno) {
-            case EINTR:
-            case EAGAIN:
-              break;
-            default:
-              clog__("Failed to write n=" << std::dec << size << " bytes to child stdin: " << ::strerror(errno));
-              std::string().swap(stdin_data);
+      //@todo: utf8 to wstring when mingw codecvt working.
+      {
+        // argv
+        std::string argv;
+        program = escape_shell_arg(program);
+        argv.append(program);
+        for(auto& e:arguments) {
+          argv.append(" ");
+          if(no_argument_escaping) {
+            argv.append(e);
+          } else {
+            argv.append(escape_shell_arg<>(e));
           }
-        } else if((!r) || (((size_t)r) == stdin_data.length())) {
-          std::string().swap(stdin_data);
-        } else {
-          stdin_data = stdin_data.substr(r);
+        }
+
+        // envv
+        std::string envv;
+        {
+          if(!dont_inherit_environment) {
+            struct envstrings {
+              envstrings() : cstr(nullptr) {
+                cstr = ::GetEnvironmentStrings();
+              }
+              ~envstrings() {
+                if(cstr) ::FreeEnvironmentStrings(cstr);
+              }
+              #ifdef UNICODE
+              wchar_t* cstr;
+              #else
+              char* cstr;
+              #endif
+            };
+            envstrings userenv;
+            if(userenv.cstr) {
+              bool was0 = false;
+              for(auto p=userenv.cstr; (!was0) || (*p!='\0') ; ++p) {
+                envv.push_back(char(*p));
+                was0 = (*p=='\0');
+              }
+            }
+          }
+          if(!environment.empty()) {
+            if(environment.size() & 1) environment.push_back("");
+            for(size_t i=0; i<environment.size()-1; i+=2) {
+              envv += environment[i] + "=" + environment[i+1];
+              envv.push_back('\0');
+            }
+          }
+          for(auto i=0; i<4; ++i) envv.push_back('\0');
+        }
+
+        STARTUPINFOA si = STARTUPINFOA();
+        si.cb = sizeof(STARTUPINFO);
+        si.dwFlags = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES;
+        si.hStdOutput = out.w;
+        si.hStdError = redirect_stderr_to_stdout ? out.w : err.w;
+        si.hStdInput = in.r;
+        si.wShowWindow = SW_HIDE;
+        if(!::CreateProcessA(
+          without_path_search ? &program[0] : nullptr, &argv[0], nullptr, nullptr, TRUE, CREATE_NEW_CONSOLE|CREATE_NO_WINDOW,
+          &envv[0], nullptr, &si, &proc.pi)
+        ) {
+          switch(::GetLastError()) {
+            case ERROR_FILE_NOT_FOUND:
+            case ERROR_PATH_NOT_FOUND:
+              exit_code = 1;
+              return;
+            default:
+              throw std::runtime_error(std::string("Running program failed: ") + errstr());
+          }
         }
         if(stdin_data.empty()) {
-          close_pipe(ifd);
-        }
-      }
-
-      // Read/check stderr and stdout pipes
-      {
-        int r = -1;
-        struct ::pollfd pfd[2] = {{0,0,0},{0,0,0}};
-        if(!done) {
-          pfd[0].fd = ofd; pfd[0].events = POLLIN|POLLPRI; pfd[0].revents = 0;
-          pfd[1].fd = efd; pfd[1].events = POLLIN|POLLPRI; pfd[1].revents = 0;
-          r=::poll(pfd, sizeof(pfd)/sizeof(struct ::pollfd), 100);
-          if(!r || (r < 0 && (errno == EAGAIN || errno == EINTR))) {
-            // continue;
-          }
-        }
-        if((ofd >= 0) && (pfd[0].revents || r < 0)) { // r<0: force read to close broken pipes
-          char data[4096];
-          ssize_t r = ::read(ofd, data, sizeof(data));
-          while(r > 0) {
-            if(!stdout_proc(std::string(data, data+size_t(r)))) {
-              r = 0;
-            } else {
-              r = ::read(ofd, data, sizeof(data));
-            }
-          }
-          if((!r) || ((r<0) && (errno != EAGAIN) && (errno != EINTR))) {
-            close_pipe(ofd);
-          }
-        }
-        if((efd >= 0) && (pfd[1].revents || r < 0)) {
-          char data[4096];
-          ssize_t r = ::read(efd, data, sizeof(data));
-          while(r > 0) {
-            if(!stderr_proc(std::string(data, data+size_t(r)))) {
-              r = 0;
-            } else {
-              r = ::read(efd, data, sizeof(data));
-            }
-          }
-          if((!r) || ((r<0) && (errno != EAGAIN) && (errno != EINTR))) {
-            close_pipe(efd);
-          }
-        }
-      }
-
-      if(pid < 0) {
-        //
-        // That delays exiting the loop one iteration, so that pending
-        // data can be
-        //
-        // Important: while loop break point here.
-        if(done) break;
-        done = true;
-      } else {
-        // Check if the child process has terminated
-        int r, status = 0;
-        if((r=::waitpid((const ::pid_t)pid, &status, WNOHANG)) < 0) {
-          switch(errno) {
-            case EAGAIN:
-            case EINTR:
-              break;
-            case ECHILD:
-              r = pid;
-              break;
-            default:
-              clog__("waitpid() error '" << ::strerror(errno) << "'");
-          }
-        }
-        if(r == pid) {
-          exit_code = WEXITSTATUS(status);
-          pid = -1;
-        }
-      }
-    }
-  }
-  // </editor-fold>
-  #else
-  // <editor-fold desc="execute_backend: windows" defaultstate="collapsed">
-  template <typename StdOutCallback, typename StdErrCallback>
-  void execute_backend(
-    std::string program,
-    std::vector<std::string> arguments,
-    std::vector<std::string> environment,
-    int& exit_code,
-    StdOutCallback stdout_proc,
-    StdErrCallback stderr_proc,
-    std::string stdin_data,
-    bool ignore_stdout,
-    bool ignore_stderr,
-    bool redirect_stderr_to_stdout,
-    bool without_path_search,
-    bool dont_inherit_environment,
-    int timeout_ms,
-    bool& was_timeout,
-    bool no_argument_escaping=false
-  )
-  {
-    struct pipe_handles
-    {
-      pipe_handles() noexcept : r(nullptr), w(nullptr)
-      {
-        SECURITY_ATTRIBUTES sattr = SECURITY_ATTRIBUTES();
-        sattr.nLength = sizeof(SECURITY_ATTRIBUTES);
-        sattr.bInheritHandle = TRUE;
-        sattr.lpSecurityDescriptor = nullptr;
-        ::CreatePipe(&r, &w, &sattr, 0);
-      }
-      ~pipe_handles() noexcept { close(); }
-      void close() noexcept { if(r){::CloseHandle(r);} if(w){::CloseHandle(w);} r=w=nullptr; }
-      HANDLE r, w;
-    };
-
-    struct process_handles
-    {
-      process_handles() : pi() { }
-
-      ~process_handles() noexcept
-      {
-        if(pi.hProcess) {
-          if(::WaitForSingleObject(pi.hProcess, 0) == WAIT_TIMEOUT) {
-            ::TerminateProcess(pi.hProcess, 1);
-          }
-          ::CloseHandle(pi.hProcess);
-        }
-        if(pi.hThread) {
-          ::CloseHandle(pi.hThread);
-        }
-      }
-
-      PROCESS_INFORMATION pi;
-    };
-
-    auto errstr = []() -> std::string {
-      std::string s(256,0);
-      size_t n = ::FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, ::GetLastError(), MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), &s[0], s.size()-1, NULL);
-      if(!n) return std::string();
-      s.resize(n);
-      return s;
-    };
-
-    auto start_time = std::chrono::steady_clock::now();
-    exit_code = -1;
-    if(program.empty()) throw std::runtime_error("No program to execute given.");
-    pipe_handles in, out, err;
-    process_handles proc;
-    {
-      if(
-        !in.r || !in.w || !out.r || !out.w || !err.r || !err.w ||
-        !::SetHandleInformation(in.w, HANDLE_FLAG_INHERIT, 0) || // ensures heathen end are not inherited by the child
-        !::SetHandleInformation(out.r, HANDLE_FLAG_INHERIT, 0) ||
-        !::SetHandleInformation(err.r, HANDLE_FLAG_INHERIT, 0)
-        // No SetNamedPipeHandleState(in.w etc, &PIPE_NOWAIT,0,0), see MSDN SetNamedPipeHandleState->PIPE_NOWAIT.
-      ) {
-        throw std::runtime_error("Creating pipes failed.");
-      }
-    }
-
-    //@todo: utf8 to wstring when mingw codecvt working.
-    {
-      // argv
-      std::string argv;
-      program = escape_shell_arg(program);
-      argv.append(program);
-      for(auto& e:arguments) {
-        argv.append(" ");
-        if(no_argument_escaping) {
-          argv.append(e);
+          in.close();
         } else {
-          argv.append(escape_shell_arg<>(e));
+          ::CloseHandle(in.r);
+          in.r = nullptr;
         }
+        if(redirect_stderr_to_stdout) {
+          err.close();
+        } else {
+          ::CloseHandle(err.w);
+          err.w = nullptr;
+        }
+        ::CloseHandle(out.w);
+        out.w = nullptr;
       }
 
-      // envv
-      std::string envv;
-      {
-        if(!dont_inherit_environment) {
-          struct envstrings {
-            envstrings() : cstr(nullptr) {
-              cstr = ::GetEnvironmentStrings();
-            }
-            ~envstrings() {
-              if(cstr) ::FreeEnvironmentStrings(cstr);
-            }
-            #ifdef UNICODE
-            wchar_t* cstr;
-            #else
-            char* cstr;
-            #endif
-          };
-          envstrings userenv;
-          if(userenv.cstr) {
-            bool was0 = false;
-            for(auto p=userenv.cstr; (!was0) || (*p!='\0') ; ++p) {
-              envv.push_back(char(*p));
-              was0 = (*p=='\0');
-            }
-          }
-        }
-        if(!environment.empty()) {
-          if(environment.size() & 1) environment.push_back("");
-          for(size_t i=0; i<environment.size()-1; i+=2) {
-            envv += environment[i] + "=" + environment[i+1];
-            envv.push_back('\0');
-          }
-        }
-        for(auto i=0; i<4; ++i) envv.push_back('\0');
-      }
-
-      STARTUPINFOA si = STARTUPINFOA();
-      si.cb = sizeof(STARTUPINFO);
-      si.dwFlags = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES;
-      si.hStdOutput = out.w;
-      si.hStdError = redirect_stderr_to_stdout ? out.w : err.w;
-      si.hStdInput = in.r;
-      si.wShowWindow = SW_HIDE;
-      if(!::CreateProcessA(
-        without_path_search ? &program[0] : nullptr, &argv[0], nullptr, nullptr, TRUE, CREATE_NEW_CONSOLE|CREATE_NO_WINDOW,
-        &envv[0], nullptr, &si, &proc.pi)
-      ) {
-        switch(::GetLastError()) {
-          case ERROR_FILE_NOT_FOUND:
-          case ERROR_PATH_NOT_FOUND:
-            exit_code = 1;
-            return;
-          default:
-            throw std::runtime_error(std::string("Running program failed: ") + errstr());
-        }
-      }
-      if(stdin_data.empty()) {
-        in.close();
-      } else {
-        ::CloseHandle(in.r);
-        in.r = nullptr;
-      }
-      if(redirect_stderr_to_stdout) {
-        err.close();
-      } else {
-        ::CloseHandle(err.w);
-        err.w = nullptr;
-      }
-      ::CloseHandle(out.w);
-      out.w = nullptr;
-    }
-
-    auto readpipe = [errstr](HANDLE& hpipe, std::string& data, bool ignored) {
-      if(!hpipe) return;
-      for(;;) {
-        char buffer[4096+1];
-        DWORD n_read=0, size=0;
-        if(!::PeekNamedPipe(hpipe, nullptr, 0, nullptr, &size, nullptr)) {
-          switch(::GetLastError()) {
-            case ERROR_MORE_DATA:
-              break;
-            case ERROR_PIPE_BUSY:
-              return;
-            case ERROR_HANDLE_EOF:
-            case ERROR_BROKEN_PIPE:
-            case ERROR_NO_DATA:
-            case ERROR_PIPE_NOT_CONNECTED:
-              ::CloseHandle(hpipe);
-              // break: intentionally no break.
-            case ERROR_INVALID_HANDLE:
-              hpipe = nullptr;
-              return;
-            default:
-              throw std::runtime_error(std::string("Failed to read from pipe: ") + errstr());
-          }
-        }
-        if(!size) return;
-        if(size > sizeof(buffer)-1) size = sizeof(buffer)-1;
-        if(!::ReadFile(hpipe, buffer, size, &n_read, nullptr)) {
-          switch(::GetLastError()) {
-            case ERROR_MORE_DATA:
-              break;
-            case ERROR_PIPE_BUSY:
-              return;
-            case ERROR_HANDLE_EOF:
-            case ERROR_BROKEN_PIPE:
-            case ERROR_NO_DATA:
-            case ERROR_PIPE_NOT_CONNECTED:
-              ::CloseHandle(hpipe);
-              // break: intentionally no break.
-            case ERROR_INVALID_HANDLE:
-              hpipe = nullptr;
-              return;
-            default:
-              throw std::runtime_error(std::string("Failed to read from pipe: ") + errstr());
-          }
-        } else if(!n_read) {
-          return;
-        } else if(!ignored) {
-          buffer[n_read] = 0; // should have no effect on string copy creation, only for safety in doubt.
-          data += std::string(buffer, buffer+n_read);
-        }
-      }
-    };
-
-    bool process_terminated = false;
-    int n_loops_left = 2;
-    while(--n_loops_left > 0) {
-      if(!process_terminated) {
-        using namespace std::chrono;
-        if((!was_timeout) && (timeout_ms > 1) && (duration_cast<milliseconds>(steady_clock::now() - start_time).count() > timeout_ms)) {
-          was_timeout = true;
-          ::TerminateProcess(proc.pi.hProcess, 1);
-        }
-        std::vector<HANDLE> handles;
-        handles.push_back(proc.pi.hProcess);
-        if(out.r) handles.push_back(out.r);
-        if(err.r) handles.push_back(err.r);
-        // switch(WaitForSingleObject(proc.pi.hProcess, 10)) {
-        switch(WaitForMultipleObjects(handles.size(), &handles[0], false, 10)) {
-          case WAIT_TIMEOUT:
-          case WAIT_OBJECT_0+1: // out or err
-          case WAIT_OBJECT_0+2: // err
-            n_loops_left = 2;
-            break;
-          case WAIT_OBJECT_0:
-            process_terminated = true;
-            break;
-          case WAIT_FAILED:
-          default:
-            n_loops_left = 0;
-        }
-      }
-      if(in.w && !stdin_data.empty()) {
-        bool keep_writing = true;
-        while(in.w && !stdin_data.empty() && keep_writing) {
-          DWORD n_written = 0;
-          DWORD n_towrite = stdin_data.size() > 4096 ? 4096 : stdin_data.size();
-          if(!::WriteFile(in.w, stdin_data.data(), n_towrite, &n_written, nullptr)) {
+      auto readpipe = [errstr](HANDLE& hpipe, std::string& data, bool ignored) {
+        if(!hpipe) return;
+        for(;;) {
+          char buffer[4096+1];
+          DWORD n_read=0, size=0;
+          if(!::PeekNamedPipe(hpipe, nullptr, 0, nullptr, &size, nullptr)) {
             switch(::GetLastError()) {
-              case ERROR_PIPE_BUSY:
-                keep_writing = false;
+              case ERROR_MORE_DATA:
                 break;
+              case ERROR_PIPE_BUSY:
+                return;
+              case ERROR_HANDLE_EOF:
               case ERROR_BROKEN_PIPE:
               case ERROR_NO_DATA:
               case ERROR_PIPE_NOT_CONNECTED:
-                in.close();
+                ::CloseHandle(hpipe);
                 // break: intentionally no break.
               case ERROR_INVALID_HANDLE:
-                in.w = nullptr;
-                stdin_data.clear();
+                hpipe = nullptr;
+                return;
               default:
-                throw std::runtime_error(std::string("Failed to write to pipe: ") + errstr());
+                throw std::runtime_error(std::string("Failed to read from pipe: ") + errstr());
             }
           }
-          if(n_written) {
-            if(n_written >= stdin_data.size()) {
-              stdin_data.clear();
-              keep_writing = false;
-              in.close();
-            } else {
-              stdin_data = stdin_data.substr(n_written);
+          if(!size) return;
+          if(size > sizeof(buffer)-1) size = sizeof(buffer)-1;
+          if(!::ReadFile(hpipe, buffer, size, &n_read, nullptr)) {
+            switch(::GetLastError()) {
+              case ERROR_MORE_DATA:
+                break;
+              case ERROR_PIPE_BUSY:
+                return;
+              case ERROR_HANDLE_EOF:
+              case ERROR_BROKEN_PIPE:
+              case ERROR_NO_DATA:
+              case ERROR_PIPE_NOT_CONNECTED:
+                ::CloseHandle(hpipe);
+                // break: intentionally no break.
+              case ERROR_INVALID_HANDLE:
+                hpipe = nullptr;
+                return;
+              default:
+                throw std::runtime_error(std::string("Failed to read from pipe: ") + errstr());
             }
-          }
-          if(n_written < n_towrite) {
-            keep_writing = false;
+          } else if(!n_read) {
+            return;
+          } else if(!ignored) {
+            buffer[n_read] = 0; // should have no effect on string copy creation, only for safety in doubt.
+            data += std::string(buffer, buffer+n_read);
           }
         }
+      };
+
+      bool process_terminated = false;
+      int n_loops_left = 2;
+      while(--n_loops_left > 0) {
+        if(!process_terminated) {
+          using namespace std::chrono;
+          if((!was_timeout) && (timeout_ms > 1) && (duration_cast<milliseconds>(steady_clock::now() - start_time).count() > timeout_ms)) {
+            was_timeout = true;
+            ::TerminateProcess(proc.pi.hProcess, 1);
+          }
+          std::vector<HANDLE> handles;
+          handles.push_back(proc.pi.hProcess);
+          if(out.r) handles.push_back(out.r);
+          if(err.r) handles.push_back(err.r);
+          // switch(WaitForSingleObject(proc.pi.hProcess, 10)) {
+          switch(WaitForMultipleObjects(handles.size(), &handles[0], false, 10)) {
+            case WAIT_TIMEOUT:
+            case WAIT_OBJECT_0+1: // out or err
+            case WAIT_OBJECT_0+2: // err
+              n_loops_left = 2;
+              break;
+            case WAIT_OBJECT_0:
+              process_terminated = true;
+              break;
+            case WAIT_FAILED:
+            default:
+              n_loops_left = 0;
+          }
+        }
+        if(in.w && !stdin_data.empty()) {
+          bool keep_writing = true;
+          while(in.w && !stdin_data.empty() && keep_writing) {
+            DWORD n_written = 0;
+            DWORD n_towrite = stdin_data.size() > 4096 ? 4096 : stdin_data.size();
+            if(!::WriteFile(in.w, stdin_data.data(), n_towrite, &n_written, nullptr)) {
+              switch(::GetLastError()) {
+                case ERROR_PIPE_BUSY:
+                  keep_writing = false;
+                  break;
+                case ERROR_BROKEN_PIPE:
+                case ERROR_NO_DATA:
+                case ERROR_PIPE_NOT_CONNECTED:
+                  in.close();
+                  // break: intentionally no break.
+                case ERROR_INVALID_HANDLE:
+                  in.w = nullptr;
+                  stdin_data.clear();
+                default:
+                  throw std::runtime_error(std::string("Failed to write to pipe: ") + errstr());
+              }
+            }
+            if(n_written) {
+              if(n_written >= stdin_data.size()) {
+                stdin_data.clear();
+                keep_writing = false;
+                in.close();
+              } else {
+                stdin_data = stdin_data.substr(n_written);
+              }
+            }
+            if(n_written < n_towrite) {
+              keep_writing = false;
+            }
+          }
+        }
+        {
+          std::string data;
+          readpipe(out.r, data, ignore_stdout);
+          if((!data.empty()) && (!stdout_proc(std::move(data)))) n_loops_left = 0;
+        }
+        {
+          std::string data;
+          readpipe(err.r, data, ignore_stderr);
+          if((!data.empty()) && (!stderr_proc(std::move(data)))) n_loops_left = 0;
+        }
       }
-      {
-        std::string data;
-        readpipe(out.r, data, ignore_stdout);
-        if((!data.empty()) && (!stdout_proc(std::move(data)))) n_loops_left = 0;
-      }
-      {
-        std::string data;
-        readpipe(err.r, data, ignore_stderr);
-        if((!data.empty()) && (!stderr_proc(std::move(data)))) n_loops_left = 0;
-      }
-    }
-    if(process_terminated) {
-      DWORD ec = 0;
-      if(::GetExitCodeProcess(proc.pi.hProcess, &ec)) {
-        exit_code = int(ec);
+      if(process_terminated) {
+        DWORD ec = 0;
+        if(::GetExitCodeProcess(proc.pi.hProcess, &ec)) {
+          exit_code = int(ec);
+        } else {
+          throw std::runtime_error(std::string("Failed to get child process exit code: ") + errstr());
+        }
       } else {
-        throw std::runtime_error(std::string("Failed to get child process exit code: ") + errstr());
+        ::TerminateProcess(proc.pi.hProcess, 1);
       }
-    } else {
-      ::TerminateProcess(proc.pi.hProcess, 1);
     }
-  }
-  // </editor-fold>
+
   #endif
 
-  // <editor-fold desc="execute" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Execute a process, optionally fetch stdout, stderr or pass stdin data.
@@ -802,7 +797,6 @@ namespace duktape { namespace detail { namespace system { namespace exec {
   template <typename=void>
   int execute(duktape::api& stack)
   {
-    // <editor-fold desc="types, nested functions" defaultstate="collapsed">
     using index_t = duktape::api::index_t;
 
     const auto read_callback = [&](const index_t funct, std::string& buf, std::string& out, const char* data, const size_t size) {
@@ -847,9 +841,6 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       } while(!buf.empty());
     };
 
-    // </editor-fold>
-
-    // <editor-fold desc="variables" defaultstate="collapsed">
     int exit_code = 0;
     int timeout_ms = -1;
     std::string program;
@@ -863,9 +854,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
     bool no_exception = false;
     index_t stdout_callback = -1;
     index_t stderr_callback = -1;
-    // </editor-fold>
 
-    // <editor-fold desc="arguments" defaultstate="collapsed">
     {
       index_t optindex = -1;
       if(stack.is_object(0)) {
@@ -997,7 +986,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
             stdin_data.clear();
           } else if(stack.is_buffer(-1)) {
             clog__("opts.stdin === buffer");
-            stdin_data = stack.get_buffer<std::string>(-1);
+            stdin_data = stack.buffer<std::string>(-1);
           } else {
             if(!no_exception) stack.throw_exception(std::string("Invalid value for the 'stdin' exec option."));
             return 0;
@@ -1053,9 +1042,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       }
       #endif
     }
-    // </editor-fold>
 
-    // <editor-fold desc="run" defaultstate="collapsed">
     try {
       std::string stdout_buffer, stderr_buffer;
       bool was_timeout = false;
@@ -1090,9 +1077,6 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       std::string().swap(stderr_data);
       if(!no_exception) return stack.throw_exception(std::string() + e.what());
     }
-    // </editor-fold>
-
-    // <editor-fold desc="return value composition" defaultstate="collapsed">
     {
       stack.top(0);
       if(ignore_stdout && ignore_stderr) {
@@ -1105,11 +1089,8 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       }
       return 1;
     }
-    // </editor-fold>
   }
-  // </editor-fold>
 
-  // <editor-fold desc="execute_shell" defaultstate="collapsed">
   #if(0 && JSDOC)
   /**
    * Execute a shell command and return the STDOUT output. Does
@@ -1178,13 +1159,11 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       }
     }
   }
-  // </editor-fold>
 
 }}}}
 
 namespace duktape { namespace mod { namespace system { namespace exec {
 
-  // <editor-fold desc="js decls" defaultstate="collapsed">
   /**
    * Export main relay. Adds all module functions to the specified engine.
    * @param duktape::engine& js
@@ -1197,13 +1176,10 @@ namespace duktape { namespace mod { namespace system { namespace exec {
     js.define("sys.shell", execute_shell<>, -1);
     js.define("sys.escapeshellarg", escape_shell_arg<void>);
   }
-  // </editor-fold>
 
 }}}}
 
-// <editor-fold desc="undefs" defaultstate="collapsed">
 #undef clog__
 #pragma GCC diagnostic pop
-// </editor-fold>
 
 #endif
