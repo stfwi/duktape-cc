@@ -20,7 +20,6 @@
 #endif
 
 
-
 namespace testenv {
   #ifndef WINDOWS
   int sysshellexec(std::string cmd) {
@@ -55,7 +54,7 @@ namespace testenv {
 
   std::string test_path(std::string path="") {
     while(!path.empty() && path.front() == '/') path = path.substr(1);
-    path = path.empty() ? ::sw::utest::tmpdir::path() : (::sw::utest::tmpdir::path() + "\\" + path);
+    path = path.empty() ? ::sw::utest::tmpdir::path() : (std::string(::sw::utest::tmpdir::path()) + "\\" + path);
     for(auto& e:path) if(e=='/') e='\\';
     return path;
   }
@@ -152,8 +151,6 @@ namespace testenv {
   }
 }
 
-
-
 void test(duktape::engine& js);
 std::string test_source_file;
 std::vector<std::string> test_source_lines;
@@ -247,7 +244,7 @@ int ecma_warn(duk_context *ctx)
   if(!nargs) return 0;
   ss << stack.to<std::string>(0);
   for(int i=1; i<nargs; i++) ss << " " << stack.to<std::string>(i);
-  ::sw::utest::test::warn(test_source_file, callerline(ctx), ss.str());
+  ::sw::utest::test::warning(test_source_file, callerline(ctx), ss.str());
   return 0;
 }
 
@@ -340,13 +337,10 @@ int ecma_eexpect_except(duk_context *ctx)
 int ecma_reset(duk_context *ctx)
 {
   duktape::api stack(ctx);
-  ::sw::utest::test::reset(test_source_file, callerline(ctx));
+  ::sw::utest::test::reset(test_source_file.c_str(), callerline(ctx));
   stack.push(true);
   return 1;
 }
-
-
-
 
 
 // Note: The purpose of this function is to find the outer "test_expect()" locations and
@@ -520,11 +514,12 @@ void test_include_script(duktape::engine& js)
   }
 }
 
-int main(int argc, const char **argv)
+int main(int argc, char *argv[])
 {
   try {
     std::locale::global(std::locale("C"));
     ::setlocale(LC_ALL, "C");
+    test_initialize();
     duktape::engine js;
     js.define("print", ecma_print); // may be overwritten by stdio
     js.define("alert", ecma_warn); // may be overwritten by stdio
@@ -566,8 +561,7 @@ int main(int argc, const char **argv)
     test_fail("Unexpected init exception.");
   }
   ::sw::utest::tmpdir::remove();
-  return sw::utest::test::summary();
+  return test_summary();
 }
-
 
 #endif

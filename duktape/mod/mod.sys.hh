@@ -59,13 +59,6 @@
   #include <grp.h>
 #endif
 
-#if(0 && JSDOC)
-/**
- * Operating system functionality object.
- * @var {object}
- */
-var sys = {};
-#endif
 
 namespace duktape { namespace detail {
 
@@ -178,14 +171,6 @@ namespace duktape { namespace detail {
 
 namespace duktape { namespace detail { namespace system {
 
-  #if(0 && JSDOC)
-  /**
-   * Returns the ID of the current process or `undefined` on error.
-   *
-   * @returns {number|undefined}
-   */
-  sys.pid = function() {};
-  #endif
   template <typename=void>
   int getpid(duktape::api& stack)
   {
@@ -200,14 +185,6 @@ namespace duktape { namespace detail { namespace system {
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns the ID of the current user or `undefined` on error.
-   *
-   * @returns {number|undefined}
-   */
-  sys.uid = function() {};
-  #endif
   template <typename=void>
   int getuid(duktape::api& stack)
   {
@@ -223,14 +200,6 @@ namespace duktape { namespace detail { namespace system {
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns the ID of the current group or `undefined` on error.
-   *
-   * @returns {number|undefined}
-   */
-  sys.gid = function() {};
-  #endif
   template <typename=void>
   int getgid(duktape::api& stack)
   {
@@ -246,17 +215,6 @@ namespace duktape { namespace detail { namespace system {
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns the login name of a user or `undefined` on error.
-   * If the user ID is not specified (called without arguments), the ID of the current user is
-   * used.
-   *
-   * @param {number} [uid]
-   * @returns {string|undefined}
-   */
-  sys.user = function(uid) {};
-  #endif
   template <typename=void>
   int getuser(duktape::api& stack)
   {
@@ -286,17 +244,6 @@ namespace duktape { namespace detail { namespace system {
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns the group name of a group ID or `undefined` on error.
-   * If the group ID is not specified (called without arguments), the group ID of the
-   * current user is used.
-   *
-   * @param {number} [gid]
-   * @returns {string|undefined}
-   */
-  sys.group = function(gid) {};
-  #endif
   template <typename=void>
   int getgroup(duktape::api& stack)
   {
@@ -322,15 +269,6 @@ namespace duktape { namespace detail { namespace system {
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns path ("realpath") of the executable where the ECMA script is
-   * called from (or undefined on error or if not allowed).
-   *
-   * @returns {string|undefined}
-   */
-  sys.apppath = function() {};
-  #endif
   template <typename=void>
   std::string application_path()
   {
@@ -371,22 +309,6 @@ namespace duktape { namespace detail { namespace system {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns a plain object containing information about the operating system
-   * running on, `undefined` on error. The object looks like:
-   *
-   * {
-   *   sysname: String, // e.g. "Linux"
-   *   release: String, // e.g. ""3.16.0-4-amd64"
-   *   machine: String, // e.g. "x86_64"
-   *   version: String, // e.g. "#1 SMP Debian 3.16.7-ckt20-1+deb8u3 (2016-01-17)"
-   * }
-   *
-   * @returns {object|undefined}
-   */
-  sys.uname = function() {};
-  #endif
   template <typename=void>
   int getuname(duktape::api& stack)
   {
@@ -406,17 +328,6 @@ namespace duktape { namespace detail { namespace system {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Makes the thread sleep for the given time in seconds (with sub seconds).
-   * Note that this function blocks the complete thread until the time has
-   * expired or sleeping is interrupted externally.
-   *
-   * @param {number} seconds
-   * @returns {boolean}
-   */
-  sys.sleep = function(seconds) {};
-  #endif
   template <typename=void>
   int sleep_seconds(duktape::api& stack)
   {
@@ -430,26 +341,6 @@ namespace duktape { namespace detail { namespace system {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns the time in seconds (with sub seconds) of a selected
-   * time/clock source:
-   *
-   *  - "r": Real time clock (value same as Date object, maybe
-   *         higher resolution)
-   *  - "b": Boot time (if available, otherwise equal to "m" source)
-   *
-   *  - "m": Monotonic time, starts at zero when the function
-   *         is first called.
-   *
-   * Returns NaN on error or when a source is not supported on the
-   * current platform.
-   *
-   * @param {string} clock_source
-   * @returns {number} seconds
-   */
-  sys.clock = function(clock_source) {};
-  #endif
   template <typename=void>
   int clock_seconds(duktape::api& stack)
   {
@@ -501,25 +392,6 @@ namespace duktape { namespace detail { namespace system {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns true if the descriptor given as string
-   * is an interactive TTY or false otherwise, e.g.
-   * when connected to a pipe / file source. Valid
-   * descriptors are:
-   *
-   *  - "stdin"  or "i": STDIN  (standard input read with confirm, prompt etc)
-   *  - "stdout" or "o": STDOUT (standard output fed by print())
-   *  - "stderr" or "e": STDERR (standard error output, e.g. fed by alert())
-   *
-   * The function returns undefined if not implemented on the
-   * platform or if the descriptor name is incorrect.
-   *
-   * @param {string} descriptorName
-   * @returns {boolean}
-   */
-  sys.isatty = function(descriptorName) {};
-  #endif
   template <typename=void>
   int isatty_by_name(duktape::api& stack)
   {
@@ -588,15 +460,154 @@ namespace duktape { namespace mod { namespace system {
   static void define_in(duktape::engine& js)
   {
     using namespace ::duktape::detail::system;
+
+    #if(0 && JSDOC)
+    /**
+     * Operating system functionality object.
+     * @var {object}
+     */
+    var sys = {};
+    #endif
+
+    #if(0 && JSDOC)
+    /**
+     * Returns the ID of the current process or `undefined` on error.
+     *
+     * @return {number|undefined}
+     */
+    sys.pid = function() {};
+    #endif
     js.define("sys.pid", getpid<>, 0);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns the ID of the current user or `undefined` on error.
+     *
+     * @return {number|undefined}
+     */
+    sys.uid = function() {};
+    #endif
     js.define("sys.uid", getuid<>, 0);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns the ID of the current group or `undefined` on error.
+     *
+     * @return {number|undefined}
+     */
+    sys.gid = function() {};
+    #endif
     js.define("sys.gid", getgid<>, 0);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns the login name of a user or `undefined` on error.
+     * If the user ID is not specified (called without arguments), the ID of the current user is
+     * used.
+     *
+     * @param {number} [uid]
+     * @return {string|undefined}
+     */
+    sys.user = function(uid) {};
+    #endif
     js.define("sys.user", getuser<>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns the group name of a group ID or `undefined` on error.
+     * If the group ID is not specified (called without arguments), the group ID of the
+     * current user is used.
+     *
+     * @param {number} [gid]
+     * @return {string|undefined}
+     */
+    sys.group = function(gid) {};
+    #endif
     js.define("sys.group", getgroup<>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns a plain object containing information about the operating system
+     * running on, `undefined` on error. The object looks like:
+     *
+     * {
+     *   sysname: String, // e.g. "Linux"
+     *   release: String, // e.g. ""3.16.0-4-amd64"
+     *   machine: String, // e.g. "x86_64"
+     *   version: String, // e.g. "#1 SMP Debian 3.16.7-ckt20-1+deb8u3 (2016-01-17)"
+     * }
+     *
+     * @return {object|undefined}
+     */
+    sys.uname = function() {};
+    #endif
     js.define("sys.uname", getuname<>, 0);
+
+    #if(0 && JSDOC)
+    /**
+     * Makes the thread sleep for the given time in seconds (with sub seconds).
+     * Note that this function blocks the complete thread until the time has
+     * expired or sleeping is interrupted externally.
+     *
+     * @param {number} seconds
+     * @return {boolean}
+     */
+    sys.sleep = function(seconds) {};
+    #endif
     js.define("sys.sleep", sleep_seconds<>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns the time in seconds (with sub seconds) of a selected
+     * time/clock source:
+     *
+     *  - "r": Real time clock (value same as Date object, maybe
+     *         higher resolution)
+     *  - "b": Boot time (if available, otherwise equal to "m" source)
+     *
+     *  - "m": Monotonic time, starts at zero when the function
+     *         is first called.
+     *
+     * Returns NaN on error or when a source is not supported on the
+     * current platform.
+     *
+     * @param {string} clock_source
+     * @return {number} seconds
+     */
+    sys.clock = function(clock_source) {};
+    #endif
     js.define("sys.clock", clock_seconds<>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns true if the descriptor given as string
+     * is an interactive TTY or false otherwise, e.g.
+     * when connected to a pipe / file source. Valid
+     * descriptors are:
+     *
+     *  - "stdin"  or "i": STDIN  (standard input read with confirm, prompt etc)
+     *  - "stdout" or "o": STDOUT (standard output fed by print())
+     *  - "stderr" or "e": STDERR (standard error output, e.g. fed by alert())
+     *
+     * The function returns undefined if not implemented on the
+     * platform or if the descriptor name is incorrect.
+     *
+     * @param {string} descriptorName
+     * @return {boolean}
+     */
+    sys.isatty = function(descriptorName) {};
+    #endif
     js.define("sys.isatty", isatty_by_name, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns path ("realpath") of the executable where the ECMA script is
+     * called from (or undefined on error or if not allowed).
+     *
+     * @return {string|undefined}
+     */
+    sys.executable = function() {};
+    #endif
     js.define("sys.executable", app_path, 0);
   }
 

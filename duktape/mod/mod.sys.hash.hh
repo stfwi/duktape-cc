@@ -18,7 +18,7 @@
  *
  *  - CRC8  (PEC polynomial, init value and final XOR) for string and buffer.
  *  - CRC16 (USB polynomial, init value and final XOR) for string and buffer.
- *  - CRC32 (CITT polynomial, init value and final XOR) for string and buffer.
+ *  - CRC32 (CCITT polynomial, init value and final XOR) for string and buffer.
  *  - MD5 for string, buffer and file
  *  - SHA1 for string, buffer and file
  *  - SHA512 for string, buffer and file
@@ -61,7 +61,7 @@
  * @standard >= c++98
  * -----------------------------------------------------------------------------
  *
- * CRC16(USB) / CRC32(CITT) calculation class template, usage:
+ * CRC16(USB) / CRC32(CCITT) calculation class template, usage:
  *
  *  uint16_t checksum = sw::crc16::calculate(pointer_to_data, size_of_data);
  *
@@ -1067,24 +1067,6 @@ namespace sw {
 
 namespace duktape { namespace detail { namespace system { namespace hash {
 
-  #if(0 && JSDOC)
-  /**
-   * Hashing functionality of the system object.
-   * @var {object}
-   */
-  sys.hash = {};
-  #endif
-
-  #if(0 && JSDOC)
-  /**
-   * CRC8 (PEC) of a string or buffer.
-   * (PEC CRC is: polynomial: 0x07, initial value: 0x00, final XOR: 0x00)
-   *
-   * @param {string|buffer} data
-   * @returns {number}
-   */
-  sys.hash.crc8 = function(data) {};
-  #endif
   template <typename=void>
   int crc8_wrapper(duktape::api& stack)
   {
@@ -1101,16 +1083,6 @@ namespace duktape { namespace detail { namespace system { namespace hash {
     }
   }
 
-  #if(0 && JSDOC)
-  /**
-   * CRC16 (USB) of a string or buffer.
-   * (USB CRC is: polynomial: 0x8005, initial value: 0xffff, final XOR: 0xffff)
-   *
-   * @param {string|buffer} data
-   * @returns {number}
-   */
-  sys.hash.crc16 = function(data) {};
-  #endif
   template <typename=void>
   int crc16_wrapper(duktape::api& stack)
   {
@@ -1126,15 +1098,6 @@ namespace duktape { namespace detail { namespace system { namespace hash {
     }
   }
 
-  #if(0 && JSDOC)
-  /**
-   * CRC32 (CITT) of a string or buffer.
-   *
-   * @param {string|buffer} data
-   * @returns {number}
-   */
-  sys.hash.crc32 = function(data) {};
-  #endif
   template <typename=void>
   int crc32_wrapper(duktape::api& stack)
   {
@@ -1150,16 +1113,6 @@ namespace duktape { namespace detail { namespace system { namespace hash {
     }
   }
 
-  #if(0 && JSDOC)
-  /**
-   * MD5 of a string, buffer or file (if `isfile==true`).
-   *
-   * @param {string|buffer} data
-   * @param {boolean} [isfile=false]
-   * @returns {string}
-   */
-  sys.hash.md5 = function(data, isfile) {};
-  #endif
   template <typename=void>
   int md5_wrapper(duktape::api& stack)
   {
@@ -1187,16 +1140,6 @@ namespace duktape { namespace detail { namespace system { namespace hash {
     }
   }
 
-  #if(0 && JSDOC)
-  /**
-   * SHA1 of a string, buffer or file (if `isfile==true`).
-   *
-   * @param {string|buffer} data
-   * @param {boolean} [isfile=false]
-   * @returns {string}
-   */
-  sys.hash.sha1 = function(data, isfile) {};
-  #endif
   template <typename=void>
   int sha1_wrapper(duktape::api& stack)
   {
@@ -1224,16 +1167,6 @@ namespace duktape { namespace detail { namespace system { namespace hash {
     }
   }
 
-  #if(0 && JSDOC)
-  /**
-   * SHA512 of a string, buffer or file (if `isfile==true`).
-   *
-   * @param {string|buffer} data
-   * @param {boolean} [isfile=false]
-   * @returns {string}
-   */
-  sys.hash.sha512 = function(data, isfile) {};
-  #endif
   template <typename=void>
   int sha512_wrapper(duktape::api& stack)
   {
@@ -1274,11 +1207,83 @@ namespace duktape { namespace mod { namespace system { namespace hash {
   template <typename=void>
   static void define_in(duktape::engine& js)
   {
+    #if(0 && JSDOC)
+    /**
+     * Hashing functionality of the system object.
+     * @var {object}
+     */
+    sys.hash = {};
+    #endif
+
+    #if(0 && JSDOC)
+    /**
+     * CRC8 (PEC) of a string or buffer.
+     * (PEC CRC is: polynomial: 0x07, initial value: 0x00, final XOR: 0x00)
+     *
+     * @param {string|buffer} data
+     * @return {number}
+     */
+    sys.hash.crc8 = function(data) {};
+    #endif
     js.define("sys.hash.crc8", crc8_wrapper, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * CRC16 (USB) of a string or buffer.
+     * (USB CRC is: polynomial: 0x8005, initial value: 0xffff, final XOR: 0xffff)
+     *
+     * @param {string|buffer} data
+     * @return {number}
+     */
+    sys.hash.crc16 = function(data) {};
+    #endif
     js.define("sys.hash.crc16", crc16_wrapper, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * CRC32 (CCITT) of a string or buffer.
+     *
+     * @param {string|buffer} data
+     * @return {number}
+     */
+    sys.hash.crc32 = function(data) {};
+    #endif
     js.define("sys.hash.crc32", crc32_wrapper, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * MD5 of a string, buffer or file (if `isfile==true`).
+     *
+     * @param {string|buffer} data
+     * @param {boolean} [isfile=false]
+     * @return {string}
+     */
+    sys.hash.md5 = function(data, isfile) {};
+    #endif
     js.define("sys.hash.md5", md5_wrapper, 2);
+
+    #if(0 && JSDOC)
+    /**
+     * SHA1 of a string, buffer or file (if `isfile==true`).
+     *
+     * @param {string|buffer} data
+     * @param {boolean} [isfile=false]
+     * @return {string}
+     */
+    sys.hash.sha1 = function(data, isfile) {};
+    #endif
     js.define("sys.hash.sha1", sha1_wrapper, 2);
+
+    #if(0 && JSDOC)
+    /**
+     * SHA512 of a string, buffer or file (if `isfile==true`).
+     *
+     * @param {string|buffer} data
+     * @param {boolean} [isfile=false]
+     * @return {string}
+     */
+    sys.hash.sha512 = function(data, isfile) {};
+    #endif
     js.define("sys.hash.sha512", sha512_wrapper, 2);
   }
 

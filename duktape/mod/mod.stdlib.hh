@@ -46,28 +46,9 @@ namespace duktape { namespace detail {
   template <typename=void>
   struct stdlib {
 
-    #if(0 && JSDOC)
-    /**
-     * Exits the script interpreter with a specified exit code.
-     *
-     * @param {number} status_code
-     */
-    exit = function(status_code) {};
-    #endif
     static int exit_js(api& stack)
     { throw exit_exception((stack.top() <= 0) ? 0 : stack.to<int>(-1)); return 0; }
 
-    #if(0 && JSDOC)
-    /**
-     * Includes a JS file and returns the result of
-     * the last statement.
-     * Note that `include()` is NOT recursion protected.
-     *
-     * @param {string} path
-     * @return {any}
-     */
-    include = function(path) {};
-    #endif
     static int include_file(api& stack)
     {
       std::string path = stack.get_string(0);
@@ -97,7 +78,27 @@ namespace duktape { namespace detail {
      */
     static void define_in(duktape::engine& js)
     {
+      #if(0 && JSDOC)
+      /**
+       * Exits the script interpreter with a specified exit code.
+       *
+       * @param {number} status_code
+       */
+      exit = function(status_code) {};
+      #endif
       js.define("exit", exit_js);
+
+      #if(0 && JSDOC)
+      /**
+       * Includes a JS file and returns the result of
+       * the last statement.
+       * Note that `include()` is NOT recursion protected.
+       *
+       * @param {string} path
+       * @return {any}
+       */
+      include = function(path) {};
+      #endif
       js.define("include", include_file);
     }
   };

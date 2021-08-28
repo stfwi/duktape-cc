@@ -9,12 +9,16 @@ nbproject
 cli/js
 cli/djs
 cli/dev
+cli/dev*
 /bin
+/ext
 *.elf
 *.log
 *.exe
+*.tmp
 *.stackdump
 dev.js
+devlib.js
 dev.cc
 tmp
 tmp/

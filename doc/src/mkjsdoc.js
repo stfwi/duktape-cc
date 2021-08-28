@@ -4,7 +4,7 @@
 /**
  * Removes indentation spaces on all lines of the given text.
  * @param {string} text
- * @returns {string}
+ * @return {string}
  */
 function unindent(text) {
   // Remove indent and append function documentation, could maybe be done better ...
@@ -33,7 +33,7 @@ function unindent(text) {
  *       files are directly read. While reading using fs.readfile(), the line filter
  *       callback is used to directly compose the relevant JSDoc sections.
  *
- * @returns {String}
+ * @return {String}
  */
 function scan_js_docs() {
   var docs = {};

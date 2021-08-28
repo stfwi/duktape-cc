@@ -376,57 +376,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
 
 namespace duktape { namespace detail { namespace filesystem { namespace extended {
 
-  #if(0 && JSDOC)
-  /**
-   * Recursive directory walking. The argument `path` specifies the root directory
-   * of the file search - that is not a pattern with wildcards, but a absolute or
-   * relative path. The second argument `options` can be
-   *
-   *  - a string: then it is the pattern to filter by the file name.
-   *
-   *  - a plain object with one or more of the properties:
-   *
-   *      - name: {string} Filter by file name match pattern (fnmatch based, means with '*','?', etc).
-   *
-   *      - type: {string} Filter by file type, where
-   *
-   *          - "d": Directory
-   *          - "f": Regular file
-   *          - "l": Symbolic link
-   *          - "p": Fifo (pipe)
-   *          - "s": Socket
-   *          - "c": Character device (like /dev/tty)
-   *          - "b": Block device (like /dev/sda)
-   *          - "h": Include hidden files (Win: hidden flag, Linux/Unix: no effect, intentionally
-   *                 not applied to files with a leading dot, which are normal files, dirs etc).
-   *
-   *      - depth: {number} Maximum directory recursion depth. `0` lists nothing, `1` the contents of the
-   *               root directory, etc.
-   *
-   *      - icase: {boolean} File name matching is not case sensitive (Linux/Unix: default false, Win32: default true)
-   *
-   *      - filter: [Function A callback invoked for each file that was not yet filtered out with the
-   *                criteria listed above. The callback gets the file path as first argument. With that
-   *                you can:
-   *
-   *                  - Add it to the output by returning `true`.
-   *
-   *                  - Not add it to the output list by returning `false`, `null`, or `undefined`. That is
-   *                    useful e.g. if you don't want to list any files, but process them instead, or update
-   *                    global/local accessible variables depending on the file paths you get.
-   *
-   *                  - Add a modified path or other string by returning a String. That is really useful
-   *                    e.g. if you want to directly return the contents of files, or checksums etc etc etc.
-   *                    You get a path, and specify the output yourself.
-   *
-   * @throws {Error}
-   * @param {string} path
-   * @param {string|Object} [options]
-   * @param {function} [filter]
-   * @returns {array|undefined}
-   */
-  fs.find = function(path, options, filter) {};
-  #endif
   template <typename PathAccessor>
   int findfiles(duktape::api& stack)
   {
@@ -519,18 +468,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     }
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Moves a file or directory from one location `source_path` to another (`target_path`),
-   * similar to the `mv` shell command. File are NOT moved accross disks (method will fail).
-   *
-   * @throws {Error}
-   * @param {string} source_path
-   * @param {string} target_path
-   * @returns {boolean}
-   */
-  fs.move = function(source_path, target_path) {};
-  #endif
   template <typename PathAccessor>
   int movefile(duktape::api& stack)
   {
@@ -592,27 +529,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Copies a file from one location `source_path` to another (`target_path`),
-   * similar to the `cp` shell command. The argument `options` can  encompass
-   * the key-value pairs
-   *
-   *    {
-   *      "recursive": {boolean}=false
-   *    }
-   *
-   * Optionally, it is possible to specify the string 'r' or '-r' instead of
-   * `{recursive:true}` as third argument.
-   *
-   * @throws {Error}
-   * @param {string} source_path
-   * @param {string} target_path
-   * @param {object} [options]
-   * @returns {boolean}
-   */
-  fs.copy = function(source_path, target_path, options) {};
-  #endif
   template <typename PathAccessor>
   int copyfile(duktape::api& stack)
   {
@@ -759,27 +675,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Deletes a file or directory (`target_path`), similar to the `rm` shell
-   * command. The argument `options` can  encompass the key-value pairs
-   *
-   *    {
-   *      "recursive": {boolean}=false
-   *    }
-   *
-   * Optionally, it is possible to specify the string 'r' or '-r' instead of
-   * `{recursive:true}` as third argument.
-   *
-   * Removing is implicitly forced (like "rm -f").
-   *
-   * @throws {Error}
-   * @param {string} target_path
-   * @param {string|object} [options]
-   * @returns {boolean}
-   */
-  fs.remove = function(target_path, options) {};
-  #endif
   template <typename PathAccessor>
   int removefile(duktape::api& stack)
   {
@@ -897,9 +792,117 @@ namespace duktape { namespace mod { namespace filesystem { namespace extended {
   template <typename PathAccessor=path_accessor<std::string>>
   static void define_in(duktape::engine& js)
   {
+    #if(0 && JSDOC)
+    /**
+     * Recursive directory walking. The argument `path` specifies the root directory
+     * of the file search - that is not a pattern with wildcards, but a absolute or
+     * relative path. The second argument `options` can be
+     *
+     *  - a string: then it is the pattern to filter by the file name.
+     *
+     *  - a plain object with one or more of the properties:
+     *
+     *      - name: {string} Filter by file name match pattern (fnmatch based, means with '*','?', etc).
+     *
+     *      - type: {string} Filter by file type, where
+     *
+     *          - "d": Directory
+     *          - "f": Regular file
+     *          - "l": Symbolic link
+     *          - "p": Fifo (pipe)
+     *          - "s": Socket
+     *          - "c": Character device (like /dev/tty)
+     *          - "b": Block device (like /dev/sda)
+     *          - "h": Include hidden files (Win: hidden flag, Linux/Unix: no effect, intentionally
+     *                 not applied to files with a leading dot, which are normal files, dirs etc).
+     *
+     *      - depth: {number} Maximum directory recursion depth. `0` lists nothing, `1` the contents of the
+     *               root directory, etc.
+     *
+     *      - icase: {boolean} File name matching is not case sensitive (Linux/Unix: default false, Win32: default true)
+     *
+     *      - filter: [Function A callback invoked for each file that was not yet filtered out with the
+     *                criteria listed above. The callback gets the file path as first argument. With that
+     *                you can:
+     *
+     *                  - Add it to the output by returning `true`.
+     *
+     *                  - Not add it to the output list by returning `false`, `null`, or `undefined`. That is
+     *                    useful e.g. if you don't want to list any files, but process them instead, or update
+     *                    global/local accessible variables depending on the file paths you get.
+     *
+     *                  - Add a modified path or other string by returning a String. That is really useful
+     *                    e.g. if you want to directly return the contents of files, or checksums etc etc etc.
+     *                    You get a path, and specify the output yourself.
+     *
+     * @throws {Error}
+     * @param {string} path
+     * @param {string|Object} [options]
+     * @param {function} [filter]
+     * @return {array|undefined}
+     */
+    fs.find = function(path, options, filter) {};
+    #endif
     js.define("fs.find", findfiles<PathAccessor>, 3);
+
+    #if(0 && JSDOC)
+    /**
+     * Copies a file from one location `source_path` to another (`target_path`),
+     * similar to the `cp` shell command. The argument `options` can  encompass
+     * the key-value pairs
+     *
+     *    {
+     *      "recursive": {boolean}=false
+     *    }
+     *
+     * Optionally, it is possible to specify the string 'r' or '-r' instead of
+     * `{recursive:true}` as third argument.
+     *
+     * @throws {Error}
+     * @param {string} source_path
+     * @param {string} target_path
+     * @param {object} [options]
+     * @return {boolean}
+     */
+    fs.copy = function(source_path, target_path, options) {};
+    #endif
     js.define("fs.copy", copyfile<PathAccessor>, 3);
+
+    #if(0 && JSDOC)
+    /**
+     * Moves a file or directory from one location `source_path` to another (`target_path`),
+     * similar to the `mv` shell command. File are NOT moved accross disks (method will fail).
+     *
+     * @throws {Error}
+     * @param {string} source_path
+     * @param {string} target_path
+     * @return {boolean}
+     */
+    fs.move = function(source_path, target_path) {};
+    #endif
     js.define("fs.move", movefile<PathAccessor>, 3);
+
+    #if(0 && JSDOC)
+    /**
+     * Deletes a file or directory (`target_path`), similar to the `rm` shell
+     * command. The argument `options` can  encompass the key-value pairs
+     *
+     *    {
+     *      "recursive": {boolean}=false
+     *    }
+     *
+     * Optionally, it is possible to specify the string 'r' or '-r' instead of
+     * `{recursive:true}` as third argument.
+     *
+     * Removing is implicitly forced (like "rm -f").
+     *
+     * @throws {Error}
+     * @param {string} target_path
+     * @param {string|object} [options]
+     * @return {boolean}
+     */
+    fs.remove = function(target_path, options) {};
+    #endif
     js.define("fs.remove", removefile<PathAccessor>, 2);
   }
 
