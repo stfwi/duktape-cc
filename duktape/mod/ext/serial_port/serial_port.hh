@@ -207,10 +207,12 @@ public:
 
   { ; }
 
-  /**
-   * d'tor
-   */
-  ~basic_serial_port() noexcept
+  basic_serial_port(const basic_serial_port&) = delete;
+  basic_serial_port(basic_serial_port&&) = default;
+  basic_serial_port& operator=(const basic_serial_port&) = delete;
+  basic_serial_port& operator=(basic_serial_port&&) = default;
+
+  virtual ~basic_serial_port() noexcept
   {
     #ifdef __WINDOWS__
     if(d_ != invalid_descriptor) ::CloseHandle(d_);
@@ -281,6 +283,7 @@ public:
   { return d_; }
 
 public:
+
   /**
    * Open the port, defining the port path/name to open and leaving
    * all port settings as they are. On error the port is closed()
@@ -1411,8 +1414,15 @@ namespace sw { namespace com { namespace detail {
     ) noexcept
       : base_type(port, baud, parity, data_bits, stop_bits, flow_control, timeout_ms),
       rx_newline_(),
-      tx_newline_("\n")
+      tx_newline_("\n"),
+      rx_sanitizer_()
     {}
+
+    serial_tty(const serial_tty&) = delete;
+    serial_tty(serial_tty&&) = default;
+    serial_tty& operator=(const serial_tty&) = delete;
+    serial_tty& operator=(serial_tty&&) = default;
+    virtual ~serial_tty() noexcept = default;
 
   public:
 
@@ -1471,6 +1481,17 @@ namespace sw { namespace com { namespace detail {
     { tx_newline_.swap(nl); return *this; }
 
     /**
+     * Assigns a character sanitizing function for the reception.
+     * This function can replace e.g. invalid characters in the
+     * string returned byref from `read(string&)`.
+     * @param const FunctionType& fn
+     * @return serial_tty&
+     */
+    template<typename FunctionType> // let it always match with any fntype, but bail on at the actual assignment.
+    inline serial_tty& rx_sanitizer(const FunctionType& fn) noexcept
+    { rx_sanitizer_ = fn; }
+
+    /**
      * Returns the current input buffer contents of `readln()`.
      * @return const string_type&
      */
@@ -1490,6 +1511,39 @@ namespace sw { namespace com { namespace detail {
      */
     inline void purge() noexcept
     { base_type::purge(); rx_buffer_.clear(); }
+
+    /**
+     * Reads from the port RX buffer, returns success.
+     * This operation is blocking until the current
+     * value of `timeout`. If the read process is
+     * interrupted or times out, then the return
+     * value will be `true` and data contain the
+     * received characters until then.
+     *
+     * @param std::string& data
+     * @param timeout_type timeout_ms
+     * @return bool
+     */
+    inline bool read(std::string& data, typename base_type::timeout_type timeout_ms)
+    {
+      if(!serial_tty::read(data, timeout_ms)) return false;
+      if(!!rx_sanitizer_) rx_sanitizer_(data);
+      return true;
+    }
+
+    /**
+     * Reads from the port RX buffer, returns success.
+     * This operation is blocking until the current
+     * value of `timeout()`. If the read process is
+     * interrupted or times out, then the return value
+     * will be `true` and data contain the received
+     * characters until then.
+     *
+     * @param std::string& data
+     * @return bool
+     */
+    inline bool read(std::string& data)
+    { return serial_tty::read(data, base_type::timeout()); }
 
     /**
      * Write a line by appending the configured newline to
@@ -1543,7 +1597,7 @@ namespace sw { namespace com { namespace detail {
       do {
         {
           string rx;
-          if(!base_type::read(rx, to)) return readln_result::error;
+          if(!serial_tty::read(rx, to)) return readln_result::error;
           if(!rx.empty()) rx_buffer_.append(rx);
         }
         if(rx_newline().empty()) {
@@ -1577,6 +1631,7 @@ namespace sw { namespace com { namespace detail {
     string_type rx_buffer_;   // Line read buffer.
     string_type rx_newline_;  // Reception line termination.
     string_type tx_newline_;  // Transmission line termination.
+    std::function<void(string_type&)> rx_sanitizer_;
   };
 
 }}}

@@ -41,7 +41,7 @@ ifeq ($(OS),Windows_NT)
  LDSTATIC+=-static -Os -s -static-libgcc
  FLAGSCXX+=-D_WIN32_WINNT=0x0601 -DWINVER=0x0601 -D_WIN32_IE=0x0900
  BINARY=$(PROGRAM_NAME)$(BINARY_EXTENSION)
- LIBS+=-ladvapi32 -lshell32
+ LIBS+=-ladvapi32 -lshell32 -lws2_32 -lsetupapi
  RC=windres
  OPT_OBJ+=cli/win32/mainrc.o
 else
@@ -56,13 +56,14 @@ endif
 ifeq ($(WITH_EXPERIMENTAL),1)
  FLAGSCXX+=-DWITH_EXPERIMENTAL
 endif
-
 ifeq ($(WITH_DEFAULT_STRICT_INCLUDE),1)
  FLAGSCXX+=-DWITH_DEFAULT_STRICT_INCLUDE
 endif
-
 ifneq ($(WITHOUT_APP_ATTACHMENT),1)
-FLAGSCXX+=-DCONFIG_WITH_APP_ATTACHMENT
+ FLAGSCXX+=-DCONFIG_WITH_APP_ATTACHMENT
+endif
+ifneq ($(WITHOUT_SOCKET),1)
+ FLAGSCXX+=-DCONFIG_WITH_SOCKET
 endif
 
 #---------------------------------------------------------------------------------------------------
@@ -166,7 +167,7 @@ dev: cli/$(DEVBINARY)
 	@echo "[note] Running development binary ..."
 	@cd ./cli; ./$(DEVBINARY) dev.js
 
-cli/$(DEVBINARY): cli/dev.cc duktape/duktape.o $(HEADER_DEPS) $(TEST_BINARIES_SOURCES)
+cli/$(DEVBINARY): cli/dev.cc duktape/duktape.o $(HEADER_DEPS) $(TEST_BINARIES_SOURCES) $(OPT_OBJ)
 	@echo "[c++ ] $< $@"
 	@$(CXX) -o $@ $< duktape/duktape.o $(FLAGSCXX) $(OPTS) -I. $(FLAGSLD) $(LDSTATIC) $(LIBS)
 

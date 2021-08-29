@@ -594,7 +594,7 @@
               case ERROR_FILE_NOT_FOUND:
               case ERROR_PATH_NOT_FOUND:
                 exit_code_ = 1;
-                return;
+                throw std::runtime_error(string_type("Failed to start process: Program file not found."));
               default:
                 throw std::runtime_error(string_type("Running program failed: ") + errstr());
             }
@@ -639,6 +639,10 @@
               case WAIT_OBJECT_0:
                 process_terminated_ = true;
                 break;
+              case ERROR_INVALID_HANDLE:
+                ::TerminateProcess(proc_.pi.hProcess, 1);
+                n_loops_left = 0;
+                break;
               case WAIT_TIMEOUT:
               case WAIT_FAILED:
               default:
@@ -658,9 +662,11 @@
                   case ERROR_BROKEN_PIPE:
                   case ERROR_NO_DATA:
                   case ERROR_PIPE_NOT_CONNECTED:
+                    keep_writing = false;
                     proc_.in.close();
                     // break: intentionally no break.
                   case ERROR_INVALID_HANDLE:
+                    keep_writing = false;
                     proc_.in.w = nullptr;
                     stdin_data_.clear();
                   default:
@@ -691,14 +697,20 @@
           }
         }
         if(process_terminated_) {
-          DWORD ec = 0;
-          if(::GetExitCodeProcess(proc_.pi.hProcess, &ec)) {
-            exit_code_ = int(ec);
+          // @sw: Adaption for JS pipe closing: No need to wait for the destructor - here, when the GC kicks in.
+          proc_.in.close();
+          proc_.out.close();
+          proc_.err.close();
+          if(!proc_.pi.hProcess) {
+            exit_code_ = -1;
           } else {
-            throw std::runtime_error(string_type("Failed to get child process exit code: ") + errstr());
+            DWORD ec = 0;
+            if(::GetExitCodeProcess(proc_.pi.hProcess, &ec)) {
+              exit_code_ = int(ec);
+            } else {
+              throw std::runtime_error(string_type("Failed to get child process exit code: ") + errstr());
+            }
           }
-        } else {
-          ::TerminateProcess(proc_.pi.hProcess, 1);
         }
         return running();
       }
@@ -1405,7 +1417,7 @@ namespace duktape { namespace mod { namespace system { namespace exec {
        *
        * @param {boolean} force
        */
-      sys.Process.prototype.kill = function(force) {};
+      sys.process.prototype.kill = function(force) {};
       #endif
       .method("kill", [](duktape::api& stack, native_process& instance) {
         instance.kill(stack.is<bool>(0) && stack.get<bool>(0));

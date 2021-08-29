@@ -102,7 +102,6 @@ namespace duktape { namespace detail { namespace ext { namespace serial_port {
 
 }}}}
 
-
 namespace duktape { namespace mod { namespace ext { namespace serial_port {
 
   /**

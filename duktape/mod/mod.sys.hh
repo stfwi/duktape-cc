@@ -47,7 +47,7 @@
 #include <thread>
 #include <cmath>
 #include <unistd.h>
-#if defined(__MINGW32__) || defined(__MINGW64__)
+#if defined(WIN32) || defined(__MINGW32__) || defined(__MINGW64__)
   #ifndef WINDOWS
     #define WINDOWS
   #endif
@@ -57,6 +57,12 @@
   #include <sys/utsname.h>
   #include <pwd.h>
   #include <grp.h>
+  #include <sys/ioctl.h>
+  #include <sys/types.h>
+  #include <unistd.h>
+  #if defined(__linux) || defined(__linux__)
+    #include <linux/kd.h>
+  #endif
 #endif
 
 
@@ -313,14 +319,14 @@ namespace duktape { namespace detail { namespace system {
   int getuname(duktape::api& stack)
   {
     stack.push_object();
-    #if defined(unix) || defined(__unix) || defined(__unix__) || defined(__linux) /*note:linux implies unix*/
+    #if defined(unix) || defined(__unix) || defined(__unix__) || defined(__linux)
     struct ::utsname un;
     if(::uname(&un) != 0) return 0;
     stack.set("sysname", (const char*)un.sysname);
     stack.set("release", (const char*)un.release);
     stack.set("machine", (const char*)un.machine);
     stack.set("version", (const char*)un.version);
-    #elif defined(WIN32) || defined(_WIN32) || defined(__TOS_WIN__) || defined(_MSC_VER) || defined(__MINGW32__) || defined(__MINGW64__)
+    #elif defined(WINDOWS)
       stack.set("sysname", "windows");
     #else
       stack.set("sysname", "unknown");
@@ -409,14 +415,14 @@ namespace duktape { namespace detail { namespace system {
         return 0; // undefined
       }
     }
-    #if defined(__linux) || defined(__unix)
+    #ifndef WINDOWS
     switch(check) {
       case ckin : r = ::isatty(STDIN_FILENO ) != 0; break;
       case ckout: r = ::isatty(STDOUT_FILENO) != 0; break;
       case ckerr: r = ::isatty(STDERR_FILENO) != 0; break;
       default: return 0;
     }
-    #elif defined(WIN32) || defined(__MINGW32__) || defined(__MINGW64__)
+    #else
     {
       switch(check) {
         case ckin: {
@@ -438,14 +444,41 @@ namespace duktape { namespace detail { namespace system {
           return 0;
       }
     }
-    #else
-    // Leave NaN for not supported platforms
-    #warning "sys.isatty() not implemented, returns undefined"
-    (void)check;
-    return 0;
     #endif
     stack.push(r);
     return 1;
+  }
+
+  template <typename=void>
+  int mundane_beep(duktape::api& stack)
+  {
+    using namespace std;
+    const auto frequency = std::min(std::max(stack.get<int>(0), 80), 12000);
+    const auto duration  = std::min(int(stack.get<double>(1) * 1000), 1000);
+    if(duration < 10) return 0;
+    #if defined(WINDOWS)
+      ::Beep(DWORD(frequency), DWORD(duration));
+      stack.top(0);
+      stack.push(true);
+      return 1;
+    #elif defined(__linux) || defined(__linux__)
+      stack.top(0);
+      stack.push(false);
+      const auto tick_rate = 1193180;
+      if(tick_rate <= frequency) return 1;
+      const auto periodck = static_cast<unsigned long>(tick_rate) / static_cast<unsigned long>(frequency);
+      const auto ioarg = ((static_cast<unsigned long>(duration)<<16ul) & 0xffff0000ul) | ((static_cast<unsigned long>(periodck)<< 0ul) & 0x0000fffful);
+      const auto fd = ::open("/dev/console", O_WRONLY);
+      if(fd < 0) return 1;
+      const auto iok = ::ioctl(STDOUT_FILENO, KDMKTONE, ioarg) >= 0;
+      ::close(fd);
+      if(!iok) return 1;
+      stack.top(0);
+      stack.push(true);
+      return 1;
+    #else
+      return 0;
+    #endif
   }
 
 }}}
@@ -609,8 +642,22 @@ namespace duktape { namespace mod { namespace system {
     sys.executable = function() {};
     #endif
     js.define("sys.executable", app_path, 0);
-  }
 
+    #if(0 && JSDOC)
+    /**
+     * Mundane auditive beeper signal with a given frequency in Hz and duration
+     * in seconds. Only applied if the hardware and system supports beeping,
+     * otherwise no action. Returns true if the system calls were successful.
+     *
+     * @param {number} frequency
+     * @param {number} duration
+     * @return {boolean}
+     */
+    sys.beep = function() {};
+    #endif
+    js.define("sys.beep", mundane_beep, 2);
+
+  }
 
 }}}
 
