@@ -29,7 +29,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 #ifndef SW_USB_DEVICES_HH
-#define	SW_USB_DEVICES_HH
+#define SW_USB_DEVICES_HH
 #if defined(__WINDOWS__) || defined(_WIN32) || defined(__WIN32__) || defined(_WIN64) || defined(__MINGW32__) || defined(__MINGW64__)
   #ifndef __WINDOWS__
     #define __WINDOWS__

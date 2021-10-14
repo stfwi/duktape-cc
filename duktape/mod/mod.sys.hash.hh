@@ -86,7 +86,7 @@
  * -------------------------------------------------------------------------------------
  */
 #ifndef SW_CRC_HH
-#define	SW_CRC_HH
+#define SW_CRC_HH
 
 #include <string>
 #include <cstring>
@@ -262,7 +262,7 @@ namespace sw {
  * MD5 calculation class template.
  */
 #ifndef MD5_HH
-#define	MD5_HH
+#define MD5_HH
 
 #if defined(OS_WIN) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
 #include <stdint.h>
@@ -519,7 +519,7 @@ namespace sw {
  * SHA1 calculation class template.
  */
 #ifndef SHA1_HH
-#define	SHA1_HH
+#define SHA1_HH
 
 #if defined(OS_WIN) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
 #include <stdint.h>
@@ -780,7 +780,7 @@ namespace sw {
  * -------------------------------------------------------------------------------------
  */
 #ifndef SHA512_HH
-#define	SHA512_HH
+#define SHA512_HH
 
 #if defined(OS_WIN) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
 #include <inttypes.h>

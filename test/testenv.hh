@@ -1,5 +1,5 @@
 #ifndef DUKTAPE_HH_TESTING_ENVIRONMENT_HH
-#define	DUKTAPE_HH_TESTING_ENVIRONMENT_HH
+#define DUKTAPE_HH_TESTING_ENVIRONMENT_HH
 
 
 #include "../duktape/duktape.hh"
