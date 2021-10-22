@@ -256,7 +256,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         ~hfind_guard() noexcept { if(h != INVALID_HANDLE_VALUE) ::FindClose(h); }
       };
 
-      WIN32_FIND_DATA ffd;
+      WIN32_FIND_DATAA ffd;
       bool ok = true;
       path += "\\";
       if(path.size() > MAX_PATH) { ecallback("Path too long"); return false; }

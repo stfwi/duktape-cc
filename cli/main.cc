@@ -153,19 +153,21 @@ int main(int argc, const char** argv, const char** envv)
     duktape::engine js;
     // Module imports
     {
-      duktape::mod::stdlib::define_in(js);
-      duktape::mod::stdio::define_in(js);
-      duktape::mod::filesystem::generic::define_in(js);
-      duktape::mod::filesystem::basic::define_in(js);
-      duktape::mod::filesystem::extended::define_in(js);
-      duktape::mod::filesystem::fileobject::define_in(js);
-      duktape::mod::system::define_in(js);
-      duktape::mod::system::exec::define_in(js);
-      duktape::mod::system::hash::define_in(js);
-      duktape::mod::ext::conv::define_in(js);
-      duktape::mod::ext::serial_port::define_in(js);
+      #ifndef CONFIG_WITHOUT_STANDARD_MODULES
+        duktape::mod::stdlib::define_in(js);
+        duktape::mod::stdio::define_in(js);
+        duktape::mod::filesystem::generic::define_in(js);
+        duktape::mod::filesystem::basic::define_in(js);
+        duktape::mod::filesystem::extended::define_in(js);
+        duktape::mod::filesystem::fileobject::define_in(js);
+        duktape::mod::system::define_in(js);
+        duktape::mod::system::exec::define_in(js);
+        duktape::mod::system::hash::define_in(js);
+        duktape::mod::ext::conv::define_in(js);
+        duktape::mod::ext::serial_port::define_in(js);
+      #endif
       #ifdef CONFIG_WITH_SOCKET
-      duktape::mod::system::socket::define_in(js);
+        duktape::mod::system::socket::define_in(js);
       #endif
     }
     // Built-in constant definitions.

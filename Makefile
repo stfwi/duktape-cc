@@ -43,7 +43,7 @@ ifeq ($(OS),Windows_NT)
  BINARY=$(PROGRAM_NAME)$(BINARY_EXTENSION)
  LIBS+=-ladvapi32 -lshell32 -lws2_32 -lsetupapi
  RC=windres
- OPT_OBJ+=cli/win32/mainrc.o
+ RC_OBJ=cli/win32/mainrc.o
 else
  BINARY_EXTENSION=.elf
  BINARY=$(PROGRAM_NAME)
@@ -126,7 +126,7 @@ test-clean-all:
 #---------------------------------------------------------------------------------------------------
 
 duktape/duktape.o: duktape/duktape.c duktape/duk_config.h duktape/duktape.h
-	@echo "[c++ ] $<  $@"
+	@echo "[c++ ] $< $@"
 	@$(CXX) -c -o $@ $< $(DUKOPTS)
 
 #---------------------------------------------------------------------------------------------------
@@ -138,7 +138,7 @@ run: binary cli/dev.js
 
 binary: cli/$(BINARY)
 
-cli/$(BINARY): duktape/duktape.o cli/main.o $(OPT_OBJ)
+cli/$(BINARY): duktape/duktape.o cli/main.o $(RC_OBJ)
 	@echo "[ld  ] $^ $@"
 	@$(CXX) -o $@ $^ $(FLAGSLD) $(LDSTATIC) $(LIBS)
 	@if [ ! -z "$(STRIP)" ]; then $(STRIP) --strip-all --discard-locals --discard-all $@ ; fi
@@ -167,7 +167,7 @@ dev: cli/$(DEVBINARY)
 	@echo "[note] Running development binary ..."
 	@cd ./cli; ./$(DEVBINARY) dev.js
 
-cli/$(DEVBINARY): cli/dev.cc duktape/duktape.o $(HEADER_DEPS) $(TEST_BINARIES_SOURCES) $(OPT_OBJ)
+cli/$(DEVBINARY): cli/dev.cc duktape/duktape.o $(HEADER_DEPS) $(TEST_BINARIES_SOURCES) $(RC_OBJ)
 	@echo "[c++ ] $< $@"
 	@$(CXX) -o $@ $< duktape/duktape.o $(FLAGSCXX) $(OPTS) -I. $(FLAGSLD) $(LDSTATIC) $(LIBS)
 
