@@ -255,7 +255,11 @@ int main(int argc, const char** argv, const char** envv)
   } catch(const duktape::exit_exception& e) {
     return e.exit_code();
   } catch(const duktape::script_error& e) {
-    cerr << e.callstack() << endl;
+    if(e.callstack().empty()) {
+      cerr << "Error: " << e.what() << endl;
+    } else {
+      cerr << e.callstack() << endl;
+    }
     return 1;
   } catch(const duktape::engine_error& e) {
     cerr << "Fatal: " << e.what() << endl;

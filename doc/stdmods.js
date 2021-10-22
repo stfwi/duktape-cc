@@ -1146,6 +1146,17 @@ sys.isatty = function(descriptorName) {};
  */
 sys.executable = function() {};
 
+/**
+ * Mundane auditive beeper signal with a given frequency in Hz and duration
+ * in seconds. Only applied if the hardware and system supports beeping,
+ * otherwise no action. Returns true if the system calls were successful.
+ *
+ * @param {number} frequency
+ * @param {number} duration
+ * @return {boolean}
+ */
+sys.beep = function() {};
+
 /** @file: mod.sys.exec.hh */
 
 /**
@@ -1294,13 +1305,7 @@ sys.process = function(program, arguments, options) {};
  *
  * @param {boolean} force
  */
-sys.Process.prototype.kill = function(force) {};
-
-/** @file: app_attachment.hh */
-
-/** @file: mod.ext.app_attachment.hh */
-
-/** @file: mod.conv.hh */
+sys.process.prototype.kill = function(force) {};
 
 /** @file: mod.ext.serial_port.hh */
 
@@ -1405,10 +1410,6 @@ sys.serialport.prototype.writeln = function(data) {};
  */
 sys.serialport.portlist = function(data) {};
 
-/** @file: serial_port.hh */
-
-/** @file: mod.srecord.hh */
-
 /** @file: mod.sys.hash.hh */
 
 /**
@@ -1469,3 +1470,18 @@ sys.hash.sha1 = function(data, isfile) {};
  * @return {string}
  */
 sys.hash.sha512 = function(data, isfile) {};
+
+/** @file: mod.sys.socket.hh */
+
+/**
+ * Socket handling object constructor, optionally with initial settings.
+ *
+ * @constructor
+ * @throws {Error}
+ * @param {string|undefined} settings
+ *
+ * @property {string}  port         -
+ * @property {boolean} error        -
+ * @property {string}  errormessage -
+ */
+sys.socket = function(settings) {};

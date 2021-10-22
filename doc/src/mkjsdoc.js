@@ -37,7 +37,7 @@ function unindent(text) {
  */
 function scan_js_docs() {
   var docs = {};
-  fs.find(fs.realpath(fs.dirname(fs.dirname(fs.dirname(fs.realpath(sys.script)))) + fs.directoryseparator + "duktape"), {
+  fs.find(fs.realpath(sys.app.path + "../../duktape"), {
     name:"*.hh",
     type:"f",
     filter: function(path) {
@@ -62,7 +62,9 @@ function scan_js_docs() {
           }
         }
       });
-      docs[fs.basename(path)] = doc;
+      if(doc.replace(/[\s]/ig,"").length > 0) {
+        docs[fs.basename(path)] = doc;
+      }
     }
   });
 

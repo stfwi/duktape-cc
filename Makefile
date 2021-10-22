@@ -9,9 +9,10 @@ TOOLCHAIN=
 
 CXX=$(TOOLCHAIN)g++
 LD=$(CXX)
-FLAGSCXX=-std=c++17 -W -Wall -Wextra -pedantic
+CXX_STD=c++17
+FLAGSCXX=-std=$(CXX_STD) -W -Wall -Wextra -pedantic
 FLAGSCXX+=-Iduktape
-DUKOPTS+=-std=c++17 -fstrict-aliasing -fdata-sections -ffunction-sections -Os -DDUK_USE_CPP_EXCEPTIONS
+DUKOPTS+=-std=$(CXX_STD) -fstrict-aliasing -fdata-sections -ffunction-sections -Os -DDUK_USE_CPP_EXCEPTIONS
 GIT_COMMIT_VERSION:=$(shell git log --pretty=format:%h -1 || echo 0000001)
 HOST_CXX=$(CXX)
 PROGRAM_NAME=djs

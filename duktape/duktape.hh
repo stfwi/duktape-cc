@@ -113,11 +113,10 @@ namespace duktape {
     {
       public:
 
-        explicit basic_script_error(const std::string&& msg) : std::runtime_error(std::move(msg)), callstack_()
+        explicit basic_script_error(std::string&& msg) : std::runtime_error(std::move(msg)), callstack_()
         { remove_internal_traces(); }
 
-        explicit basic_script_error(std::string&& msg, std::string&& callstack)
-                  : std::runtime_error(std::move(msg)), callstack_(std::move(callstack))
+        explicit basic_script_error(std::string&& msg, std::string&& callstack) : std::runtime_error(std::move(msg)), callstack_(std::move(callstack))
         { remove_internal_traces(); }
 
         const std::string& callstack() const noexcept
