@@ -790,7 +790,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace extended {
    * @param duktape::engine& js
    */
   template <typename PathAccessor=path_accessor<std::string>>
-  static void define_in(duktape::engine& js)
+  static void define_in(duktape::engine& js, const bool readonly=false)
   {
     #if(0 && JSDOC)
     /**
@@ -866,7 +866,9 @@ namespace duktape { namespace mod { namespace filesystem { namespace extended {
      */
     fs.copy = function(source_path, target_path, options) {};
     #endif
-    js.define("fs.copy", copyfile<PathAccessor>, 3);
+    if(!readonly) {
+      js.define("fs.copy", copyfile<PathAccessor>, 3);
+    }
 
     #if(0 && JSDOC)
     /**
@@ -880,7 +882,9 @@ namespace duktape { namespace mod { namespace filesystem { namespace extended {
      */
     fs.move = function(source_path, target_path) {};
     #endif
-    js.define("fs.move", movefile<PathAccessor>, 3);
+    if(!readonly) {
+      js.define("fs.move", movefile<PathAccessor>, 3);
+    }
 
     #if(0 && JSDOC)
     /**
@@ -903,7 +907,9 @@ namespace duktape { namespace mod { namespace filesystem { namespace extended {
      */
     fs.remove = function(target_path, options) {};
     #endif
-    js.define("fs.remove", removefile<PathAccessor>, 2);
+    if(!readonly) {
+      js.define("fs.remove", removefile<PathAccessor>, 2);
+    }
   }
 
 }}}}

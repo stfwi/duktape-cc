@@ -1250,7 +1250,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace generic {
    * @param duktape::engine& js
    */
   template <typename PathAccessor=path_accessor<std::string>>
-  static void define_in(duktape::engine& js)
+  static void define_in(duktape::engine& js, const bool readonly=false)
   {
     // The names "readfile" and "writefile" were chosen instead of "read" and "write" to
     // clarify that file operation FUNCTIONS are meant, similar to "readlink" or "readdir".
@@ -1314,7 +1314,9 @@ namespace duktape { namespace mod { namespace filesystem { namespace generic {
      */
     fs.writefile = function(path, data) {};
     #endif
-    js.define("fs.writefile", filewrite<PathAccessor, false>, 2);
+    if(!readonly) {
+      js.define("fs.writefile", filewrite<PathAccessor, false>, 2);
+    }
 
     #if(0 && JSDOC)
     /**
@@ -1326,7 +1328,9 @@ namespace duktape { namespace mod { namespace filesystem { namespace generic {
      */
     fs.appendfile = function(path, data) {};
     #endif
-    js.define("fs.appendfile", filewrite<PathAccessor, true>, 2);
+    if(!readonly) {
+      js.define("fs.appendfile", filewrite<PathAccessor, true>, 2);
+    }
   }
 
 }}}}
@@ -1341,7 +1345,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
    * @param duktape::engine& js
    */
   template <typename PathAccessor=path_accessor<std::string>>
-  static void define_in(duktape::engine& js)
+  static void define_in(duktape::engine& js, const bool readonly=false)
   {
 
     #if(0 && JSDOC)
@@ -1679,7 +1683,9 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
      */
     fs.chdir = function(path) {};
     #endif
-    js.define("fs.chdir", chdir<PathAccessor>, 1);
+    if(!readonly) {
+      js.define("fs.chdir", chdir<PathAccessor>, 1);
+    }
 
     #if(0 && JSDOC)
     /**
@@ -1696,7 +1702,9 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
      */
     fs.mkdir = function(path, options) {};
     #endif
-    js.define("fs.mkdir", mkdir<PathAccessor>, 2);
+    if(!readonly) {
+      js.define("fs.mkdir", mkdir<PathAccessor>, 2);
+    }
 
     #if(0 && JSDOC)
     /**
@@ -1709,7 +1717,9 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
      */
     fs.rmdir = function(path) {};
     #endif
-    js.define("fs.rmdir", rmdir<PathAccessor>, 1);
+    if(!readonly) {
+      js.define("fs.rmdir", rmdir<PathAccessor>, 1);
+    }
 
     #if(0 && JSDOC)
     /**
@@ -1722,7 +1732,9 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
      */
     fs.unlink = function(path) {};
     #endif
-    js.define("fs.unlink", unlink<PathAccessor>, 1);
+    if(!readonly) {
+      js.define("fs.unlink", unlink<PathAccessor>, 1);
+    }
 
     #if(0 && JSDOC)
     /**
@@ -1737,7 +1749,9 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
      */
     fs.rename = function(path, new_path) {};
     #endif
-    js.define("fs.rename", rename<PathAccessor>, 2);
+    if(!readonly) {
+      js.define("fs.rename", rename<PathAccessor>, 2);
+    }
 
     #if(0 && JSDOC)
     /**
@@ -1772,7 +1786,9 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
      */
     fs.symlink = function(path, link_path) {};
     #endif
-    js.define("fs.symlink", symlink<PathAccessor>, 2);
+    if(!readonly) {
+      js.define("fs.symlink", symlink<PathAccessor>, 2);
+    }
 
     #if(0 && JSDOC)
     /**
@@ -1799,7 +1815,9 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
      */
     fs.hardlink = function(path, link_path) {};
     #endif
-    js.define("fs.hardlink", hardlink<PathAccessor>, 2);
+    if(!readonly) {
+      js.define("fs.hardlink", hardlink<PathAccessor>, 2);
+    }
 
     #if(0 && JSDOC)
     /**
@@ -1824,7 +1842,9 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
      */
     fs.chmod = function(path, mode) {};
     #endif
-    js.define("fs.chmod", chmod<PathAccessor>, 2);
+    if(!readonly) {
+      js.define("fs.chmod", chmod<PathAccessor>, 2);
+    }
 
     #if(0 && JSDOC)
     /**

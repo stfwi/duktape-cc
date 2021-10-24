@@ -77,7 +77,7 @@ namespace duktape { namespace mod { namespace ext { namespace app_attachment {
    * @return bool
    */
   template <typename=void>
-  static bool define_in(duktape::engine& js)
+  static bool define_in(duktape::engine& js, const bool renaming_check=true)
   {
     using namespace std;
     js.define("sys.app.attachment.write", write_attachment);
@@ -91,8 +91,8 @@ namespace duktape { namespace mod { namespace ext { namespace app_attachment {
     const auto appname_ref = to_lower(noext(js.eval<string>("sys.app.name")));
     const auto appname_act = to_lower(noext(filen(duktape::detail::system::application_path())));
     // Basic protection against unintended library code. The program has to be at least renamed to allow library code execution.
-    if(appname_ref == appname_act) {
-      throw duktape::script_error(string("Applications with library attachment cannot be named '") + appname_act + "'.");
+    if(renaming_check && (appname_ref == appname_act)) {
+      throw duktape::script_error(string("Applications cannot be renamed '") + appname_act + "' from '" + appname_ref +  "'.");
     }
     if((attachment.find("#!/") == 0) && ( (attachment.find(appname_ref) != attachment.npos) || (attachment.find(appname_act) != attachment.npos) )) {
       js.eval<void>(attachment, "(library code)");
