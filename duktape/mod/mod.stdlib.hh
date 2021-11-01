@@ -40,6 +40,7 @@
 #include <iostream>
 #include <streambuf>
 #include <sstream>
+#include <regex>
 
 namespace duktape { namespace detail {
 
@@ -57,18 +58,37 @@ namespace duktape { namespace detail {
       std::string code((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
       if(!is) return stack.throw_exception(std::string("Failed to read include file '") + path + "'");
       is.close();
-      stack.top(0);
-      stack.require_stack(3);
-      stack.push_string(std::move(code));
-      stack.push_string(path);
-      try {
-        stack.eval_raw(0, 0, DUK_COMPILE_EVAL | DUK_COMPILE_SHEBANG);
-      } catch(const exit_exception& e) {
+      if(!std::regex_search(path, std::regex("\\.json$", std::regex_constants::icase|std::regex_constants::nosubs|std::regex_constants::ECMAScript))) {
         stack.top(0);
-        stack.gc();
-        throw;
+        stack.require_stack(3);
+        stack.push_string(std::move(code));
+        stack.push_string(path);
+        try {
+          stack.eval_raw(0, 0, DUK_COMPILE_EVAL | DUK_COMPILE_SHEBANG);
+          return 1;
+        } catch(const exit_exception& e) {
+          stack.top(0);
+          stack.gc();
+          throw;
+        }
+      } else {
+        stack.top(0);
+        if(code.empty()) return 0; // File is there but empty. Content undefined.
+        stack.require_stack(3);
+        stack.get_global_string("JSON");
+        stack.push("parse");
+        stack.push_string(std::move(code));
+        if(stack.pcall_prop(0, 1)==0) return 1;
+        if(!stack.is_error(-1)) {
+          stack.top(0);
+          stack.throw_exception(std::string("JSON parse error in '") + path + "'.");
+        } else {
+          const auto message = stack.to<std::string>(-1);
+          stack.top(0);
+          stack.throw_exception(message + " (file '" + path + "')");
+        }
+        return 0;
       }
-      return 1;
     }
 
     /**
