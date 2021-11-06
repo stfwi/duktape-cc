@@ -568,7 +568,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     args.emplace_back("/bin/cp");
     std::string ops = "-f";
     if(recursive) ops += 'R';
-    args.emplace_back(std::move(ops));
+    args.push_back(std::move(ops));
     args.emplace_back("--");
     args.emplace_back(src);
     args.emplace_back(dst);

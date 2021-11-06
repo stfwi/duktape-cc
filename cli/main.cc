@@ -65,7 +65,7 @@ int main(int argc, const char** argv, const char** envv)
       for(int i=1; i<argc && argv[i]; ++i) {
         string arg = argv[i];
         if(was_last_opt || has_file_arg) {
-          args.emplace_back(move(arg));
+          args.push_back(move(arg));
         } else if(arg == "--") {
           was_last_opt = true;
         } else if(arg == "--help") {
@@ -119,7 +119,7 @@ int main(int argc, const char** argv, const char** envv)
           has_file_arg = true;
           script_path = arg;
         } else {
-          args.emplace_back(move(arg));
+          args.push_back(move(arg));
         }
       }
     }
