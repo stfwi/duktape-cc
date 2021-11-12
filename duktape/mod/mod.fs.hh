@@ -103,10 +103,6 @@
   #endif
 #endif
 
-#define return_false { stack.push(false); return 1; }
-#define return_true { stack.push(true); return 1; }
-#define return_undefined { return 0; }
-
 namespace duktape { namespace detail { namespace filesystem {
 
   /**
@@ -349,48 +345,12 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #endif
   }
 
-  #if(0)
-  #if(false && JSDOC)
-  /**
-   * Returns the path for a temporary file. The file is
-   * NOT created yet. Note that using this function for
-   * creating temporary files is unsafe, as other processes
-   * might create the same file before this program has
-   * created it.
-   * Accepts one optional argument, the file prefix.
-   *
-   * @param {string} [prefix]
-   * @return {string|undefined}
-   */
-  fs.tempnam = function(prefix) {};
-  #endif
-  template <typename PathAccessor>
-  int tempnam(duktape::api& stack)
-  {
-    char path[PATH_MAX];
-    ::memset(path, 0, sizeof(path));
-    std::string prefix;
-    if(stack.is<std::string>(0)) prefix = stack.to<std::string>(0);
-    for(auto& e:prefix) { if(!::isalnum(e)) e = '_'; }
-    if(prefix.empty()) prefix = "tmpf";
-    if(prefix.length() > PATH_MAX-10) prefix.resize(PATH_MAX-10);
-    prefix += "_XXXXXX";
-    ::strncpy(path, prefix.c_str(), PATH_MAX-1);
-    int fd = ::mkstemp(path);
-    if(fd < 0) return 0;
-    ::unlink(path);
-    ::close(fd);
-    stack.push(PathAccessor::to_js(path));
-    return 1;
-  }
-  #endif
-
   template <typename PathAccessor>
   int homedir(duktape::api& stack)
   {
     #ifdef WINDOWS
     char p[MAX_PATH];
-    if(SUCCEEDED(::SHGetFolderPathA(NULL, CSIDL_PROFILE, NULL, 0, p))) {
+    if(SUCCEEDED(::SHGetFolderPathA(nullptr, CSIDL_PROFILE, nullptr, 0, p))) {
       stack.push(PathAccessor::to_js(p));
       return 1;
     } else {
@@ -408,56 +368,74 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #endif
   }
 
+  namespace {
+    template <typename=void>
+    std::string get_realpath(const std::string& path)
+    {
+      #ifdef WINDOWS
+      {
+        std::string s = path;
+        while(!s.empty() && ((s.back() == '\\') || (s.back() == '/'))) s.resize(s.length()-1);
+        if((path.length() > 2) && (path[0] == '~') && ((path[1] == '\\') || (path[1] == '/'))) {
+          char hdir[PATH_MAX];
+          if(!SUCCEEDED(::SHGetFolderPathA(nullptr, CSIDL_PROFILE, nullptr, 0, hdir))) return std::string();
+          hdir[sizeof(hdir)-1] = '\0';
+          s = std::string(hdir) + s.substr(1);
+        }
+        char apath[PATH_MAX];
+        if(::_fullpath(apath, s.c_str(), MAX_PATH) == nullptr) return std::string();
+        return std::string(apath);
+      }
+      #else
+      {
+        char outpath[PATH_MAX+1];
+        if(!::realpath(path.c_str(), outpath)) return std::string();
+        outpath[PATH_MAX] = '\0';
+        return std::string(outpath);
+      }
+      #endif
+    }
+  }
+
   template <typename PathAccessor>
   int realpath(duktape::api& stack)
   {
     if(!stack.is<std::string>(0)) return 0;
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
-    #ifdef WINDOWS
     if(path.empty()) return 0;
-    if(path == "~") return homedir<PathAccessor>(stack);
-    char apath[PATH_MAX];
-    std::string s = path;
-    while(!s.empty() && (s[s.length()-1] == '\\')) s.resize(s.length()-1);
-    if((path.length() > 2) && (path[0] == '~') && ((path[1] == '\\') || (path[1] == '/'))) {
-      char hdir[PATH_MAX];
-      if(!SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_PROFILE, NULL, 0, hdir))) return 0;
-      hdir[sizeof(hdir)-1] = '\0';
-      s = std::string(hdir) + s.substr(1);
+    #ifdef WINDOWS
+    {
+      if(path == "~") return homedir<PathAccessor>(stack);
     }
-    if(::_fullpath(apath, s.c_str(), MAX_PATH) == NULL) return 0;
-    stack.push(PathAccessor::to_js(std::string(apath)));
-    return 1;
     #else
-    if(path.empty()) {
-      return 0;
-    } else if(::access(path.c_str(), F_OK) != 0) {
-      // knowingly existing
-    } else if(path[0] == '~') {
-      if(path.length() == 1) {
-        return homedir<PathAccessor>(stack);
-      } else if(path[1] == '/') {
-        char name[256];
-        struct ::passwd pw, *ppw;
-        if((::getpwuid_r(::getuid(), &pw, name, sizeof(name), &ppw) != 0) || (!pw.pw_dir)) return 0;
-        path = std::string(pw.pw_dir) + path.substr(1);
-      }
-    } else if(path[0] == '.') {
-      if(path.length() == 1) {
-        return cwd<PathAccessor>(stack);
-      } else if(path[1] == '/') {
-        char apath[PATH_MAX+1];
-        if(!::getcwd(apath, sizeof(apath)-1)) return 0;
-        apath[sizeof(apath)-1] = '\0';
-        path = std::string(apath) + path.substr(1);
+    {
+      if(::access(path.c_str(), F_OK) != 0) {
+        // knowingly existing
+      } else if(path[0] == '~') {
+        if(path.length() == 1) {
+          return homedir<PathAccessor>(stack);
+        } else if(path[1] == '/') {
+          char name[256];
+          struct ::passwd pw, *ppw;
+          if((::getpwuid_r(::getuid(), &pw, name, sizeof(name), &ppw) != 0) || (!pw.pw_dir)) return 0;
+          path = std::string(pw.pw_dir) + path.substr(1);
+        }
+      } else if(path[0] == '.') {
+        if(path.length() == 1) {
+          return cwd<PathAccessor>(stack);
+        } else if(path[1] == '/') {
+          char apath[PATH_MAX+1];
+          if(!::getcwd(apath, sizeof(apath)-1)) return 0;
+          apath[sizeof(apath)-1] = '\0';
+          path = std::string(apath) + path.substr(1);
+        }
       }
     }
-    char outpath[PATH_MAX];
-    outpath[PATH_MAX-1] = '\0';
-    if(!::realpath(path.c_str(), outpath)) return 0;
-    stack.push(PathAccessor::to_js(std::string(outpath)));
-    return 1;
     #endif
+    path = get_realpath(path);
+    if(path.empty()) return 0;
+    stack.push(PathAccessor::to_js(path));
+    return 1;
   }
 
   template <typename PathAccessor>
@@ -672,20 +650,20 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
       return 0;
     }
     #else
-    PSID pSidOwner = NULL;
+    PSID pSidOwner = nullptr;
     char name[4096];
     DWORD namesz = 4096;
     SID_NAME_USE eUse = SidTypeUnknown;
     HANDLE hFile;
-    PSECURITY_DESCRIPTOR pSD = NULL;
+    PSECURITY_DESCRIPTOR pSD = nullptr;
     memset(name, 0, sizeof(name));
-    hFile = ::CreateFileA(path.c_str(), GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);
+    hFile = ::CreateFileA(path.c_str(), GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
     bool ok = false;
     if(hFile == INVALID_HANDLE_VALUE) {
       return 0;
-    } else if(::GetSecurityInfo(hFile,SE_FILE_OBJECT,OWNER_SECURITY_INFORMATION,&pSidOwner,NULL,NULL,NULL,&pSD) != ERROR_SUCCESS) {
+    } else if(::GetSecurityInfo(hFile,SE_FILE_OBJECT,OWNER_SECURITY_INFORMATION,&pSidOwner,nullptr,nullptr,nullptr,&pSD) != ERROR_SUCCESS) {
       ok = false;
-    } else if(!LookupAccountSidA(NULL,pSidOwner, name, (LPDWORD)&namesz, NULL, NULL, &eUse)) {
+    } else if(!LookupAccountSidA(nullptr,pSidOwner, name, (LPDWORD)&namesz, nullptr, nullptr, &eUse)) {
       ok = false;
     } else {
       ok = true;
@@ -831,11 +809,12 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   int islink(duktape::api& stack)
   {
     #ifndef WINDOWS
-    struct ::stat st; stack.push(stack.is<std::string>(0) && (::lstat(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &st) == 0) && S_ISLNK(st.st_mode));
-    return 1;
+    struct ::stat st;
+    stack.push(stack.is<std::string>(0) && (::lstat(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &st) == 0) && S_ISLNK(st.st_mode));
     #else
-    return_false; /// @todo: implement windows.islink
+    stack.push(false); /// @todo: implement windows.islink
     #endif
+    return 1;
   }
 
   template <typename PathAccessor>
@@ -844,10 +823,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #ifndef WINDOWS
     struct ::stat st;
     stack.push(stack.is<std::string>(0) && (::stat(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &st) == 0) && S_ISFIFO(st.st_mode));
-    return 1;
     #else
-    return_false;
+    stack.push(false);
     #endif
+    return 1;
   }
 
   template <typename PathAccessor>
@@ -855,11 +834,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   {
     #ifndef WINDOWS
     stack.push(stack.is<std::string>(0) && ::access(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), W_OK) == 0);
-    return 1;
     #else
     stack.push(stack.is<std::string>(0) && _access(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), W_OK) == 0);
-    return 1;
     #endif
+    return 1;
   }
 
   template <typename PathAccessor>
@@ -867,11 +845,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   {
     #ifndef WINDOWS
     stack.push(stack.is<std::string>(0) && ::access(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), R_OK) == 0);
-    return 1;
     #else
     stack.push(stack.is<std::string>(0) && _access(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), 4) == 0);
-    return 1;
     #endif
+    return 1;
   }
 
   template <typename PathAccessor>
@@ -879,12 +856,11 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   {
     #ifndef WINDOWS
     stack.push(stack.is<std::string>(0) && ::access(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), X_OK) == 0);
-    return 1;
     #else
     DWORD r=0;
     stack.push(stack.is<std::string>(0) && (::GetBinaryTypeA(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &r) != 0));
-    return 1;
     #endif
+    return 1;
   }
 
   template <typename PathAccessor>
@@ -916,15 +892,16 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   int mkdir(duktape::api& stack)
   {
     const mode_t mode = 0755;
-    if(!stack.is<std::string>(0)) return_false;
+    if(!stack.is<std::string>(0)) { stack.push(false); return 1; };
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
     std::string options = stack.is<std::string>(1) ? stack.get<std::string>(1) : std::string();
     bool recursive = (!options.empty()) && ((options[0] == 'p') || (options[0] == 'r'));
-    if((path.length() > PATH_MAX)) return_false;
+    if((path.length() > PATH_MAX)) { stack.push(false); return 1; };
     #ifndef WINDOWS
     if(::mkdir(path.c_str(), mode) == 0) {
       // ok, created
-      return_true;
+      stack.push(true);
+      return 1;
     } else if(errno == EEXIST) {
       // Race condition, someone else has created a directory or something else in between:
       // re-stat at end of function.
@@ -945,26 +922,25 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     }
     #else
     (void) mode;
+    std::replace(path.begin(), path.end(), '/', '\\');
     // if mkdir fails, the is-dir check below will indicate if failed or already existing.
     if((_mkdir(path.c_str()) == 0)) {
       // created
-      return_true;
+      stack.push(true);
+      return 1;
     } else if(recursive) {
       // With parent creation, we do this conventionally and with the absolute path.
-      char dir[PATH_MAX];
-      memset(dir, 0, PATH_MAX);
+      // ::SHCreateDirectoryExA(nullptr, path.c_str(), nullptr) requires full qualified path, might be more hazzle then just recursing here:
+      char dir[PATH_MAX+1];
       std::copy(path.begin(), path.end(), dir);
-      dir[PATH_MAX-1] = '\0';
-      for(char *p=strchr(dir+1, '\\'); p; p=strchr(p+1, '\\')) {
+      dir[path.size()] = '\0';
+      for(char *p=::strchr(dir+1, '\\'); p; p=::strchr(p+1, '\\')) {
         *p='\0';
         PathAccessor::ck_sys(PathAccessor::to_js(dir));
-        if((_mkdir(dir) != 0) && (errno != EEXIST)) {
-          std::cout << "errno= " << errno << " : " << ::strerror(errno) << std::endl;
-          break;
-        }
+        if((::_mkdir(dir) != 0) && (errno != EEXIST)) break; // Simply stop. Will return failure in the check below.
         *p='\\';
       }
-      _mkdir(path.c_str());
+      ::_mkdir(path.c_str());
     }
     #endif
     struct ::stat st;
@@ -991,9 +967,13 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   {
     bool mtime_set = stack.is<struct ::timespec>(1);
     bool atime_set = stack.is<struct ::timespec>(2);
-    if(!stack.is<std::string>(0) || (!mtime_set && !atime_set)) return_false;
-    if(!mtime_set && !stack.is_undefined(1)) return_false;
-    if(!atime_set && !stack.is_undefined(2)) return_false;
+    if((!stack.is<std::string>(0) || (!mtime_set && !atime_set))
+    || (!mtime_set && !stack.is_undefined(1))
+    || (!atime_set && !stack.is_undefined(2))
+    ) {
+      stack.push(false);
+      return 1;
+    }
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
     struct ::utimbuf ut;
     if(!mtime_set || !atime_set) {
@@ -1192,7 +1172,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
       };
 
       glob_data gb;
-      if(::glob(path.c_str(), GLOB_DOOFFS, NULL, &gb.data) != 0) {
+      if(::glob(path.c_str(), GLOB_DOOFFS, nullptr, &gb.data) != 0) {
         switch(errno) {
           case GLOB_NOMATCH:
             stack.push_array();
@@ -1300,14 +1280,58 @@ namespace duktape { namespace mod { namespace filesystem { namespace generic {
      * @param {string|function} [conf]
      * @return {string|buffer}
      */
+    fs.read = function(path, conf) {};
+    #endif
+    js.define("fs.read", fileread<PathAccessor>, 2);
+
+    #if(0 && JSDOC)
+    /**
+     * Writes data into a file.
+     *
+     * @param {string} path
+     * @param {string|buffer|number|boolean|object} data
+     * @return {boolean}
+     */
+    fs.write = function(path, data) {};
+    #endif
+    if(!readonly) {
+      js.define("fs.write", filewrite<PathAccessor, false>, 2);
+    }
+
+    #if(0 && JSDOC)
+    /**
+     * Appends data at the end of a file.
+     *
+     * @see fs.append
+     * @param {string} path
+     * @param {string|buffer|number|boolean|object} data
+     * @return {boolean}
+     */
+    fs.append = function(path, data) {};
+    #endif
+    if(!readonly) {
+      js.define("fs.append", filewrite<PathAccessor, true>, 2);
+    }
+
+    #if(0 && JSDOC)
+    /**
+     * Alias of `fs.read()`. Reads a file, returns the contents or undefined
+     * on error. See `fs.read()` for full options.
+     *
+     * @see fs.read
+     * @param {string} path
+     * @param {string|function} [conf]
+     * @return {string|buffer}
+     */
     fs.readfile = function(path, conf) {};
     #endif
     js.define("fs.readfile", fileread<PathAccessor>, 2);
 
     #if(0 && JSDOC)
     /**
-     * Writes data into a file.
+     * Writes data into a file. Alias of `fs.write()`.
      *
+     * @see fs.write
      * @param {string} path
      * @param {string|buffer|number|boolean|object} data
      * @return {boolean}
@@ -1320,8 +1344,9 @@ namespace duktape { namespace mod { namespace filesystem { namespace generic {
 
     #if(0 && JSDOC)
     /**
-     * Appends data at the end of a file.
+     * Appends data at the end of a file. Alias of `fs.append()`.
      *
+     * @see fs.append
      * @param {string} path
      * @param {string|buffer|number|boolean|object} data
      * @return {boolean}
@@ -1871,9 +1896,5 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
   }
 
 }}}}
-
-#undef return_true
-#undef return_false
-#undef return_undefined
 
 #endif
