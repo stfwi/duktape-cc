@@ -57,10 +57,11 @@
   #include <sys/utsname.h>
   #include <pwd.h>
   #include <grp.h>
+  #include <fcntl.h>
   #include <sys/ioctl.h>
   #include <sys/types.h>
   #include <unistd.h>
-  #if defined(__linux) || defined(__linux__)
+  #ifdef __linux__
     #include <linux/kd.h>
   #endif
 #endif
@@ -128,7 +129,7 @@ namespace duktape { namespace detail {
     }
   };
 
-  #if defined(__linux) || defined(__linux__) || defined(__MINGW32__) || defined(__MINGW64__)
+  #if defined(__linux__) || defined(__MINGW32__) || defined(__MINGW64__)
     template <> struct conv<struct ::timespec>
     {
       typedef struct ::timespec type;
@@ -319,7 +320,7 @@ namespace duktape { namespace detail { namespace system {
   int getuname(duktape::api& stack)
   {
     stack.push_object();
-    #if defined(unix) || defined(__unix) || defined(__unix__) || defined(__linux)
+    #if defined(unix) || defined(__unix) || defined(__unix__) || defined(__linux__)
     struct ::utsname un;
     if(::uname(&un) != 0) return 0;
     stack.set("sysname", (const char*)un.sysname);
@@ -356,7 +357,7 @@ namespace duktape { namespace detail { namespace system {
       if(!s.empty()) c = s[0];
     }
     double t = std::numeric_limits<double>::quiet_NaN();
-    #ifdef __linux
+    #ifdef __linux__
     // Separate case because we have explicit boot time here
     switch(c) {
       case 'r':
@@ -461,7 +462,7 @@ namespace duktape { namespace detail { namespace system {
       stack.top(0);
       stack.push(true);
       return 1;
-    #elif defined(__linux) || defined(__linux__)
+    #elif defined(__linux__)
       stack.top(0);
       stack.push(false);
       const auto tick_rate = 1193180;

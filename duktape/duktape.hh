@@ -34,16 +34,9 @@
 #ifndef DUKTAPE_HH
 #define DUKTAPE_HH
 
-#include <limits.h>
-#if (!defined(UINT_MAX)) || (UINT_MAX < 0xffffffffUL)
-#error "This interface requires at least 32 bit integer size for type int."
-#endif
-#if (!defined(__cplusplus)) || (__cplusplus < 201103L)
-#error "You have to compile with at least std=c++11"
-#endif
-#include <cstdint>
 #undef DUK_SIZE_MAX_COMPUTED
 #define DUK_SIZE_MAX_COMPUTED
+#include <cstdint>
 #include "duktape.h"
 #include <iostream>
 #include <string>
@@ -54,6 +47,7 @@
 #include <stdexcept>
 #include <fstream>
 #include <limits>
+#include <climits>
 #include <utility>
 #include <memory>
 #include <functional>
@@ -64,11 +58,11 @@
 #include <regex>
 #include <mutex>
 
-#ifdef WITH_DUKTAPE_HH_ASSERT
-#include <cassert>
-#define dukcc_assert(X) assert(X)
-#else
-#define dukcc_assert(X)
+#if (!defined(UINT_MAX)) || (UINT_MAX < 0xffffffffUL)
+  #error "This interface requires at least 32 bit integer size for type int."
+#endif
+#if (!defined(__cplusplus)) || (__cplusplus < 201103L)
+  #error "You have to compile with at least std=c++11"
 #endif
 
 #ifndef WITH_DEFAULT_STRICT_INCLUDE

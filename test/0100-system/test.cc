@@ -11,7 +11,7 @@ void test(duktape::engine& js)
   test_comment( "sys.pid() = " << js.eval<long>("sys.pid()") );
   test_expect( js.eval<long>("sys.pid()") > 0 );
 
-#if defined(__linux__) || defined(__linux)
+#ifdef __linux__
 
   test_comment( "sys.uid() = " << js.eval<long>("sys.uid()") );
   test_expect( js.eval<long>("sys.uid()") > 0 );

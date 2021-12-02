@@ -4,10 +4,10 @@
  * @license MIT
  * @authors Stefan Wilhelm (stfwi, <cerbero s@atwillys.de>)
  * @platform linux, bsd, windows
- * @standard >= c++11
+ * @standard >= c++14
  * @requires duk_config.h duktape.h duktape.c >= v2.1
  * @requires Duktape CFLAGS -DDUK_USE_CPP_EXCEPTIONS
- * @cxxflags -std=c++11 -W -Wall -Wextra -pedantic -fstrict-aliasing
+ * @cxxflags -std=c++14 -W -Wall -Wextra -pedantic -fstrict-aliasing
  * @requires WIN32 CXXFLAGS -D_WIN32_WINNT>=0x0601 -DWINVER>=0x0601 -D_WIN32_IE>=0x0900
  *
  * -----------------------------------------------------------------------------
@@ -18,7 +18,7 @@
  *
  * -----------------------------------------------------------------------------
  * License: http://opensource.org/licenses/MIT
- * Copyright (c) 2014-2017, the authors (see the @authors tag in this file).
+ * Copyright (c) 2014-2021, the authors (see the @authors tag in this file).
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -36,17 +36,18 @@
  */
 #ifndef DUKTAPE_MOD_BASIC_FILESYSTEM_EXT_HH
 #define DUKTAPE_MOD_BASIC_FILESYSTEM_EXT_HH
-
 #include "mod.fs.hh" /* All settings and definitions of fs apply */
 #include <regex>
-#ifdef WINDOWS
+
+#if (__cplusplus >= 201700L)
+  #include <filesystem>
+#elif defined(WINDOWS)
   #include <Shellapi.h>
+#elif defined(__linux__)
+  #include <fts.h>
 #endif
-#define return_false { stack.push(false); return 1; }
+
 #define return_true { stack.push(true); return 1; }
-#define return_undefined { return 0; }
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 
 namespace duktape { namespace detail { namespace filesystem { namespace extended {
 
@@ -121,50 +122,96 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     int recursion_level = 0
   )
   {
-    if(recursion_level >= depth) return true;
-    bool f_lnk = ftype.find('l') != ftype.npos;
-    bool f_dir = ftype.find('d') != ftype.npos;
-    bool f_reg = ftype.find('f') != ftype.npos;
-    bool f_fifo = ftype.find('p') != ftype.npos;
-    bool f_cdev = ftype.find('c') != ftype.npos;
-    bool f_bdev = ftype.find('b') != ftype.npos;
-    bool f_sock = ftype.find('s') != ftype.npos;
-    bool f_hidden = ftype.find('h') != ftype.npos;
-    if(ftype.empty() || ftype=="h") {
-      f_lnk = f_dir = f_reg = f_fifo = f_cdev = f_bdev = f_sock = true;
-    }
-
-    if(path.empty()) {
-      path = ".";
-    }
-
-    // fnmatch on win32 and maybe other platforms missing or differnt,
-    // threrfore we use regex for all. That also allows case sensitive
-    // and case insensitive search
-    std::regex re;
-    if(pattern.empty()) {
-      re = std::regex(".*");
-    } else {
-      std::string pt = "^";
+    if(recursion_level > depth) return true;
+    if(path.empty()) { path = "."; }
+    const auto search_regex = [&](const std::string& pattern) {
+      using namespace std;
+      if(pattern.empty()) return regex(".*");
+      string pt = "^";
       for(auto e:pattern) {
         switch(e) {
-          case '?': pt += "."; break;
-          case '*': pt += ".*"; break;
-          case '.': case '\\':
-          case '(': case ')':
-          case '[': case ']':
-          case '{': case '}':
-          case '^': case '$':
-          case '+': case '|':
-            pt += "\\";
-          default: pt += e;
+          case '?': { pt += "."; break; }
+          case '*': { pt += ".*"; break; }
+          case '.': case '\\': case '(': case ')': case '[': case ']': case '{': case '}': case '^': case '$': case '+': case '|': { pt += "\\"; pt += e; break; }
+          default: { pt += e; }
         }
       }
       pt += "$";
-      re = case_sensitive ? std::regex(pt,re.ECMAScript|re.nosubs) : std::regex(pt, re.ECMAScript|re.nosubs|re.icase);
-    }
+      return case_sensitive ? regex(pt, regex::ECMAScript|regex::nosubs) : regex(pt, regex::ECMAScript|regex::nosubs|regex::icase);
+    };
+    const std::regex re = search_regex(pattern);
+    const bool f_all = (ftype.empty() || (ftype == "h"));
+    const bool f_lnk = f_all || (ftype.find('l') != ftype.npos);
+    const bool f_dir = f_all || (ftype.find('d') != ftype.npos);
+    const bool f_reg = f_all || (ftype.find('f') != ftype.npos);
+    const bool f_fifo = f_all || (ftype.find('p') != ftype.npos);
+    const bool f_cdev = f_all || (ftype.find('c') != ftype.npos);
+    const bool f_bdev = f_all || (ftype.find('b') != ftype.npos);
+    const bool f_sock = f_all || (ftype.find('s') != ftype.npos);
+    const bool f_hidden = f_all || (ftype.find('h') != ftype.npos);
 
-    #if defined(__linux)
+    #if (__cplusplus >= 201700L)
+    {
+      (void) no_outside; // Not applicable here, we don't follow directory symlinks.
+      (void) xdev; // Need to check how this can be done.
+      namespace fs = std::filesystem;
+      const auto base = fs::path(path, fs::path::format::generic_format);
+      if(!fs::is_directory(base)) {
+        ecallback(std::string("Directory to search is not a directory: '") + path + "'");
+        return false;
+      }
+      const auto d_end = fs::recursive_directory_iterator();
+      auto error = std::error_code();
+      for(auto d_it=fs::recursive_directory_iterator(base, fs::directory_options::skip_permission_denied, error); d_it != d_end; ++d_it) {
+        if(d_it.depth() >= depth) d_it.disable_recursion_pending();
+        const auto& entry = *d_it;
+        //const auto st = entry.status();
+        if(f_all
+          || entry.is_directory()
+          || (f_reg && entry.is_regular_file())
+          || (f_lnk && entry.is_symlink())
+          || (f_fifo && entry.is_fifo())
+          || (f_cdev && entry.is_character_file())
+          || (f_bdev && entry.is_block_file())
+          || (f_sock && entry.is_socket())
+        ) {
+          const auto entry_path = entry.path().string();
+          const auto fname = entry.path().filename().string();
+          if(entry_path.empty()) {
+            continue;
+          }
+          if(!f_hidden) {
+            #ifdef WINDOWS
+              const auto hidden_attr = !!(::GetFileAttributesA(entry.path().string().c_str()) & FILE_ATTRIBUTE_HIDDEN);
+            #else
+              constexpr auto hidden_attr = false;
+            #endif
+            if(hidden_attr || ((fname.size() > 1) && (fname[0] == '.'))) { // Also valid for ".."
+              d_it.disable_recursion_pending();
+              continue;
+            }
+          }
+          if(entry.is_directory()) {
+            if(entry.is_symlink()) {
+              if(!f_lnk) continue;
+            } else {
+              if(!f_dir) continue;
+            }
+          }
+          if(!xdev) {
+            void(0); // Evaluate if that is needed.
+          }
+          if(pattern.empty() || std::regex_match(fname, re)) {
+            if(!fcallback(std::string(entry_path))) {
+              break; // Callback wants to stop iterating.
+            }
+          }
+        }
+      }
+      return !error;
+    }
+    #elif defined(__linux__)
+    {
       // struct only to ensure that the fts is closed when
       // leaving the function scope.
       struct fts_guard {
@@ -217,7 +264,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
           case FTS_DP:
             continue;
           default:
-            if((no_outside && (f->fts_level <= 0)) || (f->fts_level > depth)) {
+            if((no_outside && (f->fts_level <= 0)) || (f->fts_level > (depth+1))) {
               // respect max depth, do not include parent directories.
               continue;
             } else if(!f->fts_statp || !(f->fts_statp->st_mode & mode)) {
@@ -243,9 +290,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
       ::fts_close(tree.ptr);
       tree.ptr = nullptr;
       return (!errno);
-
+    }
     #elif defined(WINDOWS)
-
+    {
       (void) no_outside; (void) f_lnk; (void) f_fifo; (void) f_cdev;
       (void) f_bdev; (void) f_sock; (void) xdev;
 
@@ -303,7 +350,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
           return false;
       }
       return ok;
-
+    }
     #else
       #error "recurse_directory not implemented"
     #endif
@@ -382,7 +429,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     if(!stack.is<std::string>(0)) return stack.throw_exception("No directory given to search");
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
     std::string pattern, ftype;
-    int depth = std::numeric_limits<int>::max();
+    int depth = std::numeric_limits<int>::max()-1;
     bool no_outside = true;
     bool xdev = false;
     #ifdef WINDOWS
@@ -508,7 +555,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
       if((::stat(dst.c_str(), &st) == 0) && S_ISDIR(st.st_mode)) {
         std::string bsrc = src;
         char *bn = basename(&bsrc.front());
-        if(!bn) return_false;
+        if(!bn) { stack.push(false); return 1; };
         dst += std::string("\\") + bn;
         if((::stat(dst.c_str(), &st) == 0)) {
           return stack.throw_exception(std::string("Destination path already exists: '") + dst + "'");
@@ -532,7 +579,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
   template <typename PathAccessor>
   int copyfile(duktape::api& stack)
   {
-    if(!stack.is<std::string>(0) || !stack.is<std::string>(1)) return_false;
+    if(!stack.is<std::string>(0) || !stack.is<std::string>(1)) { stack.push(false); return 1; };
     std::string src = PathAccessor::to_sys(stack.to<std::string>(0));
     std::string dst = PathAccessor::to_sys(stack.to<std::string>(1));
     bool recursive = false;
@@ -813,11 +860,10 @@ namespace duktape { namespace mod { namespace filesystem { namespace extended {
      *          - "s": Socket
      *          - "c": Character device (like /dev/tty)
      *          - "b": Block device (like /dev/sda)
-     *          - "h": Include hidden files (Win: hidden flag, Linux/Unix: no effect, intentionally
-     *                 not applied to files with a leading dot, which are normal files, dirs etc).
+     *          - "h": Include hidden files (dot-files like ".fileordir", and win32 'hidden' flag).
+     *                 If `type` is empty/not specified, hidden files are implicitly included.
      *
-     *      - depth: {number} Maximum directory recursion depth. `0` lists nothing, `1` the contents of the
-     *               root directory, etc.
+     *      - depth: {number} Maximum directory recursion depth. `0` lists the contents of the root directory, etc.
      *
      *      - icase: {boolean} File name matching is not case sensitive (Linux/Unix: default false, Win32: default true)
      *
@@ -915,8 +961,5 @@ namespace duktape { namespace mod { namespace filesystem { namespace extended {
 }}}}
 
 #undef return_true
-#undef return_false
-#undef return_undefined
-#pragma GCC diagnostic pop
 
 #endif

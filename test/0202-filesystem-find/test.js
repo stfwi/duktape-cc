@@ -43,13 +43,13 @@ test_expect(!!files);
 test_expect(!!files.length);
 
 test_comment( 'find with pattern and depth -> there is only one dir with the name "b"');
-test_comment( 'files=fs.find(testdir, {name:"b", depth:1}) =', files=fs.find(testdir, {name:"b", depth:1}));
+test_comment( 'files=fs.find(testdir, {name:"b", depth:0}) =', files=fs.find(testdir, {name:"b", depth:0}));
 test_expect(!!files);
 test_expect(!!files.length);
 test_expect(files.length === 1);
 
 test_comment( 'find with only depth -> list all root dir entries');
-test_comment( 'files=fs.find(testdir, {depth:1}), files=', files=fs.find(testdir, {depth:1}));
+test_comment( 'files=fs.find(testdir, {depth:0}), files=', files=fs.find(testdir, {depth:0}));
 test_expect(!!files);
 test_expect(!!files.length);
 

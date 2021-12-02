@@ -82,7 +82,6 @@
   #include <limits.h>
   #include <unistd.h>
   #include <fnmatch.h>
-  #include <fts.h>
   #include <glob.h>
   #include <sys/times.h>
   #include <dirent.h>
@@ -95,8 +94,8 @@
     #include <sys/file.h>
     #include <sys/sendfile.h>
     #include <fcntl.h>
-  #elif defined __APPLE__ & __MACH__
-    #define MACINTOSH /* let's jsut say macintosh, we know what't meant. */
+  #elif defined(__APPLE__) & __MACH__
+    #define MACINTOSH
     #include <sys/wait.h>
   #else
     #include <sys/wait.h>
