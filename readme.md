@@ -290,6 +290,9 @@ int main(int argc, const char** argv)
 
 ### File system object
 
+  - fs.read(path, conf)
+  - fs.write(path, data)
+  - fs.append(path, data)
   - fs.readfile(path, conf)
   - fs.writefile(path, data)
   - fs.appendfile(path, data)
@@ -365,4 +368,3 @@ int main(int argc, const char** argv)
   - sys.hash.md5(data, isfile)
   - sys.hash.sha1(data, isfile)
   - sys.hash.sha512(data, isfile)
-  - sys.socket(settings)

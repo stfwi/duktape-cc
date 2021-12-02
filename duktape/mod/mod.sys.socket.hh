@@ -1196,7 +1196,7 @@ namespace duktape { namespace mod { namespace system { namespace socket {
     };
 
 
-    #if(0 && JSDOC)
+    #if(0 && JSDOC___EXPERIMENTAL)
     /**
      * Socket handling object constructor, optionally with initial settings.
      *

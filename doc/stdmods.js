@@ -202,7 +202,7 @@ var fs = {};
  * @param {string|function} [conf]
  * @return {string|buffer}
  */
-fs.readfile = function(path, conf) {};
+fs.read = function(path, conf) {};
 
 /**
  * Writes data into a file.
@@ -211,11 +211,43 @@ fs.readfile = function(path, conf) {};
  * @param {string|buffer|number|boolean|object} data
  * @return {boolean}
  */
-fs.writefile = function(path, data) {};
+fs.write = function(path, data) {};
 
 /**
  * Appends data at the end of a file.
  *
+ * @see fs.append
+ * @param {string} path
+ * @param {string|buffer|number|boolean|object} data
+ * @return {boolean}
+ */
+fs.append = function(path, data) {};
+
+/**
+ * Alias of `fs.read()`. Reads a file, returns the contents or undefined
+ * on error. See `fs.read()` for full options.
+ *
+ * @see fs.read
+ * @param {string} path
+ * @param {string|function} [conf]
+ * @return {string|buffer}
+ */
+fs.readfile = function(path, conf) {};
+
+/**
+ * Writes data into a file. Alias of `fs.write()`.
+ *
+ * @see fs.write
+ * @param {string} path
+ * @param {string|buffer|number|boolean|object} data
+ * @return {boolean}
+ */
+fs.writefile = function(path, data) {};
+
+/**
+ * Appends data at the end of a file. Alias of `fs.append()`.
+ *
+ * @see fs.append
  * @param {string} path
  * @param {string|buffer|number|boolean|object} data
  * @return {boolean}
@@ -1470,18 +1502,3 @@ sys.hash.sha1 = function(data, isfile) {};
  * @return {string}
  */
 sys.hash.sha512 = function(data, isfile) {};
-
-/** @file: mod.sys.socket.hh */
-
-/**
- * Socket handling object constructor, optionally with initial settings.
- *
- * @constructor
- * @throws {Error}
- * @param {string|undefined} settings
- *
- * @property {string}  port         -
- * @property {boolean} error        -
- * @property {string}  errormessage -
- */
-sys.socket = function(settings) {};
