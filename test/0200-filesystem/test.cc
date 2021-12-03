@@ -53,8 +53,6 @@ void test_mkdir(duktape::engine& js)
   test_expect( js.eval<bool>("fs.rmdir('test-dir') === true;") );
   test_expect( js.eval<bool>("fs.rmdir('test-dir') === false; // not existent") );
 
-  // @todo: that should be nicer with an auxiliary function like [unixwin_path/win_path] unify_path(unix_path)
-  #ifndef WINDOWS
   test_expect( js.eval<bool>("fs.mkdir('test-dir/1/2/3','p') === true;") );
   test_expect( js.eval<bool>("fs.isdir('test-dir/1/2/3') === true; // check") );
   test_expect( js.eval<bool>("fs.chdir('test-dir/1/2') === true") );
@@ -63,15 +61,15 @@ void test_mkdir(duktape::engine& js)
   test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
   test_expect( js.eval<bool>("fs.isdir('test-dir/4') === true; // check") );
   test_expect( js.eval<bool>("fs.isdir('test-dir/5/6/7') === true; // check") );
-  #else
-  test_expect( js.eval<bool>("fs.mkdir('test-dir\\\\1\\\\2\\\\3','p') === true;") );
-  test_expect( js.eval<bool>("fs.isdir('test-dir\\\\1\\\\2\\\\3') === true; // check") );
-  test_expect( js.eval<bool>("fs.chdir('test-dir\\\\1\\\\2') === true") );
-  test_expect( js.eval<bool>("fs.mkdir('..\\\\..\\\\4') === true") );
-  test_expect( js.eval<bool>("fs.mkdir('.\\\\..\\\\..\\\\5\\\\6\\\\7', 'p') === true") );
+  #ifdef WINDOWS
+  test_expect( js.eval<bool>("fs.mkdir('test-dir\\\\11\\\\12\\\\13','p') === true;") );
+  test_expect( js.eval<bool>("fs.isdir('test-dir\\\\11\\\\12\\\\13') === true; // check") );
+  test_expect( js.eval<bool>("fs.chdir('test-dir\\\\11\\\\12') === true") );
+  test_expect( js.eval<bool>("fs.mkdir('..\\\\..\\\\14') === true") );
+  test_expect( js.eval<bool>("fs.mkdir('.\\\\..\\\\..\\\\15\\\\16\\\\17', 'p') === true") );
   test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
-  test_expect( js.eval<bool>("fs.isdir('test-dir\\\\4') === true; // check") );
-  test_expect( js.eval<bool>("fs.isdir('test-dir\\\\5\\\\6\\\\7') === true; // check") );
+  test_expect( js.eval<bool>("fs.isdir('test-dir\\\\14') === true; // check") );
+  test_expect( js.eval<bool>("fs.isdir('test-dir\\\\15\\\\16\\\\17') === true; // check") );
   #endif
 }
 
@@ -178,6 +176,40 @@ void test_readfile_writefile(duktape::engine& js)
   #undef LINETEST
 }
 
+// read / write
+void test_read_write(duktape::engine& js)
+{
+  test_comment("test_read_write");
+  test_makefiletree();
+  test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
+  test_expect( js.eval<bool>("fs.write('testfile', 'testfiletext') === true") );
+  test_expect( js.eval<bool>("fs.read('testfile') === 'testfiletext'") );
+  test_expect( js.eval<bool>("fs.unlink('testfile') === true") );
+  test_expect( js.eval<bool>("fs.write('testfile', Duktape.dec('hex', '4142434445')) === true") );
+  test_expect( js.eval<bool>("fs.read('testfile') === 'ABCDE'") );
+  test_note  ( js.eval<string>("fs.read('testfile', 'binary')") );
+  test_note  ( "fs.read('testfile', 'binary').byteLength = " << js.eval<string>("fs.read('testfile', 'binary').byteLength") );
+  test_note  ( "(new DataView(fs.read('testfile', 'binary'))).getUint8(0) = " << js.eval<string>("(new DataView(fs.read('testfile', 'binary'))).getUint8(0)") );
+  test_expect( js.eval<bool>("typeof(fs.read('testfile', 'binary')) === 'object'") );
+  test_expect( js.eval<bool>("fs.read('testfile', 'binary').byteLength === 5") );
+  test_expect( js.eval<bool>("(new DataView(fs.read('testfile', 'binary'))).getUint8(0) === 65") );
+  test_expect( js.eval<bool>("typeof(fs.read('testfile')) !== 'object'") );
+  test_expect( js.eval<bool>("typeof(fs.read('testfile', 'text')) !== 'object'") );
+  test_expect( js.eval<bool>("typeof(fs.read('testfile', {binary:false})) !== 'object'") );
+  test_expect( js.eval<bool>("typeof(fs.read('testfile', {binary:true})) === 'object'") );
+  test_expect( js.eval<bool>("fs.unlink('testfile') === true") );
+
+  #define LINETEST "'a\\nb\\nc\\nd\\nE\\nF\\n1.5\\nLAST_NONL'"
+  test_expect( js.eval<bool>("fs.write('testfile', " LINETEST ") === true") );
+  test_expect( js.eval<bool>("fs.read('testfile') === " LINETEST) );
+  test_expect( js.eval<bool>("fs.read('testfile', function(line){return true;}) === " LINETEST) );
+  test_expect( js.eval<bool>("fs.read('testfile', function(line){return;}) === ''") );
+  test_expect( js.eval<bool>("fs.read('testfile', function(line){return false;}) === ''") );
+  test_expect( js.eval<string>("fs.read('testfile', function(line){return line == 'a';})") == "a\n" );
+  test_expect( js.eval<bool>("fs.read('testfile', function(line){return line.toUpperCase();}) === " LINETEST ".toUpperCase();") );
+  test_expect( js.eval<bool>("fs.unlink('testfile') === true") );
+  #undef LINETEST
+}
 
 
 void test_chmod_functions(duktape::engine& js)
@@ -269,6 +301,7 @@ void test(duktape::engine& js)
     test_mkdir(js);
     test_stat_functions(js);
     test_readfile_writefile(js);
+    test_read_write(js);
     test_readdir_function(js);
 #ifndef WINDOWS
     test_filemod_functions(js);

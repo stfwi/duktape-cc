@@ -82,7 +82,6 @@
   #include <limits.h>
   #include <unistd.h>
   #include <fnmatch.h>
-  #include <fts.h>
   #include <glob.h>
   #include <sys/times.h>
   #include <dirent.h>
@@ -95,17 +94,13 @@
     #include <sys/file.h>
     #include <sys/sendfile.h>
     #include <fcntl.h>
-  #elif defined __APPLE__ & __MACH__
-    #define MACINTOSH /* let's jsut say macintosh, we know what't meant. */
+  #elif defined(__APPLE__) & __MACH__
+    #define MACINTOSH
     #include <sys/wait.h>
   #else
     #include <sys/wait.h>
   #endif
 #endif
-
-#define return_false { stack.push(false); return 1; }
-#define return_true { stack.push(true); return 1; }
-#define return_undefined { return 0; }
 
 namespace duktape { namespace detail { namespace filesystem {
 
@@ -174,55 +169,8 @@ namespace duktape { namespace detail { namespace filesystem {
 
 }}}
 
-#if(0 && JSDOC)
-/**
- * Global file system object.
- * @var {object}
- */
-var fs = {};
-#endif
-
 namespace duktape { namespace detail { namespace filesystem { namespace generic {
 
-
-  #if(0 && JSDOC)
-  /**
-   * Reads a file, returns the contents or undefined on error.
-   *
-   * - Normally the file is read as text file, no matter if the data in the file
-   *   really correspond to a readable text.
-   *
-   * - If `conf` is a string containing the word "binary", the data are read
-   *   binary and returned as `buffer`.
-   *
-   * - If `conf` is a callable function, the data are read as text line by line,
-   *   and for each line the callback is invoked, where the line text is passed
-   *   as argument. The callback ("filter function") can:
-   *
-   *    - return `true` to keep the passed line in the file read output.
-   *    - return `false` or `undefined` to exclude the line from the output.
-   *    - return a `string` to put the returned string into the output instead
-   *      of the original passed text (inline editing).
-   *
-   * - Binary reading and using the filter callback function excludes another.
-   *
-   * - Not returning anything/undefined has a purpose of storing the line data
-   *   somewhere else, e.g. when parsing:
-   *
-   *     var config = {};
-   *     fs.readfile("whatever.conf", function(s) {
-   *       // parse, parse ... get some key and value pair ...
-   *       config[key] = value;
-   *       // no return return statement, output of fs.filter()
-   *       // is not relevant.
-   *     });
-   *
-   * @param {string} path
-   * @param {string|function} [conf]
-   * @returns {string|buffer}
-   */
-  fs.readfile = function(path, conf) {};
-  #endif
   template <typename PathAccessor>
   int fileread(duktape::api& stack)
   {
@@ -332,16 +280,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
     return 0; // invalid execution path.
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Writes data into a file Reads a file and returns the contents as text.
-   *
-   * @param {string} path
-   * @param {string|buffer|number|boolean|object} data
-   * @returns {boolean}
-   */
-  fs.writefile = function(path, data) {};
-  #endif
   template <typename PathAccessor, bool Append=false>
   int filewrite(duktape::api& stack)
   {
@@ -377,42 +315,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
 
 }}}}
 
-namespace duktape { namespace mod { namespace filesystem { namespace generic {
-
-  using namespace ::duktape::detail::filesystem;
-  using namespace ::duktape::detail::filesystem::generic;
-  /**
-   * Export main relay. Adds all module functions to the specified engine.
-   * @param duktape::engine& js
-   */
-  template <typename PathAccessor=path_accessor<std::string>>
-  static void define_in(duktape::engine& js)
-  {
-    //
-    // Note: The names "readfile" and "writefile" were chosen
-    //       instead of "read" and "write" to clarify that file
-    //       operation FUNCTIONS are meant, similar to "readlink"
-    //       or "readdir". A "fs.file" object would have the methods
-    //       "read" and "write" and "writeline" or the like.
-    //
-    js.define("fs.readfile", fileread<PathAccessor>, 2);
-    js.define("fs.writefile", filewrite<PathAccessor, false>, 2);
-    js.define("fs.appendfile", filewrite<PathAccessor, true>, 2);
-  }
-
-}}}}
-
 namespace duktape { namespace detail { namespace filesystem { namespace basic {
 
-  #if(0 && JSDOC)
-  /**
-   * Returns the current working directory or `undefined` on error.
-   * Does strictly not accept arguments.
-   *
-   * @returns {string|undefined}
-   */
-  fs.cwd = function() {};
-  #endif
   template <typename PathAccessor>
   int cwd(duktape::api& stack)
   {
@@ -423,15 +327,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns the temporary directory or `undefined` on error.
-   * Does strictly not accept arguments.
-   *
-   * @returns {string|undefined}
-   */
-  fs.tmpdir = function() {};
-  #endif
   template <typename PathAccessor>
   int tmpdir(duktape::api& stack)
   {
@@ -449,57 +344,12 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #endif
   }
 
-#if(0)
-  #if(0 && JSDOC)
-  /**
-   * Returns the path for a temporary file. The file is
-   * NOT created yet. Note that using this function for
-   * creating temporary files is unsafe, as other processes
-   * might create the same file before this program has
-   * created it.
-   * Accepts one optional argument, the file prefix.
-   *
-   * @param {string} [prefix]
-   * @returns {string|undefined}
-   */
-  fs.tempnam = function(prefix) {};
-  #endif
-  template <typename PathAccessor>
-  int tempnam(duktape::api& stack)
-  {
-    char path[PATH_MAX];
-    ::memset(path, 0, sizeof(path));
-    std::string prefix;
-    if(stack.is<std::string>(0)) prefix = stack.to<std::string>(0);
-    for(auto& e:prefix) { if(!::isalnum(e)) e = '_'; }
-    if(prefix.empty()) prefix = "tmpf";
-    if(prefix.length() > PATH_MAX-10) prefix.resize(PATH_MAX-10);
-    prefix += "_XXXXXX";
-    ::strncpy(path, prefix.c_str(), PATH_MAX-1);
-    int fd = ::mkstemp(path);
-    if(fd < 0) return 0;
-    ::unlink(path);
-    ::close(fd);
-    stack.push(PathAccessor::to_js(path));
-    return 1;
-  }
-#endif
-
-  #if(0 && JSDOC)
-  /**
-   * Returns the home directory of the current used or `undefined` on error.
-   * Does strictly not accept arguments.
-   *
-   * @returns {string|undefined}
-   */
-  fs.home = function() {};
-  #endif
   template <typename PathAccessor>
   int homedir(duktape::api& stack)
   {
     #ifdef WINDOWS
     char p[MAX_PATH];
-    if(SUCCEEDED(::SHGetFolderPathA(NULL, CSIDL_PROFILE, NULL, 0, p))) {
+    if(SUCCEEDED(::SHGetFolderPathA(nullptr, CSIDL_PROFILE, nullptr, 0, p))) {
       stack.push(PathAccessor::to_js(p));
       return 1;
     } else {
@@ -517,80 +367,76 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns the real, full path (with resolved symbolic links) or `undefined`
-   * on error or if the file does not exist.
-   * Does strictly require one String argument (the path).
-   *
-   * @param {string} path
-   * @returns {string|undefined}
-   */
-  fs.realpath = function(path) {};
-  #endif
+  namespace {
+    template <typename=void>
+    std::string get_realpath(const std::string& path)
+    {
+      #ifdef WINDOWS
+      {
+        std::string s = path;
+        while(!s.empty() && ((s.back() == '\\') || (s.back() == '/'))) s.resize(s.length()-1);
+        if((path.length() > 2) && (path[0] == '~') && ((path[1] == '\\') || (path[1] == '/'))) {
+          char hdir[PATH_MAX];
+          if(!SUCCEEDED(::SHGetFolderPathA(nullptr, CSIDL_PROFILE, nullptr, 0, hdir))) return std::string();
+          hdir[sizeof(hdir)-1] = '\0';
+          s = std::string(hdir) + s.substr(1);
+        }
+        char apath[PATH_MAX];
+        if(::_fullpath(apath, s.c_str(), MAX_PATH) == nullptr) return std::string();
+        return std::string(apath);
+      }
+      #else
+      {
+        char outpath[PATH_MAX+1];
+        if(!::realpath(path.c_str(), outpath)) return std::string();
+        outpath[PATH_MAX] = '\0';
+        return std::string(outpath);
+      }
+      #endif
+    }
+  }
+
   template <typename PathAccessor>
   int realpath(duktape::api& stack)
   {
     if(!stack.is<std::string>(0)) return 0;
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
-    #ifdef WINDOWS
     if(path.empty()) return 0;
-    if(path == "~") return homedir<PathAccessor>(stack);
-    char apath[PATH_MAX];
-    std::string s = path;
-    while(!s.empty() && (s[s.length()-1] == '\\')) s.resize(s.length()-1);
-    if((path.length() > 2) && (path[0] == '~') && ((path[1] == '\\') || (path[1] == '/'))) {
-      char hdir[PATH_MAX];
-      if(!SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_PROFILE, NULL, 0, hdir))) return 0;
-      hdir[sizeof(hdir)-1] = '\0';
-      s = std::string(hdir) + s.substr(1);
+    #ifdef WINDOWS
+    {
+      if(path == "~") return homedir<PathAccessor>(stack);
     }
-    if(::_fullpath(apath, s.c_str(), MAX_PATH) == NULL) return 0;
-    stack.push(PathAccessor::to_js(std::string(apath)));
-    return 1;
     #else
-    if(path.empty()) {
-      return 0;
-    } else if(::access(path.c_str(), F_OK) != 0) {
-      // knowingly existing
-    } else if(path[0] == '~') {
-      if(path.length() == 1) {
-        return homedir<PathAccessor>(stack);
-      } else if(path[1] == '/') {
-        char name[256];
-        struct ::passwd pw, *ppw;
-        if((::getpwuid_r(::getuid(), &pw, name, sizeof(name), &ppw) != 0) || (!pw.pw_dir)) return 0;
-        path = std::string(pw.pw_dir) + path.substr(1);
-      }
-    } else if(path[0] == '.') {
-      if(path.length() == 1) {
-        return cwd<PathAccessor>(stack);
-      } else if(path[1] == '/') {
-        char apath[PATH_MAX+1];
-        if(!::getcwd(apath, sizeof(apath)-1)) return 0;
-        apath[sizeof(apath)-1] = '\0';
-        path = std::string(apath) + path.substr(1);
+    {
+      if(::access(path.c_str(), F_OK) != 0) {
+        // knowingly existing
+      } else if(path[0] == '~') {
+        if(path.length() == 1) {
+          return homedir<PathAccessor>(stack);
+        } else if(path[1] == '/') {
+          char name[256];
+          struct ::passwd pw, *ppw;
+          if((::getpwuid_r(::getuid(), &pw, name, sizeof(name), &ppw) != 0) || (!pw.pw_dir)) return 0;
+          path = std::string(pw.pw_dir) + path.substr(1);
+        }
+      } else if(path[0] == '.') {
+        if(path.length() == 1) {
+          return cwd<PathAccessor>(stack);
+        } else if(path[1] == '/') {
+          char apath[PATH_MAX+1];
+          if(!::getcwd(apath, sizeof(apath)-1)) return 0;
+          apath[sizeof(apath)-1] = '\0';
+          path = std::string(apath) + path.substr(1);
+        }
       }
     }
-    char outpath[PATH_MAX];
-    outpath[PATH_MAX-1] = '\0';
-    if(!::realpath(path.c_str(), outpath)) return 0;
-    stack.push(PathAccessor::to_js(std::string(outpath)));
-    return 1;
     #endif
+    path = get_realpath(path);
+    if(path.empty()) return 0;
+    stack.push(PathAccessor::to_js(path));
+    return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns directory part of the given path (without tailing slash/backslash)
-   * or `undefined` on error.
-   * Does strictly require one String argument (the path).
-   *
-   * @param {string} path
-   * @returns {string|undefined}
-   */
-  fs.dirname = function(path) {};
-  #endif
   template <typename PathAccessor>
   int getdirname(duktape::api& stack)
   {
@@ -603,17 +449,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns file base part of the given path (name and extension, without parent directory)
-   * or `undefined` on error.
-   * Does strictly require one String argument (the path).
-   *
-   * @param {string} path
-   * @returns {string|undefined}
-   */
-  fs.basename = function(path) {};
-  #endif
   template <typename PathAccessor>
   int getbasename(duktape::api& stack)
   {
@@ -625,24 +460,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns a string representation of a file mode bit mask, e.g.
-   * for a (octal) mode `0755` directory the output will be '755' or 'rwxrwxrwx' (see flags below).
-   * Does strictly require one (integral) Number argument (the input mode) at first.
-   *
-   * If flags are given they modify the output as follows:
-   *
-   *  flags == 'o' (octal)    : returns a string with the octal representation (like 755 or 644)
-   *  flags == 'l' (long)     : returns a string like 'rwxrwxrwx', like `ls -l` but without preceeding file type character.
-   *  flags == 'e' (extended) : output like `ls -l` ('d'=directory, 'c'=character device, 'p'=pipe, ...)
-   *
-   * @param {number} mode
-   * @param {string} [flags]
-   * @returns {string|undefined}
-   */
-  fs.mod2str = function(mode, flags) {};
-  #endif
   template <typename=void>
   std::string mod2str(unsigned mod, char how='o')
   {
@@ -697,19 +514,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns a numeric representation of a file mode bit mask given as string, e.g.
-   * "755", "rwx------", etc.
-   * Does strictly require one argument (the input mode). Note that numeric arguments
-   * will be reinterpreted as string, so that 755 is NOT the bit mask 0x02f3, but seen
-   * as 0755 octal.
-   *
-   * @param {string} mode
-   * @returns {number|undefined}
-   */
-  fs.str2mod = function(mode) {};
-  #endif
   template <typename=void>
   bool str2mod(std::string mode, unsigned& mod)
   {
@@ -752,36 +556,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     stack.push(mod);
     return 1;
   }
-
-  #if(0 && JSDOC)
-  /**
-   * Returns a plain object containing information about a given file,
-   * directory or `undefined` on error.
-   * Does strictly require one String argument (the path).
-   *
-   * The returned object has the properties:
-   *
-   * {
-   *    path: String,   // given path (function argument)
-   *    size: Number,   // size in bytes
-   *    mtime: Date,    // Last modification time
-   *    ctime: Date,    // Creation time
-   *    atime: Date,    // Last accessed time
-   *    owner: String,  // User name of the file owner
-   *    group: String,  // Group name of the file group
-   *    uid: Number,    // User ID of the owner
-   *    gid: Number,    // Group ID of the group
-   *    inode: Number,  // Inode of the file
-   *    device: Number, // Device identifier/no of the file
-   *    mode: String,   // Octal mode representation like "644" or "755"
-   *    modeval: Number // Numeric file mode bitmask, use `fs.mod2str(mode)` to convert to a string like 'drwxr-xr-x'.
-   * }
-   *
-   * @param {string} path
-   * @returns {object|undefined}
-   */
-  fs.stat = function(path) {};
-  #endif
 
   template <typename PathAccessor, typename StatType>
   int push_filestat(duktape::api& stack, StatType st, std::string path)
@@ -847,16 +621,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return push_filestat<PathAccessor>(stack, st, path);
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns the file size in bytes of a given file path, or undefined on error.
-   * Does strictly require one String argument (the input path).
-   *
-   * @param {string} path
-   * @returns {number|undefined}
-   */
-  fs.size = function(path) {};
-  #endif
   template <typename PathAccessor>
   int filesize(duktape::api& stack)
   {
@@ -868,16 +632,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns the name of the file owner of a given file path, or undefined on error.
-   * Does strictly require one String argument (the input path).
-   *
-   * @param {string} path
-   * @returns {string|undefined}
-   */
-  fs.owner = function(path) {};
-  #endif
   template <typename PathAccessor>
   int fileowner(duktape::api& stack)
   {
@@ -895,20 +649,20 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
       return 0;
     }
     #else
-    PSID pSidOwner = NULL;
+    PSID pSidOwner = nullptr;
     char name[4096];
     DWORD namesz = 4096;
     SID_NAME_USE eUse = SidTypeUnknown;
     HANDLE hFile;
-    PSECURITY_DESCRIPTOR pSD = NULL;
+    PSECURITY_DESCRIPTOR pSD = nullptr;
     memset(name, 0, sizeof(name));
-    hFile = ::CreateFileA(path.c_str(), GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);
+    hFile = ::CreateFileA(path.c_str(), GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
     bool ok = false;
     if(hFile == INVALID_HANDLE_VALUE) {
       return 0;
-    } else if(::GetSecurityInfo(hFile,SE_FILE_OBJECT,OWNER_SECURITY_INFORMATION,&pSidOwner,NULL,NULL,NULL,&pSD) != ERROR_SUCCESS) {
+    } else if(::GetSecurityInfo(hFile,SE_FILE_OBJECT,OWNER_SECURITY_INFORMATION,&pSidOwner,nullptr,nullptr,nullptr,&pSD) != ERROR_SUCCESS) {
       ok = false;
-    } else if(!LookupAccountSidA(NULL,pSidOwner, name, (LPDWORD)&namesz, NULL, NULL, &eUse)) {
+    } else if(!LookupAccountSidA(nullptr,pSidOwner, name, (LPDWORD)&namesz, nullptr, nullptr, &eUse)) {
       ok = false;
     } else {
       ok = true;
@@ -923,16 +677,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns the group name of a given file path, or undefined on error.
-   * Does strictly require one String argument (the input path).
-   *
-   * @param {string} path
-   * @returns {string|undefined}
-   */
-  fs.group = function(path) {};
-  #endif
   template <typename PathAccessor>
   int filegroup(duktape::api& stack)
   {
@@ -955,16 +699,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns last modified time a given file path, or undefined on error.
-   * Does strictly require one String argument (the input path).
-   *
-   * @param {string} path
-   * @returns {Date|undefined}
-   */
-  fs.mtime = function(path) {};
-  #endif
   template <typename PathAccessor>
   int filemtime(duktape::api& stack)
   {
@@ -982,16 +716,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns last access time a given file path, or undefined on error.
-   * Does strictly require one String argument (the input path).
-   *
-   * @param {string} path
-   * @returns {Date|undefined}
-   */
-  fs.atime = function(path) {};
-  #endif
   template <typename PathAccessor>
   int fileatime(duktape::api& stack)
   {
@@ -1009,16 +733,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns creation time a given file path, or undefined on error.
-   * Does strictly require one String argument (the input path).
-   *
-   * @param {string} path
-   * @returns {Date|undefined}
-   */
-  fs.ctime = function(path) {};
-  #endif
   template <typename PathAccessor>
   int filectime(duktape::api& stack)
   {
@@ -1036,17 +750,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns true if a given path points to an existing "node" in the file system (file, dir, pipe, link ...),
-   * false otherwise or undefined on error.
-   * Does strictly require one String argument (the input path).
-   *
-   * @param {string} path
-   * @returns {boolean}
-   */
-  fs.exists = function(path) {};
-  #endif
   template <typename PathAccessor>
   int exists(duktape::api& stack)
   {
@@ -1067,16 +770,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns true if a given path points to a regular file, false otherwise or undefined on error.
-   * Does strictly require one String argument (the input path).
-   *
-   * @param {string} path
-   * @returns {boolean}
-   */
-  fs.isfile = function(path) {};
-  #endif
   template <typename PathAccessor>
   int isfile(duktape::api& stack)
   {
@@ -1094,16 +787,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns true if a given path points to a directory, false otherwise or undefined on error.
-   * Does strictly require one String argument (the input path).
-   *
-   * @param {string} path
-   * @returns {boolean}
-   */
-  fs.isdir = function(path) {};
-  #endif
   template <typename PathAccessor>
   int isdir(duktape::api& stack)
   {
@@ -1121,130 +804,64 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns true if a given path points to a link, false otherwise or undefined on error.
-   * Does strictly require one String argument (the input path).
-   *
-   * @param {string} path
-   * @returns {boolean}
-   */
-  fs.islink = function(path) {};
-  #endif
   template <typename PathAccessor>
   int islink(duktape::api& stack)
   {
     #ifndef WINDOWS
-    struct ::stat st; stack.push(stack.is<std::string>(0) && (::lstat(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &st) == 0) && S_ISLNK(st.st_mode));
-    return 1;
+    struct ::stat st;
+    stack.push(stack.is<std::string>(0) && (::lstat(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &st) == 0) && S_ISLNK(st.st_mode));
     #else
-    return_false; /// @todo: implement windows.islink
+    stack.push(false); /// @todo: implement windows.islink
     #endif
+    return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns true if a given path points to a fifo (named pipe), false otherwise or undefined on error.
-   * Does strictly require one String argument (the input path).
-   *
-   * @param {string} path
-   * @returns {boolean}
-   */
-  fs.isfifo = function(path) {};
-  #endif
   template <typename PathAccessor>
   int isfifo(duktape::api& stack)
   {
     #ifndef WINDOWS
     struct ::stat st;
     stack.push(stack.is<std::string>(0) && (::stat(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &st) == 0) && S_ISFIFO(st.st_mode));
-    return 1;
     #else
-    return_false;
+    stack.push(false);
     #endif
+    return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns true if the current user has write permission to a given path,
-   * false otherwise or undefined on error.
-   * Does strictly require one String argument (the input path).
-   *
-   * @param {string} path
-   * @returns {boolean}
-   */
-  fs.iswritable = function(path) {};
-  #endif
   template <typename PathAccessor>
   int is_writable(duktape::api& stack)
   {
     #ifndef WINDOWS
     stack.push(stack.is<std::string>(0) && ::access(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), W_OK) == 0);
-    return 1;
     #else
     stack.push(stack.is<std::string>(0) && _access(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), W_OK) == 0);
-    return 1;
     #endif
+    return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns true if the current user has read permission to a given path,
-   * false otherwise or undefined on error.
-   * Does strictly require one String argument (the input path).
-   *
-   * @param {string} path
-   * @returns {boolean}
-   */
-  fs.isreadable = function(path) {};
-  #endif
   template <typename PathAccessor>
   int is_readable(duktape::api& stack)
   {
     #ifndef WINDOWS
     stack.push(stack.is<std::string>(0) && ::access(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), R_OK) == 0);
-    return 1;
     #else
     stack.push(stack.is<std::string>(0) && _access(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), 4) == 0);
-    return 1;
     #endif
+    return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns true if the current user has execution permission to a given path,
-   * false otherwise or undefined on error.
-   * Does strictly require one String argument (the input path).
-   *
-   * @param {string} path
-   * @returns {boolean}
-   */
-  fs.isexecutable = function(path) {};
-  #endif
   template <typename PathAccessor>
   int is_executable(duktape::api& stack)
   {
     #ifndef WINDOWS
     stack.push(stack.is<std::string>(0) && ::access(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), X_OK) == 0);
-    return 1;
     #else
     DWORD r=0;
     stack.push(stack.is<std::string>(0) && (::GetBinaryTypeA(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &r) != 0));
-    return 1;
     #endif
+    return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns the target path of a symbolic link, returns a String or `undefined` on error.
-   * Does strictly require one String argument (the path).
-   * Note: Windows: returns undefined, not implemented.
-   *
-   * @param {string} path
-   * @returns {string|undefined}
-   */
-  fs.readlink = function(path) {};
-  #endif
   template <typename PathAccessor>
   int readlink(duktape::api& stack)
   {
@@ -1263,16 +880,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Switches the current working directory to the specified path. Returns true on success, false on error.
-   * Does strictly require one String argument (the input path).
-   *
-   * @param {string} path
-   * @returns {boolean}
-   */
-  fs.chdir = function(path) {};
-  #endif
   template <typename PathAccessor>
   int chdir(duktape::api& stack)
   {
@@ -1280,34 +887,20 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Creates a new empty directory for the specified path. Returns true on success, false on error.
-   * Require one String argument (the input path), and one optional option argument.
-   * If the options is "p" or "parents" (similar to unix `mkdir -p`), parent directories will be
-   * created recursively. If the directory already exists, the function returns success, if the
-   * creation of the directory or a parent directory fails, the function returns false.
-   * Note that it is possible that the path might be only partially created in this case.
-   *
-   * @param {string} path
-   * @param {string} [options]
-   * @returns {boolean}
-   */
-  fs.mkdir = function(path, options) {};
-  #endif
   template <typename PathAccessor>
   int mkdir(duktape::api& stack)
   {
     const mode_t mode = 0755;
-    if(!stack.is<std::string>(0)) return_false;
+    if(!stack.is<std::string>(0)) { stack.push(false); return 1; };
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
     std::string options = stack.is<std::string>(1) ? stack.get<std::string>(1) : std::string();
     bool recursive = (!options.empty()) && ((options[0] == 'p') || (options[0] == 'r'));
-    if((path.length() > PATH_MAX)) return_false;
+    if((path.length() > PATH_MAX)) { stack.push(false); return 1; };
     #ifndef WINDOWS
     if(::mkdir(path.c_str(), mode) == 0) {
       // ok, created
-      return_true;
+      stack.push(true);
+      return 1;
     } else if(errno == EEXIST) {
       // Race condition, someone else has created a directory or something else in between:
       // re-stat at end of function.
@@ -1328,26 +921,25 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     }
     #else
     (void) mode;
+    std::replace(path.begin(), path.end(), '/', '\\');
     // if mkdir fails, the is-dir check below will indicate if failed or already existing.
     if((_mkdir(path.c_str()) == 0)) {
       // created
-      return_true;
+      stack.push(true);
+      return 1;
     } else if(recursive) {
       // With parent creation, we do this conventionally and with the absolute path.
-      char dir[PATH_MAX];
-      memset(dir, 0, PATH_MAX);
+      // ::SHCreateDirectoryExA(nullptr, path.c_str(), nullptr) requires full qualified path, might be more hazzle then just recursing here:
+      char dir[PATH_MAX+1];
       std::copy(path.begin(), path.end(), dir);
-      dir[PATH_MAX-1] = '\0';
-      for(char *p=strchr(dir+1, '\\'); p; p=strchr(p+1, '\\')) {
+      dir[path.size()] = '\0';
+      for(char *p=::strchr(dir+1, '\\'); p; p=::strchr(p+1, '\\')) {
         *p='\0';
         PathAccessor::ck_sys(PathAccessor::to_js(dir));
-        if((_mkdir(dir) != 0) && (errno != EEXIST)) {
-          std::cout << "errno= " << errno << " : " << ::strerror(errno) << std::endl;
-          break;
-        }
+        if((::_mkdir(dir) != 0) && (errno != EEXIST)) break; // Simply stop. Will return failure in the check below.
         *p='\\';
       }
-      _mkdir(path.c_str());
+      ::_mkdir(path.c_str());
     }
     #endif
     struct ::stat st;
@@ -1355,17 +947,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Removes an empty directory specified by a given path. Returns true on success, false on error.
-   * Does strictly require one String argument (the input path).
-   * Note that the function also fails if the directory is not empty (no recursion),
-   *
-   * @param {string} path
-   * @returns {boolean}
-   */
-  fs.rmdir = function(path) {};
-  #endif
   template <typename PathAccessor>
   int rmdir(duktape::api& stack)
   {
@@ -1373,17 +954,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Removes a file or link form the file system. Returns true on success, false on error.
-   * Does strictly require one String argument (the input path).
-   * Note that the function also fails if the given path is a directory. Use `fs.rmdir()` in this case.
-   *
-   * @param {string} path
-   * @returns {boolean}
-   */
-  fs.unlink = function(path) {};
-  #endif
   template <typename PathAccessor>
   int unlink(duktape::api& stack)
   {
@@ -1391,27 +961,18 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Changes the modification and access time of a file or directory. Returns true on success, false on error.
-   * Does strictly require three argument: The input path (String), the last-modified time (Date) and the last
-   * access time (Date).
-   *
-   * @param {string} path
-   * @param {Date} [mtime]
-   * @param {Date} [atime]
-   * @returns {boolean}
-   */
-  fs.utime = function(path, mtime, atime) {};
-  #endif
   template <typename PathAccessor>
   int utime(duktape::api& stack)
   {
     bool mtime_set = stack.is<struct ::timespec>(1);
     bool atime_set = stack.is<struct ::timespec>(2);
-    if(!stack.is<std::string>(0) || (!mtime_set && !atime_set)) return_false;
-    if(!mtime_set && !stack.is_undefined(1)) return_false;
-    if(!atime_set && !stack.is_undefined(2)) return_false;
+    if((!stack.is<std::string>(0) || (!mtime_set && !atime_set))
+    || (!mtime_set && !stack.is_undefined(1))
+    || (!atime_set && !stack.is_undefined(2))
+    ) {
+      stack.push(false);
+      return 1;
+    }
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
     struct ::utimbuf ut;
     if(!mtime_set || !atime_set) {
@@ -1434,19 +995,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Changes the name of a file or directory. Returns true on success, false on error.
-   * Does strictly require two String arguments: The input path and the new name path.
-   * Note that this is a basic filesystem i/o function that fails if the parent directory,
-   * or the new file does already exist.
-   *
-   * @param {string} path
-   * @param {string} new_path
-   * @returns {boolean}
-   */
-  fs.rename = function(path, new_path) {};
-  #endif
   template <typename PathAccessor>
   int rename(duktape::api& stack)
   {
@@ -1457,16 +1005,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Creates a symbolic link, returns true on success, false on error.
-   *
-   * @param {string} path
-   * @param {string} link_path
-   * @returns {boolean}
-   */
-  fs.symlink = function(path, link_path) {};
-  #endif
   template <typename PathAccessor>
   int symlink(duktape::api& stack)
   {
@@ -1494,16 +1032,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Creates a (hard) link, returns true on success, false on error.
-   *
-   * @param {string} path
-   * @param {string} link_path
-   * @returns {boolean}
-   */
-  fs.hardlink = function(path, link_path) {};
-  #endif
   template <typename PathAccessor>
   int hardlink(duktape::api& stack)
   {
@@ -1520,16 +1048,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Creates a (hard) link, returns true on success, false on error.
-   *
-   * @param {string} path
-   * @param {string|number} [mode]
-   * @returns {boolean}
-   */
-  fs.chmod = function(path, mode) {};
-  #endif
   template <typename PathAccessor>
   int chmod(duktape::api& stack)
   {
@@ -1587,16 +1105,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   }
   #endif
 
-  #if(0 && JSDOC)
-  /**
-   * Lists the contents of a directory (basenames only), undefined if the function failed to open the directory
-   * for reading. Results are unsorted.
-   *
-   * @param {string} path
-   * @returns {array|undefined}
-   */
-  fs.readdir = function(path) {};
-  #endif
   template <typename PathAccessor>
   int readdir(duktape::api& stack)
   {
@@ -1647,15 +1155,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * File pattern (fnmatch) based listing of files.
-   *
-   * @param {string} pattern
-   * @returns {array|undefined}
-   */
-  fs.glob = function(pattern) {};
-  #endif
   template <typename PathAccessor>
   int glob(duktape::api& stack)
   {
@@ -1672,7 +1171,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
       };
 
       glob_data gb;
-      if(::glob(path.c_str(), GLOB_DOOFFS, NULL, &gb.data) != 0) {
+      if(::glob(path.c_str(), GLOB_DOOFFS, nullptr, &gb.data) != 0) {
         switch(errno) {
           case GLOB_NOMATCH:
             stack.push_array();
@@ -1698,33 +1197,164 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Contains the (execution path) PATH separator,
-   * e.g. ":" for Linux/Unix or ";" for win32.
-   *
-   * @var {string}
-   */
-  fs.pathseparator = "";
-
-  /**
-   * Contains the directory separator, e.g. "/"
-   * for Linux/Unix or "\" for win32.
-   *
-   * @var {string}
-   */
-  fs.directoryseparator = "";
-  #endif
   template <typename=void>
-  static void define_constants(duktape::engine& js)
+  static std::string get_path_separator() noexcept
   {
     #ifdef WINDOWS
-    js.define("fs.pathseparator", ";");
-    js.define("fs.directoryseparator", "\\");
+    return ";";
     #else
-    js.define("fs.pathseparator", ":");
-    js.define("fs.directoryseparator", "/");
+    return ":";
     #endif
+  }
+
+  template <typename=void>
+  static std::string get_directory_separator() noexcept
+  {
+    #ifdef WINDOWS
+    return "\\";
+    #else
+    return "/";
+    #endif
+  }
+
+}}}}
+
+namespace duktape { namespace mod { namespace filesystem { namespace generic {
+
+  using namespace ::duktape::detail::filesystem;
+  using namespace ::duktape::detail::filesystem::generic;
+
+  /**
+   * Export main relay. Adds all module functions to the specified engine.
+   * @param duktape::engine& js
+   */
+  template <typename PathAccessor=path_accessor<std::string>>
+  static void define_in(duktape::engine& js, const bool readonly=false)
+  {
+    // The names "readfile" and "writefile" were chosen instead of "read" and "write" to
+    // clarify that file operation FUNCTIONS are meant, similar to "readlink" or "readdir".
+    // A "fs.file" object would have the methods "read" and "write" and "writeline" or the
+    // like.
+    #if(0 && JSDOC)
+    /**
+     * Global file system object.
+     * @var {object}
+     */
+    var fs = {};
+    #endif
+
+    #if(0 && JSDOC)
+    /**
+     * Reads a file, returns the contents or undefined on error.
+     *
+     * - Normally the file is read as text file, no matter if the data in the file
+     *   really correspond to a readable text.
+     *
+     * - If `conf` is a string containing the word "binary", the data are read
+     *   binary and returned as `buffer`.
+     *
+     * - If `conf` is a callable function, the data are read as text line by line,
+     *   and for each line the callback is invoked, where the line text is passed
+     *   as argument. The callback ("filter function") can:
+     *
+     *    - return `true` to keep the passed line in the file read output.
+     *    - return `false` or `undefined` to exclude the line from the output.
+     *    - return a `string` to put the returned string into the output instead
+     *      of the original passed text (inline editing).
+     *
+     * - Binary reading and using the filter callback function excludes another.
+     *
+     * - Not returning anything/undefined has a purpose of storing the line data
+     *   somewhere else, e.g. when parsing:
+     *
+     *     var config = {};
+     *     fs.readfile("whatever.conf", function(s) {
+     *       // parse, parse ... get some key and value pair ...
+     *       config[key] = value;
+     *       // no return return statement, output of fs.filter()
+     *       // is not relevant.
+     *     });
+     *
+     * @param {string} path
+     * @param {string|function} [conf]
+     * @return {string|buffer}
+     */
+    fs.read = function(path, conf) {};
+    #endif
+    js.define("fs.read", fileread<PathAccessor>, 2);
+
+    #if(0 && JSDOC)
+    /**
+     * Writes data into a file.
+     *
+     * @param {string} path
+     * @param {string|buffer|number|boolean|object} data
+     * @return {boolean}
+     */
+    fs.write = function(path, data) {};
+    #endif
+    if(!readonly) {
+      js.define("fs.write", filewrite<PathAccessor, false>, 2);
+    }
+
+    #if(0 && JSDOC)
+    /**
+     * Appends data at the end of a file.
+     *
+     * @see fs.append
+     * @param {string} path
+     * @param {string|buffer|number|boolean|object} data
+     * @return {boolean}
+     */
+    fs.append = function(path, data) {};
+    #endif
+    if(!readonly) {
+      js.define("fs.append", filewrite<PathAccessor, true>, 2);
+    }
+
+    #if(0 && JSDOC)
+    /**
+     * Alias of `fs.read()`. Reads a file, returns the contents or undefined
+     * on error. See `fs.read()` for full options.
+     *
+     * @see fs.read
+     * @param {string} path
+     * @param {string|function} [conf]
+     * @return {string|buffer}
+     */
+    fs.readfile = function(path, conf) {};
+    #endif
+    js.define("fs.readfile", fileread<PathAccessor>, 2);
+
+    #if(0 && JSDOC)
+    /**
+     * Writes data into a file. Alias of `fs.write()`.
+     *
+     * @see fs.write
+     * @param {string} path
+     * @param {string|buffer|number|boolean|object} data
+     * @return {boolean}
+     */
+    fs.writefile = function(path, data) {};
+    #endif
+    if(!readonly) {
+      js.define("fs.writefile", filewrite<PathAccessor, false>, 2);
+    }
+
+    #if(0 && JSDOC)
+    /**
+     * Appends data at the end of a file. Alias of `fs.append()`.
+     *
+     * @see fs.append
+     * @param {string} path
+     * @param {string|buffer|number|boolean|object} data
+     * @return {boolean}
+     */
+    fs.appendfile = function(path, data) {};
+    #endif
+    if(!readonly) {
+      js.define("fs.appendfile", filewrite<PathAccessor, true>, 2);
+    }
   }
 
 }}}}
@@ -1739,53 +1369,531 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
    * @param duktape::engine& js
    */
   template <typename PathAccessor=path_accessor<std::string>>
-  static void define_in(duktape::engine& js)
+  static void define_in(duktape::engine& js, const bool readonly=false)
   {
+
+    #if(0 && JSDOC)
+    /**
+     * Returns the current working directory or `undefined` on error.
+     * Does strictly not accept arguments.
+     *
+     * @return {string|undefined}
+     */
+    fs.cwd = function() {};
+    #endif
     js.define("fs.cwd", cwd<PathAccessor>, 0);
     js.define("fs.pwd", cwd<PathAccessor>, 0);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns the temporary directory or `undefined` on error.
+     * Does strictly not accept arguments.
+     *
+     * @return {string|undefined}
+     */
+    fs.tmpdir = function() {};
+    #endif
     js.define("fs.tmpdir", tmpdir<PathAccessor>, 0);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns the home directory of the current used or `undefined` on error.
+     * Does strictly not accept arguments.
+     *
+     * @return {string|undefined}
+     */
+    fs.home = function() {};
+    #endif
     js.define("fs.home", homedir<PathAccessor>, 0);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns the real, full path (with resolved symbolic links) or `undefined`
+     * on error or if the file does not exist.
+     * Does strictly require one String argument (the path).
+     *
+     * @param {string} path
+     * @return {string|undefined}
+     */
+    fs.realpath = function(path) {};
+    #endif
     js.define("fs.realpath", realpath<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns directory part of the given path (without tailing slash/backslash)
+     * or `undefined` on error.
+     * Does strictly require one String argument (the path).
+     *
+     * @param {string} path
+     * @return {string|undefined}
+     */
+    fs.dirname = function(path) {};
+    #endif
     js.define("fs.dirname", getdirname<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns file base part of the given path (name and extension, without parent directory)
+     * or `undefined` on error.
+     * Does strictly require one String argument (the path).
+     *
+     * @param {string} path
+     * @return {string|undefined}
+     */
+    fs.basename = function(path) {};
+    #endif
     js.define("fs.basename", getbasename<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns a plain object containing information about a given file,
+     * directory or `undefined` on error.
+     * Does strictly require one String argument (the path).
+     *
+     * The returned object has the properties:
+     *
+     * {
+     *    path: String,   // given path (function argument)
+     *    size: Number,   // size in bytes
+     *    mtime: Date,    // Last modification time
+     *    ctime: Date,    // Creation time
+     *    atime: Date,    // Last accessed time
+     *    owner: String,  // User name of the file owner
+     *    group: String,  // Group name of the file group
+     *    uid: Number,    // User ID of the owner
+     *    gid: Number,    // Group ID of the group
+     *    inode: Number,  // Inode of the file
+     *    device: Number, // Device identifier/no of the file
+     *    mode: String,   // Octal mode representation like "644" or "755"
+     *    modeval: Number // Numeric file mode bitmask, use `fs.mod2str(mode)` to convert to a string like 'drwxr-xr-x'.
+     * }
+     *
+     * @param {string} path
+     * @return {object|undefined}
+     */
+    fs.stat = function(path) {};
+    #endif
     js.define("fs.stat", filestat<PathAccessor, false>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns a plain object containing information about a given file,
+     * where links are not resolved. Return value is the same as in
+     * `fs.stat()`.
+     *
+     * @see fs.stat()
+     * @param {string} path
+     * @return {object|undefined}
+     */
+    fs.lstat = function(path) {};
+    #endif
     js.define("fs.lstat", filestat<PathAccessor, true>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns last modified time a given file path, or undefined on error.
+     * Does strictly require one String argument (the input path).
+     *
+     * @param {string} path
+     * @return {Date|undefined}
+     */
+    fs.mtime = function(path) {};
+    #endif
     js.define("fs.mtime", filemtime<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns creation time a given file path, or undefined on error.
+     * Does strictly require one String argument (the input path).
+     *
+     * @param {string} path
+     * @return {Date|undefined}
+     */
+    fs.ctime = function(path) {};
+    #endif
     js.define("fs.ctime", filectime<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns last access time a given file path, or undefined on error.
+     * Does strictly require one String argument (the input path).
+     *
+     * @param {string} path
+     * @return {Date|undefined}
+     */
+    fs.atime = function(path) {};
+    #endif
     js.define("fs.atime", fileatime<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns the name of the file owner of a given file path, or undefined on error.
+     * Does strictly require one String argument (the input path).
+     *
+     * @param {string} path
+     * @return {string|undefined}
+     */
+    fs.owner = function(path) {};
+    #endif
     js.define("fs.owner", fileowner<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns the group name of a given file path, or undefined on error.
+     * Does strictly require one String argument (the input path).
+     *
+     * @param {string} path
+     * @return {string|undefined}
+     */
+    fs.group = function(path) {};
+    #endif
     js.define("fs.group", filegroup<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns the file size in bytes of a given file path, or undefined on error.
+     * Does strictly require one String argument (the input path).
+     *
+     * @param {string} path
+     * @return {number|undefined}
+     */
+    fs.size = function(path) {};
+    #endif
     js.define("fs.size", filesize<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns a string representation of a file mode bit mask, e.g.
+     * for a (octal) mode `0755` directory the output will be '755' or 'rwxrwxrwx' (see flags below).
+     * Does strictly require one (integral) Number argument (the input mode) at first.
+     *
+     * If flags are given they modify the output as follows:
+     *
+     *  flags == 'o' (octal)    : returns a string with the octal representation (like 755 or 644)
+     *  flags == 'l' (long)     : returns a string like 'rwxrwxrwx', like `ls -l` but without preceeding file type character.
+     *  flags == 'e' (extended) : output like `ls -l` ('d'=directory, 'c'=character device, 'p'=pipe, ...)
+     *
+     * @param {number} mode
+     * @param {string} [flags]
+     * @return {string|undefined}
+     */
+    fs.mod2str = function(mode, flags) {};
+    #endif
     js.define("fs.mod2str", mod2str<PathAccessor>, 2);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns a numeric representation of a file mode bit mask given as string, e.g.
+     * "755", "rwx------", etc.
+     * Does strictly require one argument (the input mode). Note that numeric arguments
+     * will be reinterpreted as string, so that 755 is NOT the bit mask 0x02f3, but seen
+     * as 0755 octal.
+     *
+     * @param {string} mode
+     * @return {number|undefined}
+     */
+    fs.str2mod = function(mode) {};
+    #endif
     js.define("fs.str2mod", str2mod<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns true if a given path points to an existing "node" in the file system (file, dir, pipe, link ...),
+     * false otherwise or undefined on error.
+     * Does strictly require one String argument (the input path).
+     *
+     * @param {string} path
+     * @return {boolean}
+     */
+    fs.exists = function(path) {};
+    #endif
     js.define("fs.exists", exists<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns true if the current user has write permission to a given path,
+     * false otherwise or undefined on error.
+     * Does strictly require one String argument (the input path).
+     *
+     * @param {string} path
+     * @return {boolean}
+     */
+    fs.iswritable = function(path) {};
+    #endif
     js.define("fs.iswritable", is_writable<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns true if the current user has read permission to a given path,
+     * false otherwise or undefined on error.
+     * Does strictly require one String argument (the input path).
+     *
+     * @param {string} path
+     * @return {boolean}
+     */
+    fs.isreadable = function(path) {};
+    #endif
     js.define("fs.isreadable", is_readable<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns true if the current user has execution permission to a given path,
+     * false otherwise or undefined on error.
+     * Does strictly require one String argument (the input path).
+     *
+     * @param {string} path
+     * @return {boolean}
+     */
+    fs.isexecutable = function(path) {};
+    #endif
     js.define("fs.isexecutable", is_executable<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns true if a given path points to a directory, false otherwise or undefined on error.
+     * Does strictly require one String argument (the input path).
+     *
+     * @param {string} path
+     * @return {boolean}
+     */
+    fs.isdir = function(path) {};
+    #endif
     js.define("fs.isdir", isdir<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns true if a given path points to a regular file, false otherwise or undefined on error.
+     * Does strictly require one String argument (the input path).
+     *
+     * @param {string} path
+     * @return {boolean}
+     */
+    fs.isfile = function(path) {};
+    #endif
     js.define("fs.isfile", isfile<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns true if a given path points to a link, false otherwise or undefined on error.
+     * Does strictly require one String argument (the input path).
+     *
+     * @param {string} path
+     * @return {boolean}
+     */
+    fs.islink = function(path) {};
+    #endif
     js.define("fs.islink", islink<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns true if a given path points to a fifo (named pipe), false otherwise or undefined on error.
+     * Does strictly require one String argument (the input path).
+     *
+     * @param {string} path
+     * @return {boolean}
+     */
+    fs.isfifo = function(path) {};
+    #endif
     js.define("fs.isfifo", isfifo<PathAccessor>, 1);
-    js.define("fs.chdir", chdir<PathAccessor>, 1);
-    js.define("fs.mkdir", mkdir<PathAccessor>, 2);
-    js.define("fs.rmdir", rmdir<PathAccessor>, 1);
-    js.define("fs.unlink", unlink<PathAccessor>, 1);
-    js.define("fs.rename", rename<PathAccessor>, 2);
+
+    #if(0 && JSDOC)
+    /**
+     * Switches the current working directory to the specified path. Returns true on success, false on error.
+     * Does strictly require one String argument (the input path).
+     *
+     * @param {string} path
+     * @return {boolean}
+     */
+    fs.chdir = function(path) {};
+    #endif
+    if(!readonly) {
+      js.define("fs.chdir", chdir<PathAccessor>, 1);
+    }
+
+    #if(0 && JSDOC)
+    /**
+     * Creates a new empty directory for the specified path. Returns true on success, false on error.
+     * Require one String argument (the input path), and one optional option argument.
+     * If the options is "p" or "parents" (similar to unix `mkdir -p`), parent directories will be
+     * created recursively. If the directory already exists, the function returns success, if the
+     * creation of the directory or a parent directory fails, the function returns false.
+     * Note that it is possible that the path might be only partially created in this case.
+     *
+     * @param {string} path
+     * @param {string} [options]
+     * @return {boolean}
+     */
+    fs.mkdir = function(path, options) {};
+    #endif
+    if(!readonly) {
+      js.define("fs.mkdir", mkdir<PathAccessor>, 2);
+    }
+
+    #if(0 && JSDOC)
+    /**
+     * Removes an empty directory specified by a given path. Returns true on success, false on error.
+     * Does strictly require one String argument (the input path).
+     * Note that the function also fails if the directory is not empty (no recursion),
+     *
+     * @param {string} path
+     * @return {boolean}
+     */
+    fs.rmdir = function(path) {};
+    #endif
+    if(!readonly) {
+      js.define("fs.rmdir", rmdir<PathAccessor>, 1);
+    }
+
+    #if(0 && JSDOC)
+    /**
+     * Removes a file or link form the file system. Returns true on success, false on error.
+     * Does strictly require one String argument (the input path).
+     * Note that the function also fails if the given path is a directory. Use `fs.rmdir()` in this case.
+     *
+     * @param {string} path
+     * @return {boolean}
+     */
+    fs.unlink = function(path) {};
+    #endif
+    if(!readonly) {
+      js.define("fs.unlink", unlink<PathAccessor>, 1);
+    }
+
+    #if(0 && JSDOC)
+    /**
+     * Changes the name of a file or directory. Returns true on success, false on error.
+     * Does strictly require two String arguments: The input path and the new name path.
+     * Note that this is a basic filesystem i/o function that fails if the parent directory,
+     * or the new file does already exist.
+     *
+     * @param {string} path
+     * @param {string} new_path
+     * @return {boolean}
+     */
+    fs.rename = function(path, new_path) {};
+    #endif
+    if(!readonly) {
+      js.define("fs.rename", rename<PathAccessor>, 2);
+    }
+
+    #if(0 && JSDOC)
+    /**
+     * Lists the contents of a directory (basenames only), undefined if the function failed to open the directory
+     * for reading. Results are unsorted.
+     *
+     * @param {string} path
+     * @return {array|undefined}
+     */
+    fs.readdir = function(path) {};
+    #endif
     js.define("fs.readdir", readdir<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * File pattern (fnmatch) based listing of files.
+     *
+     * @param {string} pattern
+     * @return {array|undefined}
+     */
+    fs.glob = function(pattern) {};
+    #endif
     js.define("fs.glob", glob<PathAccessor>, 1);
-    js.define("fs.symlink", symlink<PathAccessor>, 2);
+
+    #if(0 && JSDOC)
+    /**
+     * Creates a symbolic link, returns true on success, false on error.
+     *
+     * @param {string} path
+     * @param {string} link_path
+     * @return {boolean}
+     */
+    fs.symlink = function(path, link_path) {};
+    #endif
+    if(!readonly) {
+      js.define("fs.symlink", symlink<PathAccessor>, 2);
+    }
+
+    #if(0 && JSDOC)
+    /**
+     * Changes the modification and access time of a file or directory. Returns true on success, false on error.
+     * Does strictly require three argument: The input path (String), the last-modified time (Date) and the last
+     * access time (Date).
+     *
+     * @param {string} path
+     * @param {Date} [mtime]
+     * @param {Date} [atime]
+     * @return {boolean}
+     */
+    fs.utime = function(path, mtime, atime) {};
+    #endif
     js.define("fs.utime", utime<PathAccessor>, 3);
-    js.define("fs.hardlink", hardlink<PathAccessor>, 2);
+
+    #if(0 && JSDOC)
+    /**
+     * Creates a (hard) link, returns true on success, false on error.
+     *
+     * @param {string} path
+     * @param {string} link_path
+     * @return {boolean}
+     */
+    fs.hardlink = function(path, link_path) {};
+    #endif
+    if(!readonly) {
+      js.define("fs.hardlink", hardlink<PathAccessor>, 2);
+    }
+
+    #if(0 && JSDOC)
+    /**
+     * Returns the target path of a symbolic link, returns a String or `undefined` on error.
+     * Does strictly require one String argument (the path).
+     * Note: Windows: returns undefined, not implemented.
+     *
+     * @param {string} path
+     * @return {string|undefined}
+     */
+    fs.readlink = function(path) {};
+    #endif
     js.define("fs.readlink", readlink<PathAccessor>);
-    js.define("fs.chmod", chmod<PathAccessor>, 2);
-  //js.define("fs.tempnam", tempnam<PathAccessor>, 1);
-    define_constants(js);
+
+    #if(0 && JSDOC)
+    /**
+     * Creates a (hard) link, returns true on success, false on error.
+     *
+     * @param {string} path
+     * @param {string|number} [mode]
+     * @return {boolean}
+     */
+    fs.chmod = function(path, mode) {};
+    #endif
+    if(!readonly) {
+      js.define("fs.chmod", chmod<PathAccessor>, 2);
+    }
+
+    #if(0 && JSDOC)
+    /**
+     * Contains the (execution path) PATH separator,
+     * e.g. ":" for Linux/Unix or ";" for win32.
+     *
+     * @var {string}
+     */
+    fs.pathseparator = "";
+    #endif
+    js.define("fs.pathseparator", get_path_separator());
+
+    #if(0 && JSDOC)
+    /**
+     * Contains the directory separator, e.g. "/"
+     * for Linux/Unix or "\" for win32.
+     *
+     * @var {string}
+     */
+    fs.directoryseparator = "";
+    #endif
+    js.define("fs.directoryseparator", get_directory_separator());
+
   }
 
 }}}}
-
-#undef return_true
-#undef return_false
-#undef return_undefined
 
 #endif

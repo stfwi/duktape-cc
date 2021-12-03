@@ -4,7 +4,7 @@
 /**
  * Removes indentation spaces on all lines of the given text.
  * @param {string} text
- * @returns {string}
+ * @return {string}
  */
 function unindent(text) {
   // Remove indent and append function documentation, could maybe be done better ...
@@ -33,11 +33,11 @@ function unindent(text) {
  *       files are directly read. While reading using fs.readfile(), the line filter
  *       callback is used to directly compose the relevant JSDoc sections.
  *
- * @returns {String}
+ * @return {String}
  */
 function scan_js_docs() {
   var docs = {};
-  fs.find(fs.realpath(fs.dirname(fs.dirname(fs.dirname(fs.realpath(sys.script)))) + fs.directoryseparator + "duktape"), {
+  fs.find(fs.realpath(sys.app.path + "../../duktape"), {
     name:"*.hh",
     type:"f",
     filter: function(path) {
@@ -62,7 +62,9 @@ function scan_js_docs() {
           }
         }
       });
-      docs[fs.basename(path)] = doc;
+      if(doc.replace(/[\s]/ig,"").length > 0) {
+        docs[fs.basename(path)] = doc;
+      }
     }
   });
 

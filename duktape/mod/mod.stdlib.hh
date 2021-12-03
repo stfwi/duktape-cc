@@ -40,34 +40,16 @@
 #include <iostream>
 #include <streambuf>
 #include <sstream>
+#include <regex>
 
 namespace duktape { namespace detail {
 
   template <typename=void>
   struct stdlib {
 
-    #if(0 && JSDOC)
-    /**
-     * Exits the script interpreter with a specified exit code.
-     *
-     * @param {number} status_code
-     */
-    exit = function(status_code) {};
-    #endif
     static int exit_js(api& stack)
     { throw exit_exception((stack.top() <= 0) ? 0 : stack.to<int>(-1)); return 0; }
 
-    #if(0 && JSDOC)
-    /**
-     * Includes a JS file and returns the result of
-     * the last statement.
-     * Note that `include()` is NOT recursion protected.
-     *
-     * @param {string} path
-     * @return {any}
-     */
-    include = function(path) {};
-    #endif
     static int include_file(api& stack)
     {
       std::string path = stack.get_string(0);
@@ -76,18 +58,37 @@ namespace duktape { namespace detail {
       std::string code((std::istreambuf_iterator<char>(is)), std::istreambuf_iterator<char>());
       if(!is) return stack.throw_exception(std::string("Failed to read include file '") + path + "'");
       is.close();
-      stack.top(0);
-      stack.require_stack(3);
-      stack.push_string(std::move(code));
-      stack.push_string(path);
-      try {
-        stack.eval_raw(0, 0, DUK_COMPILE_EVAL | DUK_COMPILE_SHEBANG);
-      } catch(const exit_exception& e) {
+      if(!std::regex_search(path, std::regex("\\.json$", std::regex_constants::icase|std::regex_constants::nosubs|std::regex_constants::ECMAScript))) {
         stack.top(0);
-        stack.gc();
-        throw;
+        stack.require_stack(3);
+        stack.push_string(std::move(code));
+        stack.push_string(path);
+        try {
+          stack.eval_raw(0, 0, DUK_COMPILE_EVAL | DUK_COMPILE_SHEBANG);
+          return 1;
+        } catch(const exit_exception& e) {
+          stack.top(0);
+          stack.gc();
+          throw;
+        }
+      } else {
+        stack.top(0);
+        if(code.empty()) return 0; // File is there but empty. Content undefined.
+        stack.require_stack(3);
+        stack.get_global_string("JSON");
+        stack.push("parse");
+        stack.push_string(std::move(code));
+        if(stack.pcall_prop(0, 1)==0) return 1;
+        if(!stack.is_error(-1)) {
+          stack.top(0);
+          stack.throw_exception(std::string("JSON parse error in '") + path + "'.");
+        } else {
+          const auto message = stack.to<std::string>(-1);
+          stack.top(0);
+          stack.throw_exception(message + " (file '" + path + "')");
+        }
+        return 0;
       }
-      return 1;
     }
 
     /**
@@ -97,7 +98,27 @@ namespace duktape { namespace detail {
      */
     static void define_in(duktape::engine& js)
     {
+      #if(0 && JSDOC)
+      /**
+       * Exits the script interpreter with a specified exit code.
+       *
+       * @param {number} status_code
+       */
+      exit = function(status_code) {};
+      #endif
       js.define("exit", exit_js);
+
+      #if(0 && JSDOC)
+      /**
+       * Includes a JS file and returns the result of
+       * the last statement.
+       * Note that `include()` is NOT recursion protected.
+       *
+       * @param {string} path
+       * @return {any}
+       */
+      include = function(path) {};
+      #endif
       js.define("include", include_file);
     }
   };

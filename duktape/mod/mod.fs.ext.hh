@@ -4,10 +4,10 @@
  * @license MIT
  * @authors Stefan Wilhelm (stfwi, <cerbero s@atwillys.de>)
  * @platform linux, bsd, windows
- * @standard >= c++11
+ * @standard >= c++14
  * @requires duk_config.h duktape.h duktape.c >= v2.1
  * @requires Duktape CFLAGS -DDUK_USE_CPP_EXCEPTIONS
- * @cxxflags -std=c++11 -W -Wall -Wextra -pedantic -fstrict-aliasing
+ * @cxxflags -std=c++14 -W -Wall -Wextra -pedantic -fstrict-aliasing
  * @requires WIN32 CXXFLAGS -D_WIN32_WINNT>=0x0601 -DWINVER>=0x0601 -D_WIN32_IE>=0x0900
  *
  * -----------------------------------------------------------------------------
@@ -18,7 +18,7 @@
  *
  * -----------------------------------------------------------------------------
  * License: http://opensource.org/licenses/MIT
- * Copyright (c) 2014-2017, the authors (see the @authors tag in this file).
+ * Copyright (c) 2014-2021, the authors (see the @authors tag in this file).
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -36,17 +36,18 @@
  */
 #ifndef DUKTAPE_MOD_BASIC_FILESYSTEM_EXT_HH
 #define DUKTAPE_MOD_BASIC_FILESYSTEM_EXT_HH
-
 #include "mod.fs.hh" /* All settings and definitions of fs apply */
 #include <regex>
-#ifdef WINDOWS
+
+#if (__cplusplus >= 201700L)
+  #include <filesystem>
+#elif defined(WINDOWS)
   #include <Shellapi.h>
+#elif defined(__linux__)
+  #include <fts.h>
 #endif
-#define return_false { stack.push(false); return 1; }
+
 #define return_true { stack.push(true); return 1; }
-#define return_undefined { return 0; }
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 
 namespace duktape { namespace detail { namespace filesystem { namespace extended {
 
@@ -121,50 +122,96 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     int recursion_level = 0
   )
   {
-    if(recursion_level >= depth) return true;
-    bool f_lnk = ftype.find('l') != ftype.npos;
-    bool f_dir = ftype.find('d') != ftype.npos;
-    bool f_reg = ftype.find('f') != ftype.npos;
-    bool f_fifo = ftype.find('p') != ftype.npos;
-    bool f_cdev = ftype.find('c') != ftype.npos;
-    bool f_bdev = ftype.find('b') != ftype.npos;
-    bool f_sock = ftype.find('s') != ftype.npos;
-    bool f_hidden = ftype.find('h') != ftype.npos;
-    if(ftype.empty() || ftype=="h") {
-      f_lnk = f_dir = f_reg = f_fifo = f_cdev = f_bdev = f_sock = true;
-    }
-
-    if(path.empty()) {
-      path = ".";
-    }
-
-    // fnmatch on win32 and maybe other platforms missing or differnt,
-    // threrfore we use regex for all. That also allows case sensitive
-    // and case insensitive search
-    std::regex re;
-    if(pattern.empty()) {
-      re = std::regex(".*");
-    } else {
-      std::string pt = "^";
+    if(recursion_level > depth) return true;
+    if(path.empty()) { path = "."; }
+    const auto search_regex = [&](const std::string& pattern) {
+      using namespace std;
+      if(pattern.empty()) return regex(".*");
+      string pt = "^";
       for(auto e:pattern) {
         switch(e) {
-          case '?': pt += "."; break;
-          case '*': pt += ".*"; break;
-          case '.': case '\\':
-          case '(': case ')':
-          case '[': case ']':
-          case '{': case '}':
-          case '^': case '$':
-          case '+': case '|':
-            pt += "\\";
-          default: pt += e;
+          case '?': { pt += "."; break; }
+          case '*': { pt += ".*"; break; }
+          case '.': case '\\': case '(': case ')': case '[': case ']': case '{': case '}': case '^': case '$': case '+': case '|': { pt += "\\"; pt += e; break; }
+          default: { pt += e; }
         }
       }
       pt += "$";
-      re = case_sensitive ? std::regex(pt,re.ECMAScript|re.nosubs) : std::regex(pt, re.ECMAScript|re.nosubs|re.icase);
-    }
+      return case_sensitive ? regex(pt, regex::ECMAScript|regex::nosubs) : regex(pt, regex::ECMAScript|regex::nosubs|regex::icase);
+    };
+    const std::regex re = search_regex(pattern);
+    const bool f_all = (ftype.empty() || (ftype == "h"));
+    const bool f_lnk = f_all || (ftype.find('l') != ftype.npos);
+    const bool f_dir = f_all || (ftype.find('d') != ftype.npos);
+    const bool f_reg = f_all || (ftype.find('f') != ftype.npos);
+    const bool f_fifo = f_all || (ftype.find('p') != ftype.npos);
+    const bool f_cdev = f_all || (ftype.find('c') != ftype.npos);
+    const bool f_bdev = f_all || (ftype.find('b') != ftype.npos);
+    const bool f_sock = f_all || (ftype.find('s') != ftype.npos);
+    const bool f_hidden = f_all || (ftype.find('h') != ftype.npos);
 
-    #if defined(__linux)
+    #if (__cplusplus >= 201700L)
+    {
+      (void) no_outside; // Not applicable here, we don't follow directory symlinks.
+      (void) xdev; // Need to check how this can be done.
+      namespace fs = std::filesystem;
+      const auto base = fs::path(path, fs::path::format::generic_format);
+      if(!fs::is_directory(base)) {
+        ecallback(std::string("Directory to search is not a directory: '") + path + "'");
+        return false;
+      }
+      const auto d_end = fs::recursive_directory_iterator();
+      auto error = std::error_code();
+      for(auto d_it=fs::recursive_directory_iterator(base, fs::directory_options::skip_permission_denied, error); d_it != d_end; ++d_it) {
+        if(d_it.depth() >= depth) d_it.disable_recursion_pending();
+        const auto& entry = *d_it;
+        //const auto st = entry.status();
+        if(f_all
+          || entry.is_directory()
+          || (f_reg && entry.is_regular_file())
+          || (f_lnk && entry.is_symlink())
+          || (f_fifo && entry.is_fifo())
+          || (f_cdev && entry.is_character_file())
+          || (f_bdev && entry.is_block_file())
+          || (f_sock && entry.is_socket())
+        ) {
+          const auto entry_path = entry.path().string();
+          const auto fname = entry.path().filename().string();
+          if(entry_path.empty()) {
+            continue;
+          }
+          if(!f_hidden) {
+            #ifdef WINDOWS
+              const auto hidden_attr = !!(::GetFileAttributesA(entry.path().string().c_str()) & FILE_ATTRIBUTE_HIDDEN);
+            #else
+              constexpr auto hidden_attr = false;
+            #endif
+            if(hidden_attr || ((fname.size() > 1) && (fname[0] == '.'))) { // Also valid for ".."
+              d_it.disable_recursion_pending();
+              continue;
+            }
+          }
+          if(entry.is_directory()) {
+            if(entry.is_symlink()) {
+              if(!f_lnk) continue;
+            } else {
+              if(!f_dir) continue;
+            }
+          }
+          if(!xdev) {
+            void(0); // Evaluate if that is needed.
+          }
+          if(pattern.empty() || std::regex_match(fname, re)) {
+            if(!fcallback(std::string(entry_path))) {
+              break; // Callback wants to stop iterating.
+            }
+          }
+        }
+      }
+      return !error;
+    }
+    #elif defined(__linux__)
+    {
       // struct only to ensure that the fts is closed when
       // leaving the function scope.
       struct fts_guard {
@@ -217,7 +264,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
           case FTS_DP:
             continue;
           default:
-            if((no_outside && (f->fts_level <= 0)) || (f->fts_level > depth)) {
+            if((no_outside && (f->fts_level <= 0)) || (f->fts_level > (depth+1))) {
               // respect max depth, do not include parent directories.
               continue;
             } else if(!f->fts_statp || !(f->fts_statp->st_mode & mode)) {
@@ -243,9 +290,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
       ::fts_close(tree.ptr);
       tree.ptr = nullptr;
       return (!errno);
-
+    }
     #elif defined(WINDOWS)
-
+    {
       (void) no_outside; (void) f_lnk; (void) f_fifo; (void) f_cdev;
       (void) f_bdev; (void) f_sock; (void) xdev;
 
@@ -256,7 +303,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         ~hfind_guard() noexcept { if(h != INVALID_HANDLE_VALUE) ::FindClose(h); }
       };
 
-      WIN32_FIND_DATA ffd;
+      WIN32_FIND_DATAA ffd;
       bool ok = true;
       path += "\\";
       if(path.size() > MAX_PATH) { ecallback("Path too long"); return false; }
@@ -303,7 +350,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
           return false;
       }
       return ok;
-
+    }
     #else
       #error "recurse_directory not implemented"
     #endif
@@ -376,64 +423,13 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
 
 namespace duktape { namespace detail { namespace filesystem { namespace extended {
 
-  #if(0 && JSDOC)
-  /**
-   * Recursive directory walking. The argument `path` specifies the root directory
-   * of the file search - that is not a pattern with wildcards, but a absolute or
-   * relative path. The second argument `options` can be
-   *
-   *  - a string: then it is the pattern to filter by the file name.
-   *
-   *  - a plain object with one or more of the properties:
-   *
-   *      - name: {string} Filter by file name match pattern (fnmatch based, means with '*','?', etc).
-   *
-   *      - type: {string} Filter by file type, where
-   *
-   *          - "d": Directory
-   *          - "f": Regular file
-   *          - "l": Symbolic link
-   *          - "p": Fifo (pipe)
-   *          - "s": Socket
-   *          - "c": Character device (like /dev/tty)
-   *          - "b": Block device (like /dev/sda)
-   *          - "h": Include hidden files (Win: hidden flag, Linux/Unix: no effect, intentionally
-   *                 not applied to files with a leading dot, which are normal files, dirs etc).
-   *
-   *      - depth: {number} Maximum directory recursion depth. `0` lists nothing, `1` the contents of the
-   *               root directory, etc.
-   *
-   *      - icase: {boolean} File name matching is not case sensitive (Linux/Unix: default false, Win32: default true)
-   *
-   *      - filter: [Function A callback invoked for each file that was not yet filtered out with the
-   *                criteria listed above. The callback gets the file path as first argument. With that
-   *                you can:
-   *
-   *                  - Add it to the output by returning `true`.
-   *
-   *                  - Not add it to the output list by returning `false`, `null`, or `undefined`. That is
-   *                    useful e.g. if you don't want to list any files, but process them instead, or update
-   *                    global/local accessible variables depending on the file paths you get.
-   *
-   *                  - Add a modified path or other string by returning a String. That is really useful
-   *                    e.g. if you want to directly return the contents of files, or checksums etc etc etc.
-   *                    You get a path, and specify the output yourself.
-   *
-   * @throws {Error}
-   * @param {string} path
-   * @param {string|Object} [options]
-   * @param {function} [filter]
-   * @returns {array|undefined}
-   */
-  fs.find = function(path, options, filter) {};
-  #endif
   template <typename PathAccessor>
   int findfiles(duktape::api& stack)
   {
     if(!stack.is<std::string>(0)) return stack.throw_exception("No directory given to search");
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
     std::string pattern, ftype;
-    int depth = std::numeric_limits<int>::max();
+    int depth = std::numeric_limits<int>::max()-1;
     bool no_outside = true;
     bool xdev = false;
     #ifdef WINDOWS
@@ -519,18 +515,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     }
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Moves a file or directory from one location `source_path` to another (`target_path`),
-   * similar to the `mv` shell command. File are NOT moved accross disks (method will fail).
-   *
-   * @throws {Error}
-   * @param {string} source_path
-   * @param {string} target_path
-   * @returns {boolean}
-   */
-  fs.move = function(source_path, target_path) {};
-  #endif
   template <typename PathAccessor>
   int movefile(duktape::api& stack)
   {
@@ -571,7 +555,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
       if((::stat(dst.c_str(), &st) == 0) && S_ISDIR(st.st_mode)) {
         std::string bsrc = src;
         char *bn = basename(&bsrc.front());
-        if(!bn) return_false;
+        if(!bn) { stack.push(false); return 1; };
         dst += std::string("\\") + bn;
         if((::stat(dst.c_str(), &st) == 0)) {
           return stack.throw_exception(std::string("Destination path already exists: '") + dst + "'");
@@ -592,31 +576,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Copies a file from one location `source_path` to another (`target_path`),
-   * similar to the `cp` shell command. The argument `options` can  encompass
-   * the key-value pairs
-   *
-   *    {
-   *      "recursive": {boolean}=false
-   *    }
-   *
-   * Optionally, it is possible to specify the string 'r' or '-r' instead of
-   * `{recursive:true}` as third argument.
-   *
-   * @throws {Error}
-   * @param {string} source_path
-   * @param {string} target_path
-   * @param {object} [options]
-   * @returns {boolean}
-   */
-  fs.copy = function(source_path, target_path, options) {};
-  #endif
   template <typename PathAccessor>
   int copyfile(duktape::api& stack)
   {
-    if(!stack.is<std::string>(0) || !stack.is<std::string>(1)) return_false;
+    if(!stack.is<std::string>(0) || !stack.is<std::string>(1)) { stack.push(false); return 1; };
     std::string src = PathAccessor::to_sys(stack.to<std::string>(0));
     std::string dst = PathAccessor::to_sys(stack.to<std::string>(1));
     bool recursive = false;
@@ -652,7 +615,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     args.emplace_back("/bin/cp");
     std::string ops = "-f";
     if(recursive) ops += 'R';
-    args.emplace_back(std::move(ops));
+    args.push_back(std::move(ops));
     args.emplace_back("--");
     args.emplace_back(src);
     args.emplace_back(dst);
@@ -759,27 +722,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     #endif
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Deletes a file or directory (`target_path`), similar to the `rm` shell
-   * command. The argument `options` can  encompass the key-value pairs
-   *
-   *    {
-   *      "recursive": {boolean}=false
-   *    }
-   *
-   * Optionally, it is possible to specify the string 'r' or '-r' instead of
-   * `{recursive:true}` as third argument.
-   *
-   * Removing is implicitly forced (like "rm -f").
-   *
-   * @throws {Error}
-   * @param {string} target_path
-   * @param {string|object} [options]
-   * @returns {boolean}
-   */
-  fs.remove = function(target_path, options) {};
-  #endif
   template <typename PathAccessor>
   int removefile(duktape::api& stack)
   {
@@ -895,19 +837,129 @@ namespace duktape { namespace mod { namespace filesystem { namespace extended {
    * @param duktape::engine& js
    */
   template <typename PathAccessor=path_accessor<std::string>>
-  static void define_in(duktape::engine& js)
+  static void define_in(duktape::engine& js, const bool readonly=false)
   {
+    #if(0 && JSDOC)
+    /**
+     * Recursive directory walking. The argument `path` specifies the root directory
+     * of the file search - that is not a pattern with wildcards, but a absolute or
+     * relative path. The second argument `options` can be
+     *
+     *  - a string: then it is the pattern to filter by the file name.
+     *
+     *  - a plain object with one or more of the properties:
+     *
+     *      - name: {string} Filter by file name match pattern (fnmatch based, means with '*','?', etc).
+     *
+     *      - type: {string} Filter by file type, where
+     *
+     *          - "d": Directory
+     *          - "f": Regular file
+     *          - "l": Symbolic link
+     *          - "p": Fifo (pipe)
+     *          - "s": Socket
+     *          - "c": Character device (like /dev/tty)
+     *          - "b": Block device (like /dev/sda)
+     *          - "h": Include hidden files (dot-files like ".fileordir", and win32 'hidden' flag).
+     *                 If `type` is empty/not specified, hidden files are implicitly included.
+     *
+     *      - depth: {number} Maximum directory recursion depth. `0` lists the contents of the root directory, etc.
+     *
+     *      - icase: {boolean} File name matching is not case sensitive (Linux/Unix: default false, Win32: default true)
+     *
+     *      - filter: [Function A callback invoked for each file that was not yet filtered out with the
+     *                criteria listed above. The callback gets the file path as first argument. With that
+     *                you can:
+     *
+     *                  - Add it to the output by returning `true`.
+     *
+     *                  - Not add it to the output list by returning `false`, `null`, or `undefined`. That is
+     *                    useful e.g. if you don't want to list any files, but process them instead, or update
+     *                    global/local accessible variables depending on the file paths you get.
+     *
+     *                  - Add a modified path or other string by returning a String. That is really useful
+     *                    e.g. if you want to directly return the contents of files, or checksums etc etc etc.
+     *                    You get a path, and specify the output yourself.
+     *
+     * @throws {Error}
+     * @param {string} path
+     * @param {string|Object} [options]
+     * @param {function} [filter]
+     * @return {array|undefined}
+     */
+    fs.find = function(path, options, filter) {};
+    #endif
     js.define("fs.find", findfiles<PathAccessor>, 3);
-    js.define("fs.copy", copyfile<PathAccessor>, 3);
-    js.define("fs.move", movefile<PathAccessor>, 3);
-    js.define("fs.remove", removefile<PathAccessor>, 2);
+
+    #if(0 && JSDOC)
+    /**
+     * Copies a file from one location `source_path` to another (`target_path`),
+     * similar to the `cp` shell command. The argument `options` can  encompass
+     * the key-value pairs
+     *
+     *    {
+     *      "recursive": {boolean}=false
+     *    }
+     *
+     * Optionally, it is possible to specify the string 'r' or '-r' instead of
+     * `{recursive:true}` as third argument.
+     *
+     * @throws {Error}
+     * @param {string} source_path
+     * @param {string} target_path
+     * @param {object} [options]
+     * @return {boolean}
+     */
+    fs.copy = function(source_path, target_path, options) {};
+    #endif
+    if(!readonly) {
+      js.define("fs.copy", copyfile<PathAccessor>, 3);
+    }
+
+    #if(0 && JSDOC)
+    /**
+     * Moves a file or directory from one location `source_path` to another (`target_path`),
+     * similar to the `mv` shell command. File are NOT moved accross disks (method will fail).
+     *
+     * @throws {Error}
+     * @param {string} source_path
+     * @param {string} target_path
+     * @return {boolean}
+     */
+    fs.move = function(source_path, target_path) {};
+    #endif
+    if(!readonly) {
+      js.define("fs.move", movefile<PathAccessor>, 3);
+    }
+
+    #if(0 && JSDOC)
+    /**
+     * Deletes a file or directory (`target_path`), similar to the `rm` shell
+     * command. The argument `options` can  encompass the key-value pairs
+     *
+     *    {
+     *      "recursive": {boolean}=false
+     *    }
+     *
+     * Optionally, it is possible to specify the string 'r' or '-r' instead of
+     * `{recursive:true}` as third argument.
+     *
+     * Removing is implicitly forced (like "rm -f").
+     *
+     * @throws {Error}
+     * @param {string} target_path
+     * @param {string|object} [options]
+     * @return {boolean}
+     */
+    fs.remove = function(target_path, options) {};
+    #endif
+    if(!readonly) {
+      js.define("fs.remove", removefile<PathAccessor>, 2);
+    }
   }
 
 }}}}
 
 #undef return_true
-#undef return_false
-#undef return_undefined
-#pragma GCC diagnostic pop
 
 #endif

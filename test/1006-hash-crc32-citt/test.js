@@ -1,4 +1,4 @@
-// note: crc32 (CITT) c++ code already tested, so only the bindings are tested here.
+// note: crc32 (CCITT) c++ code already tested, so only the bindings are tested here.
 var plain = Uint8Array.allocPlain(3);
 plain[0] = 0x01; plain[1] = 0x02; plain[2] = 0x03;
 test_note("sys.hash.crc32([1,2,3])", sprintf("0x%04x", sys.hash.crc32(plain)));

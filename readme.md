@@ -90,7 +90,6 @@ by providing:
         string ip = js.call<string>("getConfig", "ip");   // getConfig(key) implemented in script file
         int timeout = js.eval<int>("config.timeout");     // script file sets variables and constants
 
-
         void on_message_received(string msg)              // Script implements callback functions for
         { js.call("my.messageCallback", msg); }           // whatever events of the native app.
 
@@ -113,11 +112,11 @@ by providing:
 ## Building the CLI application / embedding in your application
 
 A good starting point is to take a look at the Makefile, the CLI application
-`main.cc` and the tests. The directory structure looks like:
+`main.cc` and the tests. The directory structure with the most important files
+looks like:
 
       duktape-cc/
       ├── cli
-      │   ├── example.cc
       │   └── main.cc
       ├── doc
       │   ├── readme.md
@@ -148,32 +147,35 @@ Build notes:
 
 Invoking `make` produces the CLI application as default target:
 
-      $ make
-      [c++ ] cli/main.cc  cli/main.o
-      [c++ ] duktape/duktape.c  duktape/duktape.o
-      [ld  ] cli/main.o duktape/duktape.o  cli/djs
-      [note] binary is cli/djs
+    $ make
+    [c++ ] cli/main.cc  cli/main.o
+    [c++ ] duktape/duktape.c  duktape/duktape.o
+    [ld  ] cli/main.o duktape/duktape.o  cli/djs
+    [note] binary is cli/djs
 
-      # Quick test using inline eval:
-      $ ./cli/djs -e 'var a=10; print("-> a is " + a + ".");'
-      -> a is 10.
+    # Quick test using inline eval:
+    $ ./cli/djs -e 'var a=10; print("-> a is " + a + ".");'
+    -> a is 10.
 
 `duktape.c` is compiled with the c++ compiler and `DUK_USE_CPP_EXCEPTIONS` must
 be defined (use `throw` instead of `setlongjmp`). This is important because
 otherwise the support for c++ exceptions is missing. Compiling manually looks
 like
 
-      g++ -c -o cli/main.o cli/main.cc -std=c++11 -Iduktape -I.
-      g++ -c -o duktape/duktape.o duktape/duktape.c -std=c++11 -DDUK_USE_CPP_EXCEPTIONS
-      g++ -o cli/djs cli/main.o duktape/duktape.o -lm -lrt
+    g++ -c -o cli/main.o cli/main.cc -std=c++17 -Iduktape -I.
+    g++ -c -o duktape/duktape.o duktape/duktape.c -std=c++17 -DDUK_USE_CPP_EXCEPTIONS
+    g++ -o cli/djs cli/main.o duktape/duktape.o -lm -lrt
 
 (omitted flags that are also used in the Makefile: `-W` `-Wall` `-Wextra`
 `-pedantic` `-Os` `-fomit-frame-pointer` `-fdata-sections` `-ffunction-sections`).
 
 ## Integrating JS into the C++ application
 
-The `example.cc` shows the main features in detail, at this point
-only the "basic implementation style" is briefly depicted.
+The `example.cc` shows the main features in detail, at this point only
+the "basic implementation style" is briefly depicted. A note about the
+c++ standard: Recommended is `>=c++17`, most modules are originally developed
+using `c++11` and extended since, so they broadly require at least `c++14`.
+Newer modules require `c++17`.
 
 ```c++
 #include <duktape/duktape.hh>
@@ -282,50 +284,54 @@ int main(int argc, const char** argv)
 ### Console object
 
   - console.log(args)
-  - console.write(args)
   - console.read(arg)
+  - console.write(args)
 
 
 ### File system object
 
+  - fs.read(path, conf)
+  - fs.write(path, data)
+  - fs.append(path, data)
   - fs.readfile(path, conf)
   - fs.writefile(path, data)
-  - fs.tempnam(prefix)
+  - fs.appendfile(path, data)
   - fs.realpath(path)
   - fs.dirname(path)
   - fs.basename(path)
-  - fs.mod2str(mode, flags)
-  - fs.str2mod(mode)
   - fs.stat(path)
-  - fs.size(path)
+  - fs.lstat(path)
+  - fs.mtime(path)
+  - fs.ctime(path)
+  - fs.atime(path)
   - fs.owner(path)
   - fs.group(path)
-  - fs.mtime(path)
-  - fs.atime(path)
-  - fs.ctime(path)
+  - fs.size(path)
+  - fs.mod2str(mode, flags)
+  - fs.str2mod(mode)
   - fs.exists(path)
-  - fs.isfile(path)
-  - fs.isdir(path)
-  - fs.islink(path)
-  - fs.isfifo(path)
   - fs.iswritable(path)
   - fs.isreadable(path)
   - fs.isexecutable(path)
-  - fs.readlink(path)
+  - fs.isdir(path)
+  - fs.isfile(path)
+  - fs.islink(path)
+  - fs.isfifo(path)
   - fs.chdir(path)
   - fs.mkdir(path, options)
   - fs.rmdir(path)
   - fs.unlink(path)
-  - fs.utime(path, mtime, atime)
   - fs.rename(path, new_path)
-  - fs.symlink(path, link_path)
-  - fs.hardlink(path, link_path)
-  - fs.chmod(path, mode)
   - fs.readdir(path)
   - fs.glob(pattern)
+  - fs.symlink(path, link_path)
+  - fs.utime(path, mtime, atime)
+  - fs.hardlink(path, link_path)
+  - fs.readlink(path)
+  - fs.chmod(path, mode)
   - fs.find(path, options, filter)
-  - fs.move(source_path, target_path)
   - fs.copy(source_path, target_path, options)
+  - fs.move(source_path, target_path)
   - fs.remove(target_path, options)
   - fs.file(path, openmode)
   - fs.file.open(path, openmode)
@@ -346,6 +352,16 @@ int main(int argc, const char** argv)
   - sys.isatty(descriptorName)
   - sys.exec(program, arguments, options)
   - sys.shell(command)
+  - sys.escapeshellarg(arg)
+  - sys.process(program, arguments, options)
+  - sys.process.prototype.kill(force)
+  - sys.serialport(optional_settings)
+  - sys.serialport.prototype.open(port, settings)
+  - sys.serialport.prototype.read(timeout_ms)
+  - sys.serialport.prototype.write(data)
+  - sys.serialport.prototype.readln(timeout_ms, ignore_empty)
+  - sys.serialport.prototype.writeln(data)
+  - sys.serialport.portlist(data)
   - sys.hash.crc8(data)
   - sys.hash.crc16(data)
   - sys.hash.crc32(data)

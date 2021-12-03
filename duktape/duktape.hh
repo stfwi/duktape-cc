@@ -34,16 +34,9 @@
 #ifndef DUKTAPE_HH
 #define DUKTAPE_HH
 
-#include <limits.h>
-#if (!defined(UINT_MAX)) || (UINT_MAX < 0xffffffffUL)
-#error "This interface requires at least 32 bit integer size for type int."
-#endif
-#if (!defined(__cplusplus)) || (__cplusplus < 201103L)
-#error "You have to compile with at least std=c++11"
-#endif
-#include <cstdint>
 #undef DUK_SIZE_MAX_COMPUTED
 #define DUK_SIZE_MAX_COMPUTED
+#include <cstdint>
 #include "duktape.h"
 #include <iostream>
 #include <string>
@@ -54,19 +47,22 @@
 #include <stdexcept>
 #include <fstream>
 #include <limits>
+#include <climits>
 #include <utility>
 #include <memory>
 #include <functional>
 #include <type_traits>
 #include <typeinfo>
 #include <typeindex>
+#include <unordered_map>
+#include <regex>
 #include <mutex>
 
-#ifdef WITH_DUKTAPE_HH_ASSERT
-#include <cassert>
-#define dukcc_assert(X) assert(X)
-#else
-#define dukcc_assert(X)
+#if (!defined(UINT_MAX)) || (UINT_MAX < 0xffffffffUL)
+  #error "This interface requires at least 32 bit integer size for type int."
+#endif
+#if (!defined(__cplusplus)) || (__cplusplus < 201103L)
+  #error "You have to compile with at least std=c++11"
 #endif
 
 #ifndef WITH_DEFAULT_STRICT_INCLUDE
@@ -110,14 +106,40 @@ namespace duktape {
     class basic_script_error : public std::runtime_error
     {
       public:
-        explicit basic_script_error(const std::string&& msg) : std::runtime_error(std::move(msg)), callstack_()
-        {}
 
-        explicit basic_script_error(std::string&& msg, std::string&& callstack)
-                  : std::runtime_error(std::move(msg)), callstack_(std::move(callstack)) {}
+        explicit basic_script_error(std::string&& msg) : std::runtime_error(std::move(msg)), callstack_()
+        { remove_internal_traces(); }
+
+        explicit basic_script_error(std::string&& msg, std::string&& callstack) : std::runtime_error(std::move(msg)), callstack_(std::move(callstack))
+        { remove_internal_traces(); }
 
         const std::string& callstack() const noexcept
         { return callstack_; }
+
+      private:
+
+        inline void remove_internal_traces() noexcept
+        {
+          // Remove internal C/C++ lines, on error (e.g. nomem) simply not.
+          try {
+            // c++17 multiline missing ...
+            // const std::regex re("^\\s+at\\s+\\[anon\\].*?internal\\s*$", std::regex_constants::icase|std::regex_constants::multiline);
+            // stack = std::regex_replace(stack, re, "\n");
+            // hence, the hard way ...
+            std::stringstream ss(callstack_);
+            std::string stack;
+            const std::regex re("preventsyield$", std::regex_constants::icase);
+            for(std::string line; std::getline(ss, line);) {
+              if((line.find("[anon]")!=line.npos) && (line.find(" internal")!=line.npos)) continue;
+              line = std::regex_replace(line, re, "");
+              stack += line;
+              stack += "\n";
+            }
+            callstack_.swap(stack);
+          } catch(...) {
+            // leave callstack_ stack as it is.
+          }
+        }
 
       private:
         std::string callstack_;
@@ -256,39 +278,66 @@ namespace duktape { namespace detail {
             : ctx_(g.ctx_), initial_top_(g.initial_top_), gc_(collect_garbage)
     { ; }
 
-    basic_stack_guard(duk_context* ctx, bool collect_garbage=false)
+    basic_stack_guard(::duk_context* ctx, bool collect_garbage=false)
             : ctx_(ctx), initial_top_(-1), gc_(collect_garbage)
-    { if(ctx_) initial_top_ = duk_get_top(ctx_); }
+    { if(ctx_) initial_top_ = ::duk_get_top(ctx_); }
 
     template <typename T>
     basic_stack_guard(const basic_api<T>& o, bool collect_garbage=false)
             : ctx_(o.ctx()), gc_(collect_garbage)
-    { if(ctx_) initial_top_ = duk_get_top(ctx_); }
+    { if(ctx_) initial_top_ = ::duk_get_top(ctx_); }
 
     ~basic_stack_guard() noexcept
     {
       if(!ctx_ || initial_top_ < 0) return;
-      duk_idx_t top = duk_get_top(ctx_);
+      ::duk_idx_t top = ::duk_get_top(ctx_);
       if(top <= initial_top_) return;
-      duk_set_top(ctx_, initial_top_);
+      ::duk_set_top(ctx_, initial_top_);
     }
 
   public:
 
-    duk_context* ctx() const noexcept
+    ::duk_context* ctx() const noexcept
     { return ctx_; }
 
-    duk_idx_t initial_top() const noexcept
+    ::duk_idx_t initial_top() const noexcept
     { return initial_top_; }
 
-    void initial_top(duk_idx_t index) noexcept
+    void initial_top(::duk_idx_t index) noexcept
     { initial_top_ = index; }
 
   private:
 
-    duk_context* ctx_;
-    duk_idx_t initial_top_;
+    ::duk_context* ctx_;
+    ::duk_idx_t initial_top_;
     bool gc_;
+  };
+
+  template <typename MutexType, bool StrictInclude>
+  class basic_engine_lock
+  {
+  public:
+
+    using engine_type = basic_engine<MutexType, StrictInclude>;
+    using lock_guard_type = typename engine_type::lock_guard_type;
+
+  public:
+
+    basic_engine_lock() = delete;
+    basic_engine_lock(const basic_engine_lock&) = delete;
+    basic_engine_lock(basic_engine_lock&&) = default;
+    basic_engine_lock& operator=(const basic_engine_lock&) = delete;
+    basic_engine_lock& operator=(basic_engine_lock&&) = default;
+
+    basic_engine_lock(engine_type& js) noexcept : lock_(js.mutex_)
+    {}
+
+    ~basic_engine_lock()
+    {}
+
+  private:
+
+    lock_guard_type lock_;
   };
 
 }}
@@ -332,12 +381,12 @@ namespace duktape { namespace detail {
   {
   public:
 
-    using context_t = duk_context*;
-    using index_t = duk_idx_t;
-    using size_t = duk_size_t;
-    using codepoint_t = duk_codepoint_t;
-    using array_index_t = duk_uarridx_t;
-    using thread_state_t = duk_thread_state;
+    using context_t = ::duk_context*;
+    using index_t = ::duk_idx_t;
+    using size_t = ::duk_size_t;
+    using codepoint_t = ::duk_codepoint_t;
+    using array_index_t = ::duk_uarridx_t;
+    using thread_state_t = ::duk_thread_state;
     using string = std::string;
 
     typedef enum {
@@ -419,7 +468,7 @@ namespace duktape { namespace detail {
     basic_api(const basic_api& o) noexcept : ctx_(o.ctx_)
     { ; }
 
-    basic_api(duk_context* ct) noexcept : ctx_(ct)
+    basic_api(::duk_context* ct) noexcept : ctx_(ct)
     { ; }
 
     template <typename T, bool S>
@@ -458,13 +507,13 @@ namespace duktape { namespace detail {
     { duk_eval_lstring_noresult(ctx_, src.data(), static_cast<size_t>(src.length())); }
 
     void call(int nargs) const
-    { duk_call(ctx_,  nargs); }
+    { ::duk_call(ctx_,  nargs); }
 
     void call_method(int nargs) const
-    { duk_call_method(ctx_, nargs); }
+    { ::duk_call_method(ctx_, nargs); }
 
     void call_prop(index_t obj_index, int nargs) const
-    { duk_call_prop(ctx_, obj_index, nargs); }
+    { ::duk_call_prop(ctx_, obj_index, nargs); }
 
     int pcompile(compile_flags_t flags) const
     { return duk_pcompile(ctx_, flags); }
@@ -485,226 +534,226 @@ namespace duktape { namespace detail {
     { return duk_peval_lstring_noresult(ctx_, src.data(), (size_t) src.length()); }
 
     int pcall(int nargs) const
-    { return duk_pcall(ctx_, nargs); }
+    { return ::duk_pcall(ctx_, nargs); }
 
     int pcall_method(int nargs) const
-    { return duk_pcall_method(ctx_, nargs); }
+    { return ::duk_pcall_method(ctx_, nargs); }
 
     int pcall_prop(index_t obj_index, int nargs) const
-    { return duk_pcall_prop(ctx_, obj_index, nargs); }
+    { return ::duk_pcall_prop(ctx_, obj_index, nargs); }
 
-    int safe_call(duk_safe_call_function func, void *udata, int nargs, int nrets) const
-    { return duk_safe_call(ctx_, func, udata, nargs, nrets); }
+    int safe_call(::duk_safe_call_function func, void *udata, int nargs, int nrets) const
+    { return ::duk_safe_call(ctx_, func, udata, nargs, nrets); }
 
     bool check_type(index_t index, int type) const
-    { return duk_check_type(ctx_, index, type) != 0; }
+    { return ::duk_check_type(ctx_, index, type) != 0; }
 
     bool check_type_mask(index_t index, unsigned mask) const
-    { return duk_check_type_mask(ctx_, index, mask) != 0; }
+    { return ::duk_check_type_mask(ctx_, index, mask) != 0; }
 
     index_t get_top() const
-    { return duk_get_top(ctx_); }
+    { return ::duk_get_top(ctx_); }
 
     void set_top(index_t index) const
-    { duk_set_top(ctx_, index); }
+    { ::duk_set_top(ctx_, index); }
 
     index_t get_top_index() const
-    { return duk_get_top_index(ctx_); }
+    { return ::duk_get_top_index(ctx_); }
 
     void dup(index_t from_index) const
-    { duk_dup(ctx_, from_index); }
+    { ::duk_dup(ctx_, from_index); }
 
     void dup_top() const
-    { duk_dup_top(ctx_); }
+    { ::duk_dup_top(ctx_); }
 
     void copy(index_t from_index, index_t to_index) const
-    { duk_copy(ctx_, from_index, to_index); }
+    { ::duk_copy(ctx_, from_index, to_index); }
 
     void remove(index_t index) const
-    { duk_remove(ctx_, index); }
+    { ::duk_remove(ctx_, index); }
 
     void insert(index_t to_index) const
-    { duk_insert(ctx_, to_index); }
+    { ::duk_insert(ctx_, to_index); }
 
     void replace(index_t to_index) const
-    { duk_replace(ctx_, to_index); }
+    { ::duk_replace(ctx_, to_index); }
 
     void swap(index_t index1, index_t index2) const
-    { duk_swap(ctx_, index1, index2); }
+    { ::duk_swap(ctx_, index1, index2); }
 
     void swap_top(index_t index) const
-    { duk_swap_top(ctx_, index); }
+    { ::duk_swap_top(ctx_, index); }
 
     bool check_stack(index_t extra) const
-    { return duk_check_stack(ctx_, extra) != 0; }
+    { return ::duk_check_stack(ctx_, extra) != 0; }
 
     bool check_stack_top(index_t top) const
-    { return duk_check_stack_top(ctx_, top) != 0; }
+    { return ::duk_check_stack_top(ctx_, top) != 0; }
 
     bool pnew(int nargs) const
-    { return duk_pnew(ctx_, nargs) == 0; }
+    { return ::duk_pnew(ctx_, nargs) == 0; }
 
     bool next(index_t enum_index, bool get_value) const
-    { return duk_next(ctx_, enum_index, (duk_bool_t) get_value) != 0; }
+    { return ::duk_next(ctx_, enum_index, (::duk_bool_t) get_value) != 0; }
 
     void compact(index_t obj_index) const
-    { duk_compact(ctx_, obj_index); }
+    { ::duk_compact(ctx_, obj_index); }
 
     bool del_prop(index_t obj_index) const
-    { return duk_del_prop(ctx_, obj_index) != 0; }
+    { return ::duk_del_prop(ctx_, obj_index) != 0; }
 
     bool del_prop_index(index_t obj_index, array_index_t arr_index) const
-    { return duk_del_prop_index(ctx_, obj_index, arr_index) != 0; }
+    { return ::duk_del_prop_index(ctx_, obj_index, arr_index) != 0; }
 
     bool del_prop_string(index_t obj_index, const char* key) const
-    { return key && (duk_del_prop_string(ctx_, obj_index, key) != 0); }
+    { return key && (::duk_del_prop_string(ctx_, obj_index, key) != 0); }
 
     bool del_prop_string(index_t obj_index, const string& key) const
-    { return duk_del_prop_lstring(ctx_, obj_index, key.c_str(), key.length()) != 0; }
+    { return ::duk_del_prop_lstring(ctx_, obj_index, key.c_str(), key.length()) != 0; }
 
     bool get_prop(index_t obj_index) const
-    { return duk_get_prop(ctx_, obj_index) != 0; }
+    { return ::duk_get_prop(ctx_, obj_index) != 0; }
 
     bool get_prop_index(index_t obj_index, array_index_t arr_index) const
-    { return duk_get_prop_index(ctx_, obj_index, arr_index) != 0; }
+    { return ::duk_get_prop_index(ctx_, obj_index, arr_index) != 0; }
 
     bool get_prop_string(index_t obj_index, const char* key) const
-    { return key && (duk_get_prop_string(ctx_, obj_index, key) != 0); }
+    { return key && (::duk_get_prop_string(ctx_, obj_index, key) != 0); }
 
     bool get_prop_string(index_t obj_index, const string& key) const
-    { return duk_get_prop_lstring(ctx_, obj_index, key.c_str(), key.size()) != 0; }
+    { return ::duk_get_prop_lstring(ctx_, obj_index, key.c_str(), key.size()) != 0; }
 
     void get_prop_desc(index_t obj_index, unsigned flags) const
-    { duk_get_prop_desc(ctx_, obj_index, duk_uint_t(flags)); }
+    { ::duk_get_prop_desc(ctx_, obj_index, duk_uint_t(flags)); }
 
     void get_prototype(index_t index) const
-    { duk_get_prototype(ctx_, index); }
+    { ::duk_get_prototype(ctx_, index); }
 
     bool get_global_string(const char* key) const
-    { return key && (duk_get_global_string(ctx_, key) != 0); }
+    { return key && (::duk_get_global_string(ctx_, key) != 0); }
 
     bool get_global_string(const string& key) const
-    { return duk_get_global_lstring(ctx_, key.c_str(), key.size()) != 0; }
+    { return ::duk_get_global_lstring(ctx_, key.c_str(), key.size()) != 0; }
 
     bool has_prop(index_t obj_index) const
-    { return duk_has_prop(ctx_, obj_index) != 0; }
+    { return ::duk_has_prop(ctx_, obj_index) != 0; }
 
     bool has_prop_index(index_t obj_index, array_index_t arr_index) const
-    { return duk_has_prop_index(ctx_, obj_index, arr_index) != 0; }
+    { return ::duk_has_prop_index(ctx_, obj_index, arr_index) != 0; }
 
     bool has_prop_string(index_t obj_index, const char* key) const
-    { return key && (duk_has_prop_string(ctx_, obj_index, key) != 0); }
+    { return key && (::duk_has_prop_string(ctx_, obj_index, key) != 0); }
 
     bool has_prop_string(index_t obj_index, const string& key) const
-    { return duk_has_prop_lstring(ctx_, obj_index, key.c_str(), key.size()) != 0; }
+    { return ::duk_has_prop_lstring(ctx_, obj_index, key.c_str(), key.size()) != 0; }
 
-    void put_function_list(index_t obj_index, const duk_function_list_entry *funcs) const
-    { duk_put_function_list(ctx_, obj_index, funcs); }
+    void put_function_list(index_t obj_index, const ::duk_function_list_entry *funcs) const
+    { ::duk_put_function_list(ctx_, obj_index, funcs); }
 
     bool put_global_string(const char* key)
-    { return duk_put_global_string(ctx_, key); }
+    { return ::duk_put_global_string(ctx_, key); }
 
     bool put_global_string(const string& key)
-    { return duk_put_global_lstring(ctx_, key.c_str(), key.size()); }
+    { return ::duk_put_global_lstring(ctx_, key.c_str(), key.size()); }
 
     void put_number_list(index_t obj_index, const duk_number_list_entry *numbers) const
-    { duk_put_number_list(ctx_, obj_index, numbers); }
+    { ::duk_put_number_list(ctx_, obj_index, numbers); }
 
     bool put_prop(index_t obj_index) const
-    { return duk_put_prop(ctx_, obj_index) != 0; }
+    { return ::duk_put_prop(ctx_, obj_index) != 0; }
 
     bool put_prop_index(index_t obj_index, array_index_t arr_index) const
-    { return duk_put_prop_index(ctx_, obj_index, arr_index) != 0; }
+    { return ::duk_put_prop_index(ctx_, obj_index, arr_index) != 0; }
 
     bool put_prop_string(index_t obj_index, const char* key) const
-    { return key && (duk_put_prop_string(ctx_, obj_index, key) != 0); }
+    { return key && (::duk_put_prop_string(ctx_, obj_index, key) != 0); }
 
     bool put_prop_string(index_t obj_index, const string& key) const
-    { return duk_put_prop_lstring(ctx_, obj_index, key.c_str(), key.size()) != 0; }
+    { return ::duk_put_prop_lstring(ctx_, obj_index, key.c_str(), key.size()) != 0; }
 
     index_t normalize_index(index_t index) const
-    { return duk_normalize_index(ctx_, index); }
+    { return ::duk_normalize_index(ctx_, index); }
 
     bool get_boolean(index_t index) const
-    { return duk_get_boolean(ctx_, index) != 0; }
+    { return ::duk_get_boolean(ctx_, index) != 0; }
 
     const void* get_buffer(index_t index, size_t& out_size) const
-    { return (const void*) duk_get_buffer(ctx_, index, &out_size); }
+    { return (const void*) ::duk_get_buffer(ctx_, index, &out_size); }
 
     const void* get_buffer_data(index_t index, size_t& out_size) const
-    { return (const void*) duk_get_buffer_data(ctx_, index, &out_size); }
+    { return (const void*) ::duk_get_buffer_data(ctx_, index, &out_size); }
 
     ::duk_c_function get_c_function(index_t index) const
-    { return duk_get_c_function(ctx_, index); }
+    { return ::duk_get_c_function(ctx_, index); }
 
     duk_context* get_context(index_t index) const
-    { return duk_get_context(ctx_, index); }
+    { return ::duk_get_context(ctx_, index); }
 
     int get_int(index_t index) const
-    { return duk_get_int(ctx_,  index); }
+    { return ::duk_get_int(ctx_,  index); }
 
     size_t get_length(index_t index) const
-    { return duk_get_length(ctx_, index); }
+    { return ::duk_get_length(ctx_, index); }
 
     void get_memory_functions(duk_memory_functions *out_funcs) const
-    { duk_get_memory_functions(ctx_, out_funcs); }
+    { ::duk_get_memory_functions(ctx_, out_funcs); }
 
     double get_now() const
-    { return duk_get_now(ctx_); }
+    { return ::duk_get_now(ctx_); }
 
     double get_number(index_t index) const
-    { return duk_get_number(ctx_, index); }
+    { return ::duk_get_number(ctx_, index); }
 
     void* get_pointer(index_t index) const
-    { return duk_get_pointer(ctx_, index); }
+    { return ::duk_get_pointer(ctx_, index); }
 
     void* get_pointer(index_t index, void* default_value) const
-    { return duk_get_pointer_default(ctx_, index, default_value); }
+    { return ::duk_get_pointer_default(ctx_, index, default_value); }
 
     string get_string(index_t index)  const
-    { size_t l; const char* s = duk_get_lstring(ctx_, index, &l); return (s && (l>0))?s:""; }
+    { size_t l; const char* s = ::duk_get_lstring(ctx_, index, &l); return (s && (l>0))?s:""; }
 
     unsigned get_uint(index_t index) const
-    { return duk_get_uint(ctx_, index); }
+    { return ::duk_get_uint(ctx_, index); }
 
     int get_type(index_t index) const
-    { return duk_get_type(ctx_, index); }
+    { return ::duk_get_type(ctx_, index); }
 
     unsigned get_type_mask(index_t index) const
-    { return duk_get_type_mask(ctx_, index); }
+    { return ::duk_get_type_mask(ctx_, index); }
 
     bool is_instanceof(index_t obj, index_t proto) const
-    { return duk_instanceof(ctx_, obj, proto) != 0; }
+    { return ::duk_instanceof(ctx_, obj, proto) != 0; }
 
     bool is_array(index_t index) const
-    { return duk_is_array(ctx_, index) != 0; }
+    { return ::duk_is_array(ctx_, index) != 0; }
 
     bool is_boolean(index_t index) const
-    { return duk_is_boolean(ctx_, index) != 0; }
+    { return ::duk_is_boolean(ctx_, index) != 0; }
 
     bool is_bound_function(index_t index) const
-    { return duk_is_bound_function(ctx_, index) != 0; }
+    { return ::duk_is_bound_function(ctx_, index) != 0; }
 
     bool is_buffer(index_t index) const
-    { return duk_is_buffer(ctx_, index) != 0; }
+    { return ::duk_is_buffer(ctx_, index) != 0; }
 
     bool is_buffer_data(index_t index) const
-    { return duk_is_buffer_data(ctx_, index) != 0; }
+    { return ::duk_is_buffer_data(ctx_, index) != 0; }
 
     bool is_c_function(index_t index) const
-    { return duk_is_c_function(ctx_, index) != 0; }
+    { return ::duk_is_c_function(ctx_, index) != 0; }
 
     bool is_callable(index_t index) const
     { return duk_is_callable(ctx_, index) != 0; }
 
     bool is_constructor_call() const
-    { return duk_is_constructor_call(ctx_) != 0; }
+    { return ::duk_is_constructor_call(ctx_) != 0; }
 
     bool is_dynamic_buffer(index_t index) const
-    { return duk_is_dynamic_buffer(ctx_, index) != 0; }
+    { return ::duk_is_dynamic_buffer(ctx_, index) != 0; }
 
     bool is_ecmascript_function(index_t index) const
-    { return duk_is_ecmascript_function(ctx_, index) != 0; }
+    { return ::duk_is_ecmascript_function(ctx_, index) != 0; }
 
     bool is_error(index_t index) const
     { return duk_is_error(ctx_, index) != 0; }
@@ -713,34 +762,34 @@ namespace duktape { namespace detail {
     { return duk_is_eval_error(ctx_, index) != 0; }
 
     bool is_fixed_buffer(index_t index) const
-    { return duk_is_fixed_buffer(ctx_, index) != 0; }
+    { return ::duk_is_fixed_buffer(ctx_, index) != 0; }
 
     bool is_function(index_t index) const
-    { return duk_is_function(ctx_, index) != 0; }
+    { return ::duk_is_function(ctx_, index) != 0; }
 
     bool is_lightfunc(index_t index) const
-    { return duk_is_lightfunc(ctx_, index) != 0; }
+    { return ::duk_is_lightfunc(ctx_, index) != 0; }
 
     bool is_nan(index_t index) const
-    { return duk_is_nan(ctx_, index) != 0; }
+    { return ::duk_is_nan(ctx_, index) != 0; }
 
     bool is_null(index_t index) const
-    { return duk_is_null(ctx_, index) != 0; }
+    { return ::duk_is_null(ctx_, index) != 0; }
 
     bool is_null_or_undefined(index_t index) const
     { return duk_is_null_or_undefined(ctx_, index) != 0; }
 
     bool is_number(index_t index) const
-    { return duk_is_number(ctx_, index) != 0; }
+    { return ::duk_is_number(ctx_, index) != 0; }
 
     bool is_object(index_t index) const
-    { return duk_is_object(ctx_, index) != 0; }
+    { return ::duk_is_object(ctx_, index) != 0; }
 
     bool is_object_coercible(index_t index) const
     { return duk_is_object_coercible(ctx_, index) != 0; }
 
     bool is_pointer(index_t index) const
-    { return duk_is_pointer(ctx_, index) != 0; }
+    { return ::duk_is_pointer(ctx_, index) != 0; }
 
     bool is_primitive(index_t index) const
     { return duk_is_primitive(ctx_, index) != 0; }
@@ -752,106 +801,106 @@ namespace duktape { namespace detail {
     { return duk_is_reference_error(ctx_, index) != 0; }
 
     bool is_strict_call() const
-    { return duk_is_strict_call(ctx_) != 0; }
+    { return ::duk_is_strict_call(ctx_) != 0; }
 
     bool is_string(index_t index) const
-    { return duk_is_string(ctx_, index) != 0; }
+    { return ::duk_is_string(ctx_, index) != 0; }
 
     bool is_symbol(index_t index) const
-    { return duk_is_symbol(ctx_, index) != 0; }
+    { return ::duk_is_symbol(ctx_, index) != 0; }
 
     bool is_syntax_error(index_t index) const
     { return duk_is_syntax_error(ctx_, index) != 0; }
 
     bool is_thread(index_t index) const
-    { return duk_is_thread(ctx_, index) != 0; }
+    { return ::duk_is_thread(ctx_, index) != 0; }
 
     bool is_type_error(index_t index) const
     { return duk_is_type_error(ctx_, index) != 0; }
 
     bool is_undefined(index_t index) const
-    { return duk_is_undefined(ctx_, index) != 0; }
+    { return ::duk_is_undefined(ctx_, index) != 0; }
 
     bool is_uri_error(index_t index) const
     { return duk_is_uri_error(ctx_, index) != 0; }
 
     bool is_valid_index(index_t index) const
-    { return duk_is_valid_index(ctx_, index) != 0; }
+    { return ::duk_is_valid_index(ctx_, index) != 0; }
 
     index_t push_array() const
-    { return duk_push_array(ctx_); }
+    { return ::duk_push_array(ctx_); }
 
     index_t push_bare_object() const
-    { return duk_push_bare_object(ctx_); }
+    { return ::duk_push_bare_object(ctx_); }
 
     void push_boolean(bool val) const
-    { duk_push_boolean(ctx_, (duk_bool_t) val); }
+    { ::duk_push_boolean(ctx_, (::duk_bool_t) val); }
 
     void* push_buffer(size_t size, bool dynamic) const
-    { return duk_push_buffer(ctx_, size, (duk_bool_t) dynamic); }
+    { return duk_push_buffer(ctx_, size, (::duk_bool_t) dynamic); }
 
     void push_buffer_object(index_t buffer_index, size_t byte_offset, size_t byte_length, unsigned flags) const
-    { return duk_push_buffer_object(ctx_, buffer_index, duk_size_t(byte_offset), duk_size_t(byte_length), duk_uint_t(flags)); }
+    { return ::duk_push_buffer_object(ctx_, buffer_index, ::duk_size_t(byte_offset), ::duk_size_t(byte_length), ::duk_uint_t(flags)); }
 
     index_t push_c_function(::duk_c_function func, int nargs=DUK_VARARGS) const
-    { return duk_push_c_function(ctx_, func, nargs); }
+    { return ::duk_push_c_function(ctx_, func, nargs); }
 
     void push_context_dump() const
-    { duk_push_context_dump(ctx_); }
+    { ::duk_push_context_dump(ctx_); }
 
     void push_current_function() const
-    { duk_push_current_function(ctx_); }
+    { ::duk_push_current_function(ctx_); }
 
     void push_current_thread() const
-    { duk_push_current_thread(ctx_); }
+    { ::duk_push_current_thread(ctx_); }
 
     void* push_dynamic_buffer(size_t size) const
     { return duk_push_dynamic_buffer(ctx_, size); }
 
     void push_false() const
-    { duk_push_false(ctx_); }
+    { ::duk_push_false(ctx_); }
 
     void* push_fixed_buffer(size_t size) const
     { return duk_push_fixed_buffer(ctx_, size); }
 
     void push_global_object() const
-    { duk_push_global_object(ctx_); }
+    { ::duk_push_global_object(ctx_); }
 
     void push_global_stash() const
-    { duk_push_global_stash(ctx_); }
+    { ::duk_push_global_stash(ctx_); }
 
     void push_heap_stash() const
-    { duk_push_heap_stash(ctx_); }
+    { ::duk_push_heap_stash(ctx_); }
 
     void push_int(int val) const
-    { duk_push_int(ctx_, val); }
+    { ::duk_push_int(ctx_, val); }
 
     void push_string(const char* s) const
-    { duk_push_string(ctx_, s ? s : ""); }
+    { ::duk_push_string(ctx_, s ? s : ""); }
 
     void push_string(const string& s) const
-    { duk_push_lstring(ctx_, s.data(), (size_t) s.length()); }
+    { ::duk_push_lstring(ctx_, s.data(), (size_t) s.length()); }
 
     void push_string(string&& s) const
-    { duk_push_lstring(ctx_, s.data(), (size_t) s.length()); }
+    { ::duk_push_lstring(ctx_, s.data(), (size_t) s.length()); }
 
     void push_nan() const
-    { duk_push_nan(ctx_); }
+    { ::duk_push_nan(ctx_); }
 
     void push_null() const
-    { duk_push_null(ctx_); }
+    { ::duk_push_null(ctx_); }
 
     void push_number(double val) const
-    { duk_push_number(ctx_, val); }
+    { ::duk_push_number(ctx_, val); }
 
     index_t push_object() const
-    { return duk_push_object(ctx_); }
+    { return ::duk_push_object(ctx_); }
 
     void push_pointer(void *p) const
-    { duk_push_pointer(ctx_, p); }
+    { ::duk_push_pointer(ctx_, p); }
 
     void push_this() const
-    { duk_push_this(ctx_); }
+    { ::duk_push_this(ctx_); }
 
     index_t push_thread() const
     { return duk_push_thread(ctx_); }
@@ -860,97 +909,97 @@ namespace duktape { namespace detail {
     { return duk_push_thread_new_globalenv(ctx_); }
 
     void push_thread_stash(duk_context *target_ctx) const
-    { duk_push_thread_stash(ctx_, target_ctx); }
+    { ::duk_push_thread_stash(ctx_, target_ctx); }
 
     void push_true() const
-    { duk_push_true(ctx_); }
+    { ::duk_push_true(ctx_); }
 
     void push_uint(unsigned val) const
-    { duk_push_uint(ctx_, val); }
+    { ::duk_push_uint(ctx_, val); }
 
     void push_undefined() const
-    { duk_push_undefined(ctx_); }
+    { ::duk_push_undefined(ctx_); }
 
     index_t push_proxy() const
-    { return duk_push_proxy(ctx_, 0); } // proxy_flags unused, must be 0.
+    { return ::duk_push_proxy(ctx_, 0); } // proxy_flags unused, must be 0.
 
     void pop() const
-    { duk_pop(ctx_); }
+    { ::duk_pop(ctx_); }
 
     void pop(index_t count) const
-    { if(count > 0) duk_pop_n(ctx_, count); }
+    { if(count > 0) ::duk_pop_n(ctx_, count); }
 
     bool require_boolean(index_t index) const
-    { return duk_require_boolean(ctx_, index); }
+    { return ::duk_require_boolean(ctx_, index); }
 
     void* require_buffer(index_t index, size_t *out_size) const
-    { return duk_require_buffer(ctx_, index, out_size); }
+    { return ::duk_require_buffer(ctx_, index, out_size); }
 
     void* require_buffer_data(index_t index, size_t *out_size) const
-    { return duk_require_buffer_data(ctx_, index, out_size); }
+    { return ::duk_require_buffer_data(ctx_, index, out_size); }
 
     ::duk_c_function require_c_function(index_t index) const
-    { return duk_require_c_function(ctx_, index); }
+    { return ::duk_require_c_function(ctx_, index); }
 
     void require_callable(index_t index) const
     { return duk_require_callable(ctx_, index); }
 
     int require_int(index_t index) const
-    { return duk_require_int(ctx_, index); }
+    { return ::duk_require_int(ctx_, index); }
 
     string require_string(index_t index) const
-    { size_t l; const char* s = duk_require_lstring(ctx_, index, &l); return (s && (l>0))?s:""; }
+    { size_t l; const char* s = ::duk_require_lstring(ctx_, index, &l); return (s && (l>0))?s:""; }
 
     index_t require_normalize_index(index_t index) const
-    { return duk_require_normalize_index(ctx_, index); }
+    { return ::duk_require_normalize_index(ctx_, index); }
 
     void require_null(index_t index) const
-    { duk_require_null(ctx_, index); }
+    { ::duk_require_null(ctx_, index); }
 
     double require_number(index_t index) const
-    { return duk_require_number(ctx_, index); }
+    { return ::duk_require_number(ctx_, index); }
 
     void require_object_coercible(index_t index) const
     { duk_require_object_coercible(ctx_, index); }
 
     void* require_pointer(index_t index) const
-    { return duk_require_pointer(ctx_, index); }
+    { return ::duk_require_pointer(ctx_, index); }
 
     unsigned require_uint(index_t index) const
-    { return duk_require_uint(ctx_, index); }
+    { return ::duk_require_uint(ctx_, index); }
 
     void require_undefined(index_t index) const
-    { duk_require_undefined(ctx_, index); }
+    { ::duk_require_undefined(ctx_, index); }
 
-    duk_context* require_context(index_t index) const
-    { return duk_require_context(ctx_, index); }
+    ::duk_context* require_context(index_t index) const
+    { return ::duk_require_context(ctx_, index); }
 
     void require_function(index_t index) const
-    { duk_require_function(ctx_, index); }
+    { ::duk_require_function(ctx_, index); }
 
     void require_stack_top(index_t top) const
-    { duk_require_stack_top(ctx_, top); }
+    { ::duk_require_stack_top(ctx_, top); }
 
     void require_stack(index_t extra) const
-    { duk_require_stack(ctx_, extra); }
+    { ::duk_require_stack(ctx_, extra); }
 
     index_t require_top_index() const
-    { return duk_require_top_index(ctx_); }
+    { return ::duk_require_top_index(ctx_); }
 
     void require_type_mask(index_t index, unsigned mask) const
     { duk_require_type_mask(ctx_, index, mask); }
 
     void require_valid_index(index_t index) const
-    { duk_require_valid_index(ctx_, index); }
+    { ::duk_require_valid_index(ctx_, index); }
 
     void require_constructable(index_t index) const
-    { duk_require_constructable(ctx_, index); }
+    { ::duk_require_constructable(ctx_, index); }
 
     void require_constructor_call() const
-    { duk_require_constructor_call(ctx_); }
+    { ::duk_require_constructor_call(ctx_); }
 
     bool to_boolean(index_t index) const
-    { return duk_to_boolean(ctx_, index) != 0; }
+    { return ::duk_to_boolean(ctx_, index) != 0; }
 
     void* to_buffer(index_t index, size_t *out_size) const
     { return duk_to_buffer(ctx_, index, out_size); }
@@ -962,127 +1011,127 @@ namespace duktape { namespace detail {
     { return duk_to_fixed_buffer(ctx_, index, out_size); }
 
     int to_int(index_t index) const
-    { return duk_to_int(ctx_, index); }
+    { return ::duk_to_int(ctx_, index); }
 
     int32_t to_int32(index_t index) const
-    { return duk_to_int32(ctx_, index); }
+    { return ::duk_to_int32(ctx_, index); }
 
     void to_null(index_t index) const
-    { duk_to_null(ctx_, index); }
+    { ::duk_to_null(ctx_, index); }
 
     double to_number(index_t index) const
-    { return duk_to_number(ctx_, index); }
+    { return ::duk_to_number(ctx_, index); }
 
     void to_object(index_t index) const
-    { duk_to_object(ctx_, index); }
+    { ::duk_to_object(ctx_, index); }
 
     const void* to_pointer(index_t index) const
-    { return (const void*) duk_to_pointer(ctx_, index); }
+    { return (const void*) ::duk_to_pointer(ctx_, index); }
 
     void to_primitive(index_t index, int hint) const
-    { duk_to_primitive(ctx_, index, hint); }
+    { ::duk_to_primitive(ctx_, index, hint); }
 
     unsigned to_uint(index_t index) const
-    { return duk_to_uint(ctx_, index); }
+    { return ::duk_to_uint(ctx_, index); }
 
     uint16_t to_uint16(index_t index) const
-    { return duk_to_uint16(ctx_, index); }
+    { return ::duk_to_uint16(ctx_, index); }
 
     uint32_t to_uint32(index_t index) const
-    { return duk_to_uint32(ctx_, index); }
+    { return ::duk_to_uint32(ctx_, index); }
 
     void to_undefined(index_t index) const
-    { duk_to_undefined(ctx_, index); }
+    { ::duk_to_undefined(ctx_, index); }
 
     string to_string(index_t index) const
-    { size_t l; const char* s = duk_to_lstring(ctx_, index, &l); return (s && (l>0))?s:""; }
+    { size_t l; const char* s = ::duk_to_lstring(ctx_, index, &l); return (s && (l>0))?s:""; }
 
     string safe_to_string(index_t index) const
-    { size_t l; const char *s = duk_safe_to_lstring(ctx_, index, &l); return string(s, s+l); }
+    { size_t l; const char *s = ::duk_safe_to_lstring(ctx_, index, &l); return string(s, s+l); }
 
     string to_stacktrace(index_t index) const
-    { const char *s = duk_to_stacktrace(ctx_, index); return string(s?s:"Error"); }
+    { const char *s = ::duk_to_stacktrace(ctx_, index); return string(s?s:"Error"); }
 
     string safe_to_stacktrace(index_t index) const
-    { return string(duk_safe_to_stacktrace(ctx_, index)); }
+    { return string(::duk_safe_to_stacktrace(ctx_, index)); }
 
     bool samevalue(index_t index1, index_t index2)
-    { return !!duk_samevalue(ctx_, index1, index2); }
+    { return !!::duk_samevalue(ctx_, index1, index2); }
 
     void concat(index_t count) const
-    { duk_concat(ctx_, count); }
+    { ::duk_concat(ctx_, count); }
 
     void join(index_t count) const
-    { duk_join(ctx_, count); }
+    { ::duk_join(ctx_, count); }
 
     void substring(index_t index, size_t start_char_offset, size_t end_char_offset) const
-    { duk_substring(ctx_, index, start_char_offset, end_char_offset); }
+    { ::duk_substring(ctx_, index, start_char_offset, end_char_offset); }
 
     void trim(index_t index) const
-    { duk_trim(ctx_, index); }
+    { ::duk_trim(ctx_, index); }
 
     codepoint_t char_code_at(index_t index, size_t char_offset) const
-    { return duk_char_code_at(ctx_, index, char_offset); }
+    { return ::duk_char_code_at(ctx_, index, char_offset); }
 
     void json_decode(index_t index) const
-    { duk_json_decode(ctx_, index); }
+    { ::duk_json_decode(ctx_, index); }
 
     string json_encode(index_t index) const
-    { const char* s = duk_json_encode(ctx_, index); return s ? s : ""; }
+    { const char* s = ::duk_json_encode(ctx_, index); return s ? s : ""; }
 
     string base64_encode(index_t index) const
-    { const char* s = duk_base64_encode(ctx_, index); return s ? s : ""; }
+    { const char* s = ::duk_base64_encode(ctx_, index); return s ? s : ""; }
 
     void base64_decode(index_t index) const
-    { duk_base64_decode(ctx_, index); }
+    { ::duk_base64_decode(ctx_, index); }
 
     void hex_decode(index_t index) const
-    { duk_hex_decode(ctx_, index); }
+    { ::duk_hex_decode(ctx_, index); }
 
     string hex_encode(index_t index) const
-    { const char* s = duk_hex_encode(ctx_, index); return s ? s : ""; }
+    { const char* s = ::duk_hex_encode(ctx_, index); return s ? s : ""; }
 
     string buffer_to_string(index_t index) const
-    { const char* s = duk_buffer_to_string(ctx_, index); return s ? s : ""; }
+    { const char* s = ::duk_buffer_to_string(ctx_, index); return s ? s : ""; }
 
-    void map_string(index_t index, duk_map_char_function callback, void *udata) const
-    { duk_map_string(ctx_, index, callback, udata); }
+    void map_string(index_t index, ::duk_map_char_function callback, void *udata) const
+    { ::duk_map_string(ctx_, index, callback, udata); }
 
-    void decode_string(index_t index, duk_decode_char_function callback, void *udata) const
-    { duk_decode_string(ctx_, index, callback, udata); }
+    void decode_string(index_t index, ::duk_decode_char_function callback, void *udata) const
+    { ::duk_decode_string(ctx_, index, callback, udata); }
 
     void* resize_buffer(index_t index, size_t new_size) const
-    { return duk_resize_buffer(ctx_, index, new_size); }
+    { return ::duk_resize_buffer(ctx_, index, new_size); }
 
     void* alloc(size_t size) const
-    { return duk_alloc(ctx_, size); }
+    { return ::duk_alloc(ctx_, size); }
 
     void* alloc_raw(size_t size) const
-    { return duk_alloc_raw(ctx_, size); }
+    { return ::duk_alloc_raw(ctx_, size); }
 
     void* realloc(void *ptr, size_t size) const
-    { return duk_realloc(ctx_, ptr, size); }
+    { return ::duk_realloc(ctx_, ptr, size); }
 
     void* realloc_raw(void *ptr, size_t size) const
-    { return duk_realloc_raw(ctx_, ptr, size); }
+    { return ::duk_realloc_raw(ctx_, ptr, size); }
 
     void free(void *ptr) const
-    { duk_free(ctx_, ptr); }
+    { ::duk_free(ctx_, ptr); }
 
     void free_raw(void *ptr) const
-    { duk_free_raw(ctx_, ptr); }
+    { ::duk_free_raw(ctx_, ptr); }
 
     void enumerator(index_t obj_index, enumerator_flags enum_flags)  const
-    { duk_enum(ctx_, obj_index, (duk_uint_t) enum_flags); }
+    { ::duk_enum(ctx_, obj_index, (duk_uint_t) enum_flags); }
 
     bool equals(index_t index1, index_t index2) const
-    { return duk_equals(ctx_, index1, index2) != 0; }
+    { return ::duk_equals(ctx_, index1, index2) != 0; }
 
     bool strict_equals(index_t index1, index_t index2) const
-    { return duk_strict_equals(ctx_, index1, index2); }
+    { return ::duk_strict_equals(ctx_, index1, index2); }
 
     void gc() const  // unsigned flags: not defined yet
-    { duk_gc(ctx_, 0); }
+    { ::duk_gc(ctx_, 0); }
 
     int throw_exception() const
     { ::duk_throw_raw(ctx_); return 0; }
@@ -1091,76 +1140,76 @@ namespace duktape { namespace detail {
     { error(error_code_t::err_ecma, msg); return 0; }
 
     int error(error_code_t err_code, const string& msg, string file="(native c++)", int line=0) const
-    { duk_error_raw(ctx_, (duk_errcode_t) err_code, file.c_str(), (duk_int_t) line, msg.c_str()); return 0; }
+    { ::duk_error_raw(ctx_, (::duk_errcode_t)err_code, file.c_str(), (::duk_int_t)line, msg.c_str()); return 0; }
 
     error_code_t get_error_code(index_t index) const
-    { return error_code_t(duk_get_error_code(ctx_, index));  }
+    { return error_code_t(::duk_get_error_code(ctx_, index));  }
 
     void push_external_buffer()
     { duk_push_external_buffer(ctx_); }
 
     void push_external_buffer(void* data, size_t size)
-    { duk_push_external_buffer(ctx_); duk_config_buffer(ctx_, -1, data, duk_size_t(size)); }
+    { duk_push_external_buffer(ctx_); ::duk_config_buffer(ctx_, -1, data, ::duk_size_t(size)); }
 
     void config_buffer(index_t index, void* data, size_t size)
-    { duk_config_buffer(ctx_, index, data, duk_size_t(size)); }
+    { ::duk_config_buffer(ctx_, index, data, ::duk_size_t(size)); }
 
     string dump_context() const
     { stack_guard sg(ctx_); push_context_dump(); return safe_to_string(-1); }
 
     void def_prop(index_t index, unsigned flags) const
-    { duk_def_prop(ctx_, index, (duk_uint_t)flags); }
+    { ::duk_def_prop(ctx_, index, (::duk_uint_t)flags); }
 
     void def_prop(index_t index) const
-    { duk_def_prop(ctx_, index, detail::defprop_flags::convert(detail::defprop_flags::defaults)); }
+    { ::duk_def_prop(ctx_, index, detail::defprop_flags::convert(detail::defprop_flags::defaults)); }
 
     void dump_function() const
-    { duk_dump_function(ctx_); }
+    { ::duk_dump_function(ctx_); }
 
     void load_function() const
-    { duk_load_function(ctx_); }
+    { ::duk_load_function(ctx_); }
 
     void get_finalizer(index_t index) const
-    { duk_get_finalizer(ctx_, index); }
+    { ::duk_get_finalizer(ctx_, index); }
 
     void set_finalizer(index_t index) const
-    { duk_set_finalizer(ctx_, index); }
+    { ::duk_set_finalizer(ctx_, index); }
 
     void set_global_object() const
-    { duk_set_global_object(ctx_); }
+    { ::duk_set_global_object(ctx_); }
 
     void set_length(index_t index, size_t length) const
-    { duk_set_length(ctx_, index, length); }
+    { ::duk_set_length(ctx_, index, length); }
 
     void set_prototype(index_t index) const
-    { duk_set_prototype(ctx_, index); }
+    { ::duk_set_prototype(ctx_, index); }
 
     void* steal_buffer(index_t index, size_t *size)
-    { return duk_steal_buffer(ctx_, index, size); }
+    { return ::duk_steal_buffer(ctx_, index, size); }
 
     thread_state_t suspend() const
-    { thread_state_t state; duk_suspend(ctx_, &state); return state; }
+    { thread_state_t state; ::duk_suspend(ctx_, &state); return state; }
 
     void resume(const thread_state_t& state) const
-    { duk_resume(ctx_, &state); }
+    { ::duk_resume(ctx_, &state); }
 
     void inspect_callstack_entry(int level) const
-    { duk_inspect_callstack_entry(ctx_, duk_int_t(level)); }
+    { ::duk_inspect_callstack_entry(ctx_, ::duk_int_t(level)); }
 
     void inspect_value(index_t index) const
-    { duk_inspect_value(ctx_, index); }
+    { ::duk_inspect_value(ctx_, index); }
 
     void seal(index_t index) const
-    { duk_seal(ctx_, index); }
+    { ::duk_seal(ctx_, index); }
 
     void freeze(index_t index) const
-    { duk_freeze(ctx_, index); }
+    { ::duk_freeze(ctx_, index); }
 
     static void xcopy_top(context_t to_ctx, context_t from_ctx, size_t count)
-    { duk_xcopy_top(to_ctx, from_ctx, duk_idx_t(count)); }
+    { duk_xcopy_top(to_ctx, from_ctx, ::duk_idx_t(count)); }
 
     static void xmove_top(context_t to_ctx, context_t from_ctx, size_t count)
-    { duk_xmove_top(to_ctx, from_ctx, duk_idx_t(count)); }
+    { duk_xmove_top(to_ctx, from_ctx, ::duk_idx_t(count)); }
 
   public:
 
@@ -1180,12 +1229,12 @@ namespace duktape { namespace detail {
     ContainerType buffer(index_t index) const
     {
       ContainerType data;
-      duk_size_t size = 0;
+      ::duk_size_t size = 0;
       const char* buffer = nullptr;
       if(is_buffer(index)) {
-        buffer = reinterpret_cast<const char*>(duk_get_buffer(ctx_, index, &size));
+        buffer = reinterpret_cast<const char*>(::duk_get_buffer(ctx_, index, &size));
       } else if(is_buffer_data(index)) {
-        buffer = reinterpret_cast<const char*>(duk_get_buffer_data(ctx_, index, &size));
+        buffer = reinterpret_cast<const char*>(::duk_get_buffer_data(ctx_, index, &size));
       }
       if(buffer && size) {
         data.resize(size);
@@ -1206,7 +1255,7 @@ namespace duktape { namespace detail {
     void* push_array_buffer(size_t size, bool dynamic) const
     {
       void* p = duk_push_buffer(ctx_, size, (duk_bool_t) dynamic);
-      if(p) duk_push_buffer_object(ctx_, -1, 0, size, DUK_BUFOBJ_ARRAYBUFFER);
+      if(p) ::duk_push_buffer_object(ctx_, -1, 0, size, DUK_BUFOBJ_ARRAYBUFFER);
       return p;
     }
 
@@ -1277,7 +1326,7 @@ namespace duktape { namespace detail {
      * @return int
      */
     int eval_raw(const char* src_buffer, size_t src_length, unsigned flags)
-    { return duk_eval_raw(ctx_, src_buffer, (duk_size_t) src_length, (duk_uint_t) flags); }
+    { return ::duk_eval_raw(ctx_, src_buffer, (::duk_size_t) src_length, (::duk_uint_t) flags); }
 
     /**
      * Returns the type name of a ECMA value on the stack.
@@ -1344,6 +1393,17 @@ namespace duktape { namespace detail {
     template <typename T>
     T get(index_t index) const
     { return conv<T>::get(ctx_, index); }
+
+    /**
+     * Get a value from the stack withOUT implicit conversion / coersion.
+     * Returns the default value if the index exceeds the stack top.
+     * @param index_t index
+     * @param T default_value
+     * @return typename T
+     */
+    template <typename T>
+    T get(index_t index, const T& default_value) const
+    { return (top() <= index) ? default_value : conv<T>::get(ctx_, index); }
 
     /**
      * Get a value from the stack without implicit conversion / coersion, throwing
@@ -1635,11 +1695,11 @@ namespace duktape { namespace detail {
     static constexpr const char* cc_name() noexcept { return NAME; } \
     static constexpr const char* ecma_name() noexcept { return "Number"; } \
     static constexpr int nret() noexcept { return 1; } \
-    static bool is(duk_context* ctx, int index)  { return IS(ctx, index); } \
-    static type get(duk_context* ctx, int index)  { return GET(ctx, index); } \
-    static type req(duk_context* ctx, int index)  { return REQ(ctx, index); } \
-    static type to(duk_context* ctx, int index)  { return TO(ctx, index); } \
-    static void push(duk_context* ctx, type val)  { PUSH(ctx, val); } \
+    static bool is(::duk_context* ctx, int index) noexcept { return IS(ctx, index); } \
+    static type get(::duk_context* ctx, int index) noexcept { return GET(ctx, index); } \
+    static type req(::duk_context* ctx, int index) noexcept  { return REQ(ctx, index); } \
+    static type to(::duk_context* ctx, int index) noexcept { return TO(ctx, index); } \
+    static void push(::duk_context* ctx, type val) noexcept { PUSH(ctx, val); } \
   }
   decl_conv_tmp(char, duk_get_int, duk_require_int, duk_to_int, duk_push_int, duk_is_number, "char");
   decl_conv_tmp(signed char, duk_get_int, duk_require_int, duk_to_int, duk_push_int, duk_is_number, "signed char");
@@ -2078,7 +2138,7 @@ namespace duktape {
      * Shall free the native c++ instance when the garbage
      * collector cleans up the JS object.
      */
-    static int finalizer_proxy(api::context_t ctx)
+    static int finalizer_proxy(api::context_t ctx) noexcept
     {
       try {
         api stack(ctx);
@@ -2449,10 +2509,10 @@ namespace duktape {
      * @return native_object&
      */
     template <typename M, bool S>
-    native_object& define_in(detail::basic_engine<M,S>& js)
+    native_object& define_in(detail::basic_engine<M,S>& js, bool sealed=false)
     {
       using defflags = duktape::detail::defprop_flags;
-      instance_ = std::unique_ptr<native_object>(new native_object(*this));
+      instance_ = std::make_unique<native_object>(*this);
       api& stack = js.stack();
       constexpr defflags::type acf = defflags::restricted;
       constexpr defflags::type ace = defflags::enumerable;
@@ -2490,8 +2550,10 @@ namespace duktape {
         stack.def_prop(-3, defflags::convert(acf));   // [proto]
         ++i;
       }
-      stack.top(1);                                   // [proto]
-      stack.freeze(-1);                               // [proto]
+      if(sealed) {
+        stack.top(1);                                 // [proto]
+        stack.freeze(-1);                             // [proto]
+      }
       stack.top(0);                                   // []
       return *this;
     }
@@ -2508,6 +2570,7 @@ namespace duktape {
 
   template <typename T>
   std::unique_ptr<native_object<T>> native_object<T>::instance_ = nullptr;
+
 }
 
 /**
@@ -2530,6 +2593,8 @@ namespace duktape { namespace detail {
     using stack_guard_type = ::duktape::stack_guard;
     using lock_guard_type = std::lock_guard<MutexType>;
     using defflags = defprop_flags;
+    using engine_lock_type = detail::basic_engine_lock<MutexType,StrictInclude>;
+    friend class basic_engine_lock<MutexType,StrictInclude>;
 
   public:
 
@@ -2660,17 +2725,17 @@ namespace duktape { namespace detail {
     /**
      * Evaluate code given as string, throws a `duktape::script_error` on fail. Optionally a
      * file name can be specified for tracing purposes in the JS engine.
-     * @param std::string code
+     * @param const std::string& code
      * @param std::string file="(eval)"
      * @return typename ReturnType
      */
     template <typename ReturnType=void, bool StrictReturn=false>
-    ReturnType eval(std::string&& code, std::string file="(eval)", bool use_strict=false)
+    ReturnType eval(const std::string& code, std::string file="(eval)", bool use_strict=false)
     {
       lock_guard_type lck(mutex_);
       stack_guard_type sg(ctx(), true);
       stack().require_stack(2);
-      stack().push_string(std::move(code));
+      stack().push_string(code);
       stack().push_string(file);
       bool ok;
       try {

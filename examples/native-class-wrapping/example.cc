@@ -96,7 +96,7 @@ int main(int, const char**)
     .setter("x", [](duktape::api& stack, circle& instance){
       // Setter for x. If you omit it, the property is readonly.
       // Modify your instance according to the input argument
-      // on the top of the JS stack. 
+      // on the top of the JS stack.
       instance.x = stack.get<double>(-1);
     })
     // Other getters/setters. Boring.
@@ -113,8 +113,8 @@ int main(int, const char**)
       instance.r = stack.get<double>(-1);
     })
     // Of corse you can use the wrapper to "fake" members of
-    // the native object. There is no diameter "d" in the 
-    // class at all, but for JS users it might be convenient 
+    // the native object. There is no diameter "d" in the
+    // class at all, but for JS users it might be convenient
     // to have it.
     .getter("d", [](duktape::api& stack, circle& instance){
       stack.push(instance.r * 2.0);
@@ -122,7 +122,7 @@ int main(int, const char**)
     .setter("d", [](duktape::api& stack, circle& instance){
       instance.r = stack.get<double>(-1) * 0.5;
     })
-    // Let's provide the area also as a readonly property. 
+    // Let's provide the area also as a readonly property.
     .getter("a", [](duktape::api& stack, circle& instance){
       stack.push(instance.area());
     })

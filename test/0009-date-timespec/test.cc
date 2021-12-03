@@ -6,7 +6,7 @@ using namespace std;
 
 void test(duktape::engine& js)
 {
-  #if defined(__linux__) || defined(__linux)
+  #if defined(__linux__)
   test_expect( js.eval<uint64_t>("var d = new Date('1970-01-01T00:05:00'); d;") == 300000 );
   test_expect( js.eval<string>("typeof(d)") == "object");
   test_expect( js.eval<bool>("d instanceof Date") == true);

@@ -59,50 +59,172 @@ namespace duktape { namespace detail {
      */
     static void define_in(duktape::engine& js)
     {
+      #if(0 && JSDOC)
+      /**
+       * print(a,b,c, ...). Writes data stringifyed to STDOUT.
+       *
+       * @param {...*} args
+       */
+      print = function(args) {};
+      #endif
       js.define("print", print);
+
+      #if(0 && JSDOC)
+      /**
+       * alert(a,b,c, ...). Writes data stringifyed to STDERR.
+       *
+       * @param {...*} args
+       */
+      alert = function(args) {};
+      #endif
       js.define("alert", alert);
-      js.define("console.log", console_log);
-      js.define("console.read", console_read);
-      js.define("console.write", console_write);
+
+      #if(0 && JSDOC)
+      /**
+       * Returns a first character entered as string. First function argument
+       * is a text that is printed before reading the input stream (without newline,
+       * "?" or ":"). The input is read from STDIN.
+       *
+       * @param {string} text
+       * @return {string}
+       */
+      confirm = function(text) {};
+      #endif
       js.define("confirm", confirm);
+
+      #if(0 && JSDOC)
+      /**
+       * Returns a line entered via the input stream STDIN.
+       *
+       * @return {string}
+       */
+      prompt = function() {};
+      #endif
       js.define("prompt", prompt);
+
+      #if(0 && JSDOC)
+      /**
+       * C style formatted output to STDOUT. Note that not
+       * all formats can be used like in C/C++ because ECMA
+       * is has no strong type system. E.g. %u, %ul etc does
+       * not make sense because numbers are intrinsically
+       * floating point, and the (data type) size of the number
+       * matters when using %u. If unsupported arguments are
+       * passed the method will throw an exception.
+       *
+       * Supported formatters are:
+       *
+       *  - %d, %ld, %lld: The ECMA number is coerced
+       *    into an integer and printed. Digits and sign
+       *    are supported (%4d, %+06l).
+       *
+       *  - %f, %lf, %g: Floating point format, also with additional
+       *    format specs like %.8f, %+10.5f etc.
+       *
+       *  - %x: Hexadecimal representation of numbers (also %08x
+       *    or %4X etc supported).
+       *
+       *  - %o: Octal representation of numbers (also %08o)
+       *
+       *  - %s: String coercing with optional minimum width (e.g. %10s)
+       *
+       *  - %c: When number given, the ASCII code of the lowest byte
+       *        (e.g. 65=='A'). When string given the first character
+       *        of the string.
+       *
+       * Not supported:
+       *
+       *  - Parameter argument (like "%2$d", the "2$" would apply the
+       *    same format to two arguments passed to the function).
+       *
+       *  - Dynamic width (like "%*f", the "*" would be used to pass
+       *    the output width of the floating point number as argument).
+       *
+       *  - Unsigned %u, %n
+       *
+       * @param {string} format
+       * @param {...*} args
+       */
+      printf = function(format, args) {};
+      #endif
       js.define("printf", printf_stdout);
+
+      #if(0 && JSDOC)
+      /**
+       * C style formatted output into a string. For
+       * formatting details please @see printf.
+       *
+       * @param {string} format
+       * @param {...*} args
+       * @return {string}
+       */
+      sprintf = function(format, args) {};
+      #endif
       js.define("sprintf", printf_string);
+
+      #if(0 && JSDOC)
+      /**
+       * Console object known from various JS implementations.
+       *
+       * @var {object}
+       */
+      var console = {};
+
+      /**
+       * Writes a line to the log stream (automatically appends a newline).
+       * The default log stream is STDERR.
+       *
+       * @param {...*} args
+       */
+      console.log = function(args) {};
+      #endif
+      js.define("console.log", console_log);
+
+      #if(0 && JSDOC)
+      /**
+       * Read from STDIN until EOF. Using the argument `arg` it is possible
+       * to use further functionality:
+       *
+       *  - By default (if `arg` is undefined or not given) the function
+       *    returns a string when all data are read.
+       *
+       *  - If `arg` is boolean and `true`, then the input is read into
+       *    a buffer variable, not a string. The function returns when
+       *    all data are read.
+       *
+       * - If `arg` is a function, then a string is read line by line,
+       *   and each line passed to this callback function. If the function
+       *   returns `true`, then the line is added to the output. The
+       *   function may also preprocess line and return a String. In this
+       *   case the returned string is added to the output.
+       *   Otherwise, if `arg` is not `true` and no string, the line is
+       *   skipped.
+       *
+       * @param {function|boolean} arg
+       * @return {string|buffer}
+       */
+      console.read = function(arg) {};
+      #endif
+      js.define("console.read", console_read);
+
+      #if(0 && JSDOC)
+      /**
+       * Write to STDOUT without any conversion, whitespaces between the given arguments,
+       * and without newline at the end.
+       *
+       * @param {...*} args
+       */
+      console.write = function(args) {};
+      #endif
+      js.define("console.write", console_write);
     }
 
-    #if(0 && JSDOC)
-    /**
-     * print(a,b,c, ...). Writes data stringifyed to STDOUT.
-     *
-     * @param {...*} args
-     */
-    print = function(args) {};
-    #endif
     static int print(duktape::api& stack)
     { return print_to(stack, out_stream); }
 
-    #if(0 && JSDOC)
-    /**
-     * alert(a,b,c, ...). Writes data stringifyed to STDERR.
-     *
-     * @param {...*} args
-     */
-    alert = function(args) {};
-    #endif
     static int alert(duktape::api& stack)
     { return print_to(stack, err_stream); }
 
-    #if(0 && JSDOC)
-    /**
-     * Returns a first character entered as string. First function argument
-     * is a text that is printed before reading the input stream (without newline,
-     * "?" or ":"). The input is read from STDIN.
-     *
-     * @param {string} text
-     * @returns {string}
-     */
-    confirm = function(text) {};
-    #endif
     static int confirm(duktape::api& stack)
     {
       if(!in_stream) return 0;
@@ -120,14 +242,6 @@ namespace duktape { namespace detail {
       return 1;
     }
 
-    #if(0 && JSDOC)
-    /**
-     * Returns a line entered via the input stream STDIN.
-     *
-     * @returns {string}
-     */
-    prompt = function() {};
-    #endif
     static int prompt(duktape::api& stack)
     {
       if(!in_stream) return 0;
@@ -142,36 +256,9 @@ namespace duktape { namespace detail {
       return 1;
     }
 
-    #if(0 && JSDOC)
-    /**
-     * Console object known from various JS implementations.
-     *
-     * @var {object}
-     */
-    var console = {};
-    #endif
-
-    #if(0 && JSDOC)
-    /**
-     * Writes a line to the log stream (automatically appends a newline).
-     * The default log stream is STDERR.
-     *
-     * @param {...*} args
-     */
-    console.log = function(args) {};
-    #endif
     static int console_log(duktape::api& stack)
     { return print_to(stack, log_stream); }
 
-    #if(0 && JSDOC)
-    /**
-     * Write to STDOUT without any conversion, whitespaces between the given arguments,
-     * and without newline at the end.
-     *
-     * @param {...*} args
-     */
-    console.write = function(args) {};
-    #endif
     static int console_write(duktape::api& stack)
     {
       if(!out_stream) return 0;
@@ -191,31 +278,6 @@ namespace duktape { namespace detail {
       return 0;
     }
 
-    #if(0 && JSDOC)
-    /**
-     * Read from STDIN until EOF. Using the argument `arg` it is possible
-     * to use further functionality:
-     *
-     *  - By default (if `arg` is undefined or not given) the function
-     *    returns a string when all data are read.
-     *
-     *  - If `arg` is boolean and `true`, then the input is read into
-     *    a buffer variable, not a string. The function returns when
-     *    all data are read.
-     *
-     * - If `arg` is a function, then a string is read line by line,
-     *   and each line passed to this callback function. If the function
-     *   returns `true`, then the line is added to the output. The
-     *   function may also preprocess line and return a String. In this
-     *   case the returned string is added to the output.
-     *   Otherwise, if `arg` is not `true` and no string, the line is
-     *   skipped.
-     *
-     * @param {function|boolean} arg
-     * @returns {string|buffer}
-     */
-    console.read = function(arg) {};
-    #endif
     static int console_read(duktape::api& stack)
     {
       if(!in_stream) return 0;
@@ -260,65 +322,9 @@ namespace duktape { namespace detail {
       }
     }
 
-    #if(0 && JSDOC)
-    /**
-     * C style formatted output to STDOUT. Note that not
-     * all formats can be used like in C/C++ because ECMA
-     * is has no strong type system. E.g. %u, %ul etc does
-     * not make sense because numbers are intrinsically
-     * floating point, and the (data type) size of the number
-     * matters when using %u. If unsupported arguments are
-     * passed the method will throw an exception.
-     *
-     * Supported formatters are:
-     *
-     *  - %d, %ld, %lld: The ECMA number is coerced
-     *    into an integer and printed. Digits and sign
-     *    are supported (%4d, %+06l).
-     *
-     *  - %f, %lf, %g: Floating point format, also with additional
-     *    format specs like %.8f, %+10.5f etc.
-     *
-     *  - %x: Hexadecimal representation of numbers (also %08x
-     *    or %4X etc supported).
-     *
-     *  - %o: Octal representation of numbers (also %08o)
-     *
-     *  - %s: String coercing with optional minimum width (e.g. %10s)
-     *
-     *  - %c: When number given, the ASCII code of the lowest byte
-     *        (e.g. 65=='A'). When string given the first character
-     *        of the string.
-     *
-     * Not supported:
-     *
-     *  - Parameter argument (like "%2$d", the "2$" would apply the
-     *    same format to two arguments passed to the function).
-     *
-     *  - Dynamic width (like "%*f", the "*" would be used to pass
-     *    the output width of the floating point number as argument).
-     *
-     *  - Unsigned %u, %n
-     *
-     * @param {string} format
-     * @param {...*} args
-     */
-    printf = function(format, args) {};
-    #endif
     static int printf_stdout(duktape::api& stack)
     { return printf_to(stack, out_stream); }
 
-    #if(0 && JSDOC)
-    /**
-     * C style formatted output into a string. For
-     * formatting details please @see printf.
-     *
-     * @param {string} format
-     * @param {...*} args
-     * @returns {string}
-     */
-    sprintf = function(format, args) {};
-    #endif
     static int printf_string(duktape::api& stack)
     {
       std::stringstream ss;

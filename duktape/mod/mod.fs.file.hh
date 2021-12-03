@@ -659,21 +659,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 0;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * File object constructor, creates a fs.file object when
-   * invoked with the `new` keyword. Optionally, path and openmode
-   * can be specified to directly open the file. See `File.open()`
-   * for details.
-   *
-   * @constructor
-   * @throws {Error}
-   * @param {string} [path]
-   * @param {string} [openmode]
-   * @returns {fs.file}
-   */
-  fs.file = function(path, openmode) {};
-  #endif
   template <typename PathAccessor>
   int file_constructor(duktape::api& stack)
   {
@@ -704,97 +689,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Opens a file given the path and corresponding "open mode". The
-   * mode is a string defining flags from adding or omitting characters,
-   * where the characters are (with exception of mode "a+") compliant
-   * to the ANSI C `fopen()` options. Additional characters enable
-   * further file operations and functionality. The options are:
-   *
-   * - "r": Open for `r`eading. The file must exist. Set the position
-   *        to the beginning of the file (ANSI C).
-   *
-   * - "w": Open for `w`riting. Create if the file is not existing yet,
-   *        truncate the file (discard contents). Start position is the
-   *        beginning of the file. (ANSI C).
-   *
-   * - "a": Open for `a`ppending. Create if the file is not existing yet,
-   *        set the write position to the end of the file. (ANSI C).
-   *
-   * - "r+": Open for `r`eading and writing, the file must exist. The
-   *        read/write position is set to the beginning of the file
-   *        (ANSI C).
-   *
-   * - "w+": Open for `w`riting and reading. Create if the file is not
-   *        existing yet, truncate the file (discard contents). Start
-   *        position is the beginning of the file. (ANSI C).
-   *
-   * - "a+": Open for `a`ppending and reading. Create if the file is not
-   *        existing yet. Start position is the beginning of the file.
-   *        Warning: The write position is guaranteed to be the end of
-   *        the file, but ANSI C specifies that the read position is
-   *        separately handled from the write position, and the write
-   *        position is implicitly always the end of the file. This is
-   *        NOT guaranteed in this implementation. When reading you must
-   *        `seek()` to the read position yourself.
-   *
-   * - "b": Optional flag: Open to read/write `b`inary. Reading will return
-   *        a `Buffer` in this case. Writing a `Buffer` will write binary
-   *        data.
-   *
-   * - "t": Optional flag: Open to read/write `t`ext (in contrast to binary,
-   *        this is already the default and only accepted because it is
-   *        known on some platforms).
-   *
-   * - "x": Optional flag: E`x`clusive creation. This causes opening for write
-   *        to fail with an exception if the file already exists. You can
-   *        use this to prevent accidentally overwriting existing files.
-   *
-   * - "e": Optional flag: Open `e`xisting files only. This is similar to "r+"
-   *        and can be used for higher verbosity or ensuring that no file will
-   *        be created. The open() call fails with an exception if the file
-   *        does not exist.
-   *
-   * - "c": Optional flag: `C`reate file if not existing. This is the explicit
-   *        specification of the default open for write/append behaviour. This
-   *        flag implicitly resets the `e` flag.
-   *
-   * - "p": Optional flag: `P`reserve file contents. This is an explicit order
-   *        that opening for write does not discard the current file contents.
-   *
-   * - "s": Optional flag: `S`ync. Means that file operations are implicitly
-   *        forced to be read from / written to the disk or device. Ignored if
-   *        the platform does not support it.
-   *
-   * - "n": Optional flag: `N`onblocking. Means that read/write operations that
-   *        would cause the function to "sleep" until data are available return
-   *        directly with empty return value. Ignored if the platform does not
-   *        support it (or not implemented for the platform).
-   *
-   * The flags (characters) are not case sensitive, so `file.open(path, "R")` and
-   * `file.open(path, "r")` are identical.
-   *
-   * Although the ANSI open flags are supported it is at a second glance more explicit
-   * to use the optional flags in combination with "r" and "w" or "a", e.g.
-   *
-   * - `file.open(path, "rwcx")`         --> open for read/write, create if not yet existing,
-   *                                         and only if not yet existing.
-   *
-   * - `file.open(path, "wep")`          --> open for write, only existing, preserve contents.
-   *
-   * - `file.open("/dev/cdev", "rwens")` --> open a character device for read/write, must exist,
-   *                                         nonblocking, sync.
-   *
-   * The function returns the reference to `this`.
-   *
-   * @throws {Error}
-   * @param {string} [path]
-   * @param {string} [openmode]
-   * @returns {fs.file}
-   */
-  fs.file.open = function(path, openmode) {};
-  #endif
   template <typename PathAccessor>
   int file_open(duktape::api& stack)
   {
@@ -806,14 +700,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Closes a file. Returns `this` reference.
-   *
-   * @returns {fs.file}
-   */
-  fs.file.close = function() {};
-  #endif
   template <typename PathAccessor>
   int file_close(duktape::api& stack)
   {
@@ -831,14 +717,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns true if a file is closed.
-   *
-   * @returns {boolean}
-   */
-  fs.file.closed = function() {};
-  #endif
   template <typename PathAccessor>
   int file_closed(duktape::api& stack)
   {
@@ -851,14 +729,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns true if a file is opened.
-   *
-   * @returns {boolean}
-   */
-  fs.file.opened = function() {};
-  #endif
   template <typename PathAccessor>
   int file_opened(duktape::api& stack)
   {
@@ -871,19 +741,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns true if the end of the file is reached. This
-   * is practically interpreted as:
-   *
-   *  - when the file or pipe signals EOF,
-   *  - when the file is not opened,
-   *  - when a pipe is not connected or broken
-   *
-   * @returns {boolean}
-   */
-  fs.file.eof = function() {};
-  #endif
   template <typename PathAccessor>
   int file_eof(duktape::api& stack)
   {
@@ -898,23 +755,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Reads data from a file, where the maximum number of bytes
-   * to read can be specified. If `max_size` is not specified,
-   * then as many bytes as possible are read (until EOF, until
-   * error or until the operation would block).
-   *
-   * Note: If the end of the file is reached, the `eof()`
-   *       method will return true and the `read()` method
-   *       will return `undefined` as indication.
-   *
-   * @throws {Error}
-   * @param {number} [max_bytes]
-   * @returns {string|buffer}
-   */
-  fs.file.read = function(max_size) {};
-  #endif
   template <typename PathAccessor>
   int file_read(duktape::api& stack)
   {
@@ -957,33 +797,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Read string data from the opened file and return when
-   * detecting a newline character. The newline character
-   * defaults to the operating system newline and can be
-   * changed for the file by setting the `newline` property
-   * of the file (e.g. `myfile.newline = "\r\n"`).
-   *
-   * Note: This function cannot be used in combination
-   * with the nonblocking I/O option.
-   *
-   * Note: If the end of the file is reached, the `eof()`
-   *       method will return true and the `read()` method
-   *       will return `undefined` to indicate that no
-   *       empty line was read but nothing at all.
-   *
-   * Note: This function is slower than `fs.file.read()` or
-   *       `fs.readfile()` because it has to read unbuffered
-   *       char-by-char. If you intend to read an entire file
-   *       and filter the lines prefer `fs.readfile()` with
-   *       line processing callback.
-   *
-   * @throws {Error}
-   * @returns {string}
-   */
-  fs.file.readln = function() {};
-  #endif
   template <typename PathAccessor>
   int file_readln(duktape::api& stack)
   {
@@ -1039,18 +852,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     }
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Write data to a file, returns the number of bytes written.
-   * Normally all bytes are written, except if nonblocking i/o
-   * was specified when opening the file.
-   *
-   * @throws {Error}
-   * @param {string|buffer} data
-   * @returns {number}
-   */
-  fs.file.write = function(data) {};
-  #endif
   template <typename PathAccessor>
   int file_write(duktape::api& stack)
   {
@@ -1065,23 +866,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Write string data to a file and implicitly append
-   * a newline character. The newline character defaults
-   * to the operating system newline (Windows CRLF, else
-   * LF, no old Mac CR). This character can be changed
-   * for the file by setting the `newline` property of
-   * the file (e.g. myfile.newline = "\r\n").
-   * Note: This function cannot be used in combination
-   * with the nonblocking I/O option. The method throws
-   * an exception if not all data could be written.
-   *
-   * @throws {Error}
-   * @param {string} data
-   */
-  fs.file.writeln = function(data) {};
-  #endif
   template <typename PathAccessor>
   int file_writeln(duktape::api& stack)
   {
@@ -1116,21 +900,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * C style formatted output to the opened file.
-   * The method is used identically to `printf()`.
-   * Note: This function cannot be used in combination
-   * with the nonblocking I/O option. The method
-   * throws an exception if not all data could be
-   * written.
-   *
-   * @throws {Error}
-   * @param {string} format
-   * @param {...*} args
-   */
-  fs.file.printf = function(format, args) {};
-  #endif
   template <typename PathAccessor>
   int file_printf(duktape::api& stack)
   {
@@ -1162,15 +931,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns the current file position.
-   *
-   * @throws {Error}
-   * @returns {number}
-   */
-  fs.file.tell = function() {};
-  #endif
   template <typename PathAccessor>
   int file_tell(duktape::api& stack)
   {
@@ -1183,24 +943,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Sets the new file position (read and write). Returns the
-   * actual position (from the beginning of the file) after the
-   * position was set. The parameter whence specifies from where
-   * the position shall be set:
-   *
-   *  - "begin" (or "set"): From the beginning of the file (SEEK_SET)
-   *  - "end"             : From the end of the file backward (SEEK_END)
-   *  - "current" ("cur") : From the current position forward (SEEK_CUR)
-   *
-   * @throws {Error}
-   * @param {number} position
-   * @param {string} [whence=begin]
-   * @returns {number}
-   */
-  fs.file.seek = function(position, whence) {};
-  #endif
   template <typename PathAccessor>
   int file_seek(duktape::api& stack)
   {
@@ -1228,15 +970,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns the current file size in bytes.
-   *
-   * @throws {Error}
-   * @returns {number}
-   */
-  fs.file.size = function() {};
-  #endif
   template <typename PathAccessor>
   int file_size(duktape::api& stack)
   {
@@ -1249,16 +982,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Returns details about the file including path, size, mode
-   * etc. @see fs.stat() for details.
-   *
-   * @throws {Error}
-   * @returns {object}
-   */
-  fs.file.stat = function() {};
-  #endif
   template <typename PathAccessor>
   int file_stat(duktape::api& stack)
   {
@@ -1274,16 +997,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return filesystem::basic::push_filestat<PathAccessor>(stack, st, path);
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Flushes the file write buffer. Ignored on platforms where this
-   * is not required. Returns reference to `this`.
-   *
-   * @throws {Error}
-   * @returns {fs.file}
-   */
-  fs.file.flush = function() {};
-  #endif
   template <typename PathAccessor>
   int file_flush(duktape::api& stack)
   {
@@ -1296,24 +1009,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Forces the operating system to write the file to a remote device
-   * or block device (disk). This is a Linux/UNIX explicit variant of
-   * flush. However, flush is not sync, and sync is only needed in
-   * special situations. On operating systems that cannot sync this
-   * function is an alias of `fs.flush()`. Returns reference to `this`.
-   *
-   * The optional argument `no_metadata` specifies (when true) that
-   * only the contents of the file shall be synced, but not the file
-   * system meta information.
-   *
-   * @throws {Error}
-   * @param {boolean} [no_metadata]
-   * @returns {fs.file}
-   */
-  fs.file.sync = function() {};
-  #endif
   template <typename PathAccessor>
   int file_sync(duktape::api& stack)
   {
@@ -1327,21 +1022,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Locks the file. By default exclusively, means no other process
-   * can read or write. Optionally the file can be locked exclusively
-   * or shared depending on the `access` argument:
-   *
-   *  - "x", "" : Exclusive lock
-   *  - "s"     : Shared lock
-   *
-   * @throws {Error}
-   * @param {string} access
-   * @returns {fs.file}
-   */
-  fs.file.lock = function(access) {};
-  #endif
   template <typename PathAccessor>
   int file_lock(duktape::api& stack)
   {
@@ -1357,16 +1037,6 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     return 1;
   }
 
-  #if(0 && JSDOC)
-  /**
-   * Unlocks a previously locked file. Ignored if the platform does not
-   * support locking.
-   *
-   * @throws {Error}
-   * @returns {fs.file}
-   */
-  fs.file.unlock = function() {};
-  #endif
   template <typename PathAccessor>
   int file_unlock(duktape::api& stack)
   {
@@ -1398,25 +1068,376 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
       auto flags = js.define_flags();
       js.define_flags(duktape::engine::defflags::restricted);
       js.define("fs");
+
+      #if(0 && JSDOC)
+      /**
+       * File object constructor, creates a fs.file object when
+       * invoked with the `new` keyword. Optionally, path and openmode
+       * can be specified to directly open the file. See `File.open()`
+       * for details.
+       *
+       * @constructor
+       * @throws {Error}
+       * @param {string} [path]
+       * @param {string} [openmode]
+       * @return {fs.file}
+       */
+      fs.file = function(path, openmode) {};
+      #endif
       js.define("fs.file", file_constructor<PathAccessor>, 2);
+
+      #if(0 && JSDOC)
+      /**
+       * Opens a file given the path and corresponding "open mode". The
+       * mode is a string defining flags from adding or omitting characters,
+       * where the characters are (with exception of mode "a+") compliant
+       * to the ANSI C `fopen()` options. Additional characters enable
+       * further file operations and functionality. The options are:
+       *
+       * - "r": Open for `r`eading. The file must exist. Set the position
+       *        to the beginning of the file (ANSI C).
+       *
+       * - "w": Open for `w`riting. Create if the file is not existing yet,
+       *        truncate the file (discard contents). Start position is the
+       *        beginning of the file. (ANSI C).
+       *
+       * - "a": Open for `a`ppending. Create if the file is not existing yet,
+       *        set the write position to the end of the file. (ANSI C).
+       *
+       * - "r+": Open for `r`eading and writing, the file must exist. The
+       *        read/write position is set to the beginning of the file
+       *        (ANSI C).
+       *
+       * - "w+": Open for `w`riting and reading. Create if the file is not
+       *        existing yet, truncate the file (discard contents). Start
+       *        position is the beginning of the file. (ANSI C).
+       *
+       * - "a+": Open for `a`ppending and reading. Create if the file is not
+       *        existing yet. Start position is the beginning of the file.
+       *        Warning: The write position is guaranteed to be the end of
+       *        the file, but ANSI C specifies that the read position is
+       *        separately handled from the write position, and the write
+       *        position is implicitly always the end of the file. This is
+       *        NOT guaranteed in this implementation. When reading you must
+       *        `seek()` to the read position yourself.
+       *
+       * - "b": Optional flag: Open to read/write `b`inary. Reading will return
+       *        a `Buffer` in this case. Writing a `Buffer` will write binary
+       *        data.
+       *
+       * - "t": Optional flag: Open to read/write `t`ext (in contrast to binary,
+       *        this is already the default and only accepted because it is
+       *        known on some platforms).
+       *
+       * - "x": Optional flag: E`x`clusive creation. This causes opening for write
+       *        to fail with an exception if the file already exists. You can
+       *        use this to prevent accidentally overwriting existing files.
+       *
+       * - "e": Optional flag: Open `e`xisting files only. This is similar to "r+"
+       *        and can be used for higher verbosity or ensuring that no file will
+       *        be created. The open() call fails with an exception if the file
+       *        does not exist.
+       *
+       * - "c": Optional flag: `C`reate file if not existing. This is the explicit
+       *        specification of the default open for write/append behaviour. This
+       *        flag implicitly resets the `e` flag.
+       *
+       * - "p": Optional flag: `P`reserve file contents. This is an explicit order
+       *        that opening for write does not discard the current file contents.
+       *
+       * - "s": Optional flag: `S`ync. Means that file operations are implicitly
+       *        forced to be read from / written to the disk or device. Ignored if
+       *        the platform does not support it.
+       *
+       * - "n": Optional flag: `N`onblocking. Means that read/write operations that
+       *        would cause the function to "sleep" until data are available return
+       *        directly with empty return value. Ignored if the platform does not
+       *        support it (or not implemented for the platform).
+       *
+       * The flags (characters) are not case sensitive, so `file.open(path, "R")` and
+       * `file.open(path, "r")` are identical.
+       *
+       * Although the ANSI open flags are supported it is at a second glance more explicit
+       * to use the optional flags in combination with "r" and "w" or "a", e.g.
+       *
+       * - `file.open(path, "rwcx")`         --> open for read/write, create if not yet existing,
+       *                                         and only if not yet existing.
+       *
+       * - `file.open(path, "wep")`          --> open for write, only existing, preserve contents.
+       *
+       * - `file.open("/dev/cdev", "rwens")` --> open a character device for read/write, must exist,
+       *                                         nonblocking, sync.
+       *
+       * The function returns the reference to `this`.
+       *
+       * @throws {Error}
+       * @param {string} [path]
+       * @param {string} [openmode]
+       * @return {fs.file}
+       */
+      fs.file.open = function(path, openmode) {};
+      #endif
       js.define("fs.file.prototype.open", file_open<PathAccessor>, 2);
+
+      #if(0 && JSDOC)
+      /**
+       * Closes a file. Returns `this` reference.
+       *
+       * @return {fs.file}
+       */
+      fs.file.close = function() {};
+      #endif
       js.define("fs.file.prototype.close", file_close<PathAccessor>,0);
+
+      #if(0 && JSDOC)
+      /**
+       * Returns true if a file is closed.
+       *
+       * @return {boolean}
+       */
+      fs.file.closed = function() {};
+      #endif
       js.define("fs.file.prototype.closed", file_closed<PathAccessor>,0);
+
+      #if(0 && JSDOC)
+      /**
+       * Returns true if a file is opened.
+       *
+       * @return {boolean}
+       */
+      fs.file.opened = function() {};
+      #endif
       js.define("fs.file.prototype.opened", file_opened<PathAccessor>,0);
+
+      #if(0 && JSDOC)
+      /**
+       * Returns true if the end of the file is reached. This
+       * is practically interpreted as:
+       *
+       *  - when the file or pipe signals EOF,
+       *  - when the file is not opened,
+       *  - when a pipe is not connected or broken
+       *
+       * @return {boolean}
+       */
+      fs.file.eof = function() {};
+      #endif
       js.define("fs.file.prototype.eof", file_eof<PathAccessor>,0);
+
+      #if(0 && JSDOC)
+      /**
+       * Reads data from a file, where the maximum number of bytes
+       * to read can be specified. If `max_size` is not specified,
+       * then as many bytes as possible are read (until EOF, until
+       * error or until the operation would block).
+       *
+       * Note: If the end of the file is reached, the `eof()`
+       *       method will return true and the `read()` method
+       *       will return `undefined` as indication.
+       *
+       * @throws {Error}
+       * @param {number} [max_bytes]
+       * @return {string|buffer}
+       */
+      fs.file.read = function(max_size) {};
+      #endif
       js.define("fs.file.prototype.read", file_read<PathAccessor>, 1);
+
+      #if(0 && JSDOC)
+      /**
+       * Read string data from the opened file and return when
+       * detecting a newline character. The newline character
+       * defaults to the operating system newline and can be
+       * changed for the file by setting the `newline` property
+       * of the file (e.g. `myfile.newline = "\r\n"`).
+       *
+       * Note: This function cannot be used in combination
+       * with the nonblocking I/O option.
+       *
+       * Note: If the end of the file is reached, the `eof()`
+       *       method will return true and the `read()` method
+       *       will return `undefined` to indicate that no
+       *       empty line was read but nothing at all.
+       *
+       * Note: This function is slower than `fs.file.read()` or
+       *       `fs.readfile()` because it has to read unbuffered
+       *       char-by-char. If you intend to read an entire file
+       *       and filter the lines prefer `fs.readfile()` with
+       *       line processing callback.
+       *
+       * @throws {Error}
+       * @return {string}
+       */
+      fs.file.readln = function() {};
+      #endif
       js.define("fs.file.prototype.readln", file_readln<PathAccessor>, 1);
+
+      #if(0 && JSDOC)
+      /**
+       * Write data to a file, returns the number of bytes written.
+       * Normally all bytes are written, except if nonblocking i/o
+       * was specified when opening the file.
+       *
+       * @throws {Error}
+       * @param {string|buffer} data
+       * @return {number}
+       */
+      fs.file.write = function(data) {};
+      #endif
       js.define("fs.file.prototype.write", file_write<PathAccessor>, 1);
+
+      #if(0 && JSDOC)
+      /**
+       * Write string data to a file and implicitly append
+       * a newline character. The newline character defaults
+       * to the operating system newline (Windows CRLF, else
+       * LF, no old Mac CR). This character can be changed
+       * for the file by setting the `newline` property of
+       * the file (e.g. myfile.newline = "\r\n").
+       * Note: This function cannot be used in combination
+       * with the nonblocking I/O option. The method throws
+       * an exception if not all data could be written.
+       *
+       * @throws {Error}
+       * @param {string} data
+       */
+      fs.file.writeln = function(data) {};
+      #endif
       js.define("fs.file.prototype.writeln", file_writeln<PathAccessor>, 1);
+
+      #if(0 && JSDOC)
+      /**
+       * C style formatted output to the opened file.
+       * The method is used identically to `printf()`.
+       * Note: This function cannot be used in combination
+       * with the nonblocking I/O option. The method
+       * throws an exception if not all data could be
+       * written.
+       *
+       * @throws {Error}
+       * @param {string} format
+       * @param {...*} args
+       */
+      fs.file.printf = function(format, args) {};
+      #endif
       js.define("fs.file.prototype.printf", file_printf<PathAccessor>);
+
+      #if(0 && JSDOC)
+      /**
+       * Flushes the file write buffer. Ignored on platforms where this
+       * is not required. Returns reference to `this`.
+       *
+       * @throws {Error}
+       * @return {fs.file}
+       */
+      fs.file.flush = function() {};
+      #endif
       js.define("fs.file.prototype.flush", file_flush<PathAccessor>, 0);
+
+      #if(0 && JSDOC)
+      /**
+       * Returns the current file position.
+       *
+       * @throws {Error}
+       * @return {number}
+       */
+      fs.file.tell = function() {};
+      #endif
       js.define("fs.file.prototype.tell", file_tell<PathAccessor>, 0);
+
+      #if(0 && JSDOC)
+      /**
+       * Sets the new file position (read and write). Returns the
+       * actual position (from the beginning of the file) after the
+       * position was set. The parameter whence specifies from where
+       * the position shall be set:
+       *
+       *  - "begin" (or "set"): From the beginning of the file (SEEK_SET)
+       *  - "end"             : From the end of the file backward (SEEK_END)
+       *  - "current" ("cur") : From the current position forward (SEEK_CUR)
+       *
+       * @throws {Error}
+       * @param {number} position
+       * @param {string} [whence=begin]
+       * @return {number}
+       */
+      fs.file.seek = function(position, whence) {};
+      #endif
       js.define("fs.file.prototype.seek", file_seek<PathAccessor>, 2);
+
+      #if(0 && JSDOC)
+      /**
+       * Returns the current file size in bytes.
+       *
+       * @throws {Error}
+       * @return {number}
+       */
+      fs.file.size = function() {};
+      #endif
       js.define("fs.file.prototype.size", file_size<PathAccessor>, 0);
+
+      #if(0 && JSDOC)
+      /**
+       * Returns details about the file including path, size, mode
+       * etc. @see fs.stat() for details.
+       *
+       * @throws {Error}
+       * @return {object}
+       */
+      fs.file.stat = function() {};
+      #endif
       js.define("fs.file.prototype.stat", file_stat<PathAccessor>, 0);
+
+      #if(0 && JSDOC)
+      /**
+       * Forces the operating system to write the file to a remote device
+       * or block device (disk). This is a Linux/UNIX explicit variant of
+       * flush. However, flush is not sync, and sync is only needed in
+       * special situations. On operating systems that cannot sync this
+       * function is an alias of `fs.flush()`. Returns reference to `this`.
+       *
+       * The optional argument `no_metadata` specifies (when true) that
+       * only the contents of the file shall be synced, but not the file
+       * system meta information.
+       *
+       * @throws {Error}
+       * @param {boolean} [no_metadata]
+       * @return {fs.file}
+       */
+      fs.file.sync = function() {};
+      #endif
       js.define("fs.file.prototype.sync", file_sync<PathAccessor>, 1);
+
+      #if(0 && JSDOC)
+      /**
+       * Locks the file. By default exclusively, means no other process
+       * can read or write. Optionally the file can be locked exclusively
+       * or shared depending on the `access` argument:
+       *
+       *  - "x", "" : Exclusive lock
+       *  - "s"     : Shared lock
+       *
+       * @throws {Error}
+       * @param {string} access
+       * @return {fs.file}
+       */
+      fs.file.lock = function(access) {};
+      #endif
       js.define("fs.file.prototype.lock", file_lock<PathAccessor>, 1);
+
+      #if(0 && JSDOC)
+      /**
+       * Unlocks a previously locked file. Ignored if the platform does not
+       * support locking.
+       *
+       * @throws {Error}
+       * @return {fs.file}
+       */
+      fs.file.unlock = function() {};
+      #endif
       js.define("fs.file.prototype.unlock", file_unlock<PathAccessor>, 0);
+
+
       js.define_flags(flags);
     }
     {
