@@ -98,8 +98,10 @@ MAIN_TESTJS:=$(wildcard main.js)
 # make targets
 #---------------------------------------------------------------------------------------------------
 MAKEFLAGS+=--no-print-directory --output-sync=target
-.PHONY: clean all binary patched-binary documentation documentation-clean dev run test test-binaries test-clean-all test-clean mrproper help
+.PHONY: default clean all binary documentation documentation-clean dev run test test-binaries test-clean-all test-clean mrproper help
 #---------------------------------------------------------------------------------------------------
+
+default: binary
 
 all: binary | test
 
