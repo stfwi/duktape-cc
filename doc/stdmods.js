@@ -665,11 +665,10 @@ fs.directoryseparator = "";
  *          - "s": Socket
  *          - "c": Character device (like /dev/tty)
  *          - "b": Block device (like /dev/sda)
- *          - "h": Include hidden files (Win: hidden flag, Linux/Unix: no effect, intentionally
- *                 not applied to files with a leading dot, which are normal files, dirs etc).
+ *          - "h": Include hidden files (dot-files like ".fileordir", and win32 'hidden' flag).
+ *                 If `type` is empty/not specified, hidden files are implicitly included.
  *
- *      - depth: {number} Maximum directory recursion depth. `0` lists nothing, `1` the contents of the
- *               root directory, etc.
+ *      - depth: {number} Maximum directory recursion depth. `0` lists the contents of the root directory, etc.
  *
  *      - icase: {boolean} File name matching is not case sensitive (Linux/Unix: default false, Win32: default true)
  *

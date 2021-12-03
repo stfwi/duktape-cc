@@ -6,6 +6,7 @@ nbproject
 .project
 .metadata
 .vscode
+jsconfig.json
 cli/js
 cli/djs
 cli/dev
