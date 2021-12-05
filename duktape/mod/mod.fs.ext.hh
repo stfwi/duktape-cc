@@ -47,7 +47,6 @@
   #include <fts.h>
 #endif
 
-#define return_true { stack.push(true); return 1; }
 
 namespace duktape { namespace detail { namespace filesystem { namespace extended {
 
@@ -549,7 +548,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     args.emplace_back(src);
     args.emplace_back(dst);
     switch(sysexec<>(std::move(args))) {
-      case 0: return_true;
+      case 0: { stack.push(true); return 1; };
       default:
         return stack.throw_exception(std::string("Failed to move '") + src + "' to '" + dst + "'");
     }
@@ -581,7 +580,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     if(!::MoveFileExA(src.c_str(), dst.c_str(), MOVEFILE_WRITE_THROUGH|MOVEFILE_COPY_ALLOWED)) {
       return stack.throw_exception(std::string("Moving '") + src_path + "' to '" + dst_path + "' failed: " + win32errstr());
     } else {
-      return_true;
+      stack.push(true);
+      return 1;
     }
     #endif
   }
@@ -630,7 +630,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     args.emplace_back(src);
     args.emplace_back(dst);
     switch(sysexec<>(std::move(args))) {
-      case 0: return_true;
+      case 0:
+        stack.push(true);
+        return 1;
       default:
         return stack.throw_exception(std::string("Failed to move '") + src + "' to '" + dst + "'");
     }
@@ -765,7 +767,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
       return stack.throw_exception(std::string("Failed to remove '") + dst + "': " + ::strerror(errno));
     } else if(S_ISDIR(st.st_mode)) {
       if(::rmdir(dst.c_str()) == 0) {
-        return_true;
+        stack.push(true);
+        return 1;
       } else if(!recursive) {
         switch(errno) {
           case ENOTEMPTY: return stack.throw_exception(std::string("Failed to remove '") + dst + "': Directory not empty and recursive removal option not set");
@@ -781,13 +784,15 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         if(sysexec<>(std::move(args)) != 0) {
           return stack.throw_exception(std::string("Failed to remove '") + dst + "'");
         } else {
-          return_true;
+          stack.push(true);
+          return 1;
         }
       }
     } else if(::unlink(dst.c_str()) != 0) {
       return stack.throw_exception(std::string("Failed to remove '") + dst + "': " + ::strerror(errno));
     } else {
-      return_true;
+      stack.push(true);
+      return 1;
     }
     #else
     auto filetype = [](const std::string& path) -> char {
@@ -803,10 +808,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     if((dst_type == '%')) {
       return stack.throw_exception(std::string("Failed to delete '") + dst + "': No such file or directory");
     } else if(dst_type == 'f') {
-      if(::unlink(dst.c_str()) == 0) return_true;
+      if(::unlink(dst.c_str()) == 0) { stack.push(true); return 1; };
       return stack.throw_exception(std::string("Failed to delete file '") + dst + "': " + ::strerror(errno));
     } else if((dst_type == 'd') && (!recursive)) {
-      if(::rmdir(dst.c_str()) == 0) return_true;
+      if(::rmdir(dst.c_str()) == 0) { stack.push(true); return 1; };
       if(errno == ENOTEMPTY) {
         return stack.throw_exception(std::string("Failed to delete directory '") + dst + "': It is not empty and recursive delete option is not set");
       } else {
@@ -829,8 +834,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
       ::SHFileOperationA(&sfos);
       if(sfos.fAnyOperationsAborted) {
         return stack.throw_exception("Not all files could by copied");
+      } else {
+        stack.push(true);
+        return 1;
       }
-      return_true;
     }
     #endif
   }
@@ -969,7 +976,5 @@ namespace duktape { namespace mod { namespace filesystem { namespace extended {
   }
 
 }}}}
-
-#undef return_true
 
 #endif
