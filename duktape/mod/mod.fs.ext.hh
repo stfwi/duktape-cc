@@ -39,7 +39,7 @@
 #include "mod.fs.hh" /* All settings and definitions of fs apply */
 #include <regex>
 
-#if (__cplusplus >= 201700L)
+#if (__cplusplus >= 201700L) && (!defined(WINDOWS)) /* skip_permission_denied aborts with an exception under windows. */
   #include <filesystem>
 #elif defined(WINDOWS)
   #include <Shellapi.h>
@@ -150,7 +150,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     const bool f_sock = f_all || (ftype.find('s') != ftype.npos);
     const bool f_hidden = f_all || (ftype.find('h') != ftype.npos);
 
-    #if (__cplusplus >= 201700L)
+    #if (__cplusplus >= 201700L) && (!defined(WINDOWS)) /* skip_permission_denied aborts with an exception under windows. */
     {
       (void) no_outside; // Not applicable here, we don't follow directory symlinks.
       (void) xdev; // Need to check how this can be done.
@@ -470,10 +470,20 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
       if(filter_function !=0 ) return stack.throw_exception("Two filter function given, use either the options.filter or the third argument");
       filter_function = 2;
     }
+    if((path.size() > 1) && (path.back()=='/')) path.resize(path.size()-1);
+    auto home_expansion = std::string();
+    const auto expand_home = [&home_expansion](std::string path) {
+      if(path.empty() || (path.front()!='~') || ((path.size()>1) && (path[1]!='/'))) return path;
+      home_expansion = duktape::detail::filesystem::generic::homedir<std::string>();
+      return home_expansion + path.substr(1);
+    };
+    const auto unexpand_home = [&home_expansion](std::string path) {
+      return (home_expansion.empty() || (path.find(home_expansion) != 0)) ? (path) : (std::string("~") + path.substr(home_expansion.size()));
+    };
     duktape::api::array_index_t array_item_index=0;
     auto array_stack_index = stack.push_array();
     if(recurse_directory(
-      path, pattern, ftype, depth, no_outside, case_sensitive, xdev,
+      expand_home(path), pattern, ftype, depth, no_outside, case_sensitive, xdev,
       [&](std::string&& path) -> bool {
         if(filter_function) {
           stack.dup(filter_function);
@@ -499,7 +509,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
           stack.pop();
         }
         if(!path.empty()) {
-          stack.push(PathAccessor::to_js(path));
+          stack.push(PathAccessor::to_js(unexpand_home(path)));
           if(!stack.put_prop_index(array_stack_index, array_item_index)) return 0;
           ++array_item_index;
         }

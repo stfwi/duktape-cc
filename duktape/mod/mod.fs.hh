@@ -313,6 +313,27 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
     }
   }
 
+  template<typename StringType>
+  StringType homedir()
+  {
+    #ifdef WINDOWS
+    char p[MAX_PATH];
+    if(SUCCEEDED(::SHGetFolderPathA(nullptr, CSIDL_PROFILE, nullptr, 0, p))) {
+      return StringType(p);
+    } else {
+      return StringType();
+    }
+    #else
+    char name[256];
+    struct ::passwd pw, *ppw;
+    if((::getpwuid_r(::getuid(), &pw, name, sizeof(name), &ppw) == 0) && pw.pw_dir) {
+      return StringType((const char*)pw.pw_dir);
+    } else {
+      return StringType();
+    }
+    #endif
+  }
+
 }}}}
 
 namespace duktape { namespace detail { namespace filesystem { namespace basic {
@@ -347,24 +368,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename PathAccessor>
   int homedir(duktape::api& stack)
   {
-    #ifdef WINDOWS
-    char p[MAX_PATH];
-    if(SUCCEEDED(::SHGetFolderPathA(nullptr, CSIDL_PROFILE, nullptr, 0, p))) {
-      stack.push(PathAccessor::to_js(p));
-      return 1;
-    } else {
-      return 0;
-    }
-    #else
-    char name[256];
-    struct ::passwd pw, *ppw;
-    if((::getpwuid_r(::getuid(), &pw, name, sizeof(name), &ppw) == 0) && pw.pw_dir) {
-      stack.push(PathAccessor::to_js((const char*)pw.pw_dir));
-      return 1;
-    } else {
-      return 0;
-    }
-    #endif
+    const auto p = duktape::detail::filesystem::generic::homedir<std::string>();
+    if(p.empty()) return 0;
+    stack.push(PathAccessor::to_js(p));
+    return 1;
   }
 
   namespace {
@@ -404,7 +411,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     if(path.empty()) return 0;
     #ifdef WINDOWS
     {
-      if(path == "~") return homedir<PathAccessor>(stack);
+      if(path[0] == '~') {
+        path = duktape::detail::filesystem::generic::homedir<std::string>() + "/" + path.substr(1);
+      }
     }
     #else
     {
