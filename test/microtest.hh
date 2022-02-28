@@ -442,7 +442,7 @@ namespace sw { namespace utest {
       inline void clear() noexcept
       {
         if(file_.empty()) return;
-        #ifdef OS_WIN
+        #ifdef __WINDOWS__
         _unlink(file_.c_str());
         #else
         ::unlink(file_.c_str());
@@ -772,14 +772,14 @@ namespace sw { namespace utest {
         std::lock_guard<std::mutex> lck(iolock_);
         if(!num_fails_) {
           if(!num_checks_) {
-            *os_ << (ansi_colors() ? "\033[0;33m[DONE]\033[0m" : "[DONE]") << " No checks" << std::endl;
+            *os_ << (ansi_colors() ? "\033[0;33m[DONE]\033[0m" : "[DONE]") << " No checks" << "\n";
           } else if(num_warns_) {
-            *os_ << (ansi_colors() ? "\033[0;33m[PASS]\033[0m" : "[PASS]") << " All " << num_checks_ << " checks passed, " << num_warns_ << " warnings." << std::endl;
+            *os_ << (ansi_colors() ? "\033[0;33m[PASS]\033[0m" : "[PASS]") << " All " << num_checks_ << " checks passed, " << num_warns_ << " warnings.\n";
           } else {
-            *os_ << (ansi_colors() ? "\033[0;32m[PASS]\033[0m" : "[PASS]") << " All " << num_checks_ << " checks passed, " << num_warns_ << " warnings." << std::endl;
+            *os_ << (ansi_colors() ? "\033[0;32m[PASS]\033[0m" : "[PASS]") << " All " << num_checks_ << " checks passed, " << num_warns_ << " warnings.\n";
           }
         } else {
-          *os_ << (ansi_colors() ? "\033[0;31m[FAIL]\033[0m" : "[FAIL]") << " " << num_fails_ << " of " << num_checks_ << " checks failed, " << num_warns_ << " warnings." << std::endl;
+          *os_ << (ansi_colors() ? "\033[0;31m[FAIL]\033[0m" : "[FAIL]") << " " << num_fails_ << " of " << num_checks_ << " checks failed, " << num_warns_ << " warnings.\n";
         }
         unsigned long n = num_fails_;
         return n > 99 ? 99 : n;
@@ -859,12 +859,12 @@ namespace sw { namespace utest {
           *os_ << color_tag_s << "[" << captions[what] << "]" << color_tag_e << " ";
           if(!file.empty()) *os_ << color_file_s << "[@" << file << ":" << line << "]" << color_file_e << " ";
           for(auto it = msg.begin(); it != msg.end(); ++it) {
-            if(*it == '\n') { *os_ << std::endl << "          "; } else { *os_ << *it; }
+            if(*it == '\n') { *os_ << "\n          "; } else { *os_ << *it; }
           }
-          *os_<< color_end << std::endl;
+          *os_<< color_end << "\n";
         } catch(...) {
           std::cerr << "[fatal  ] Testing frame could not write to the defined output stream, "
-                      "aborting." << std::endl;
+                      "aborting.\n";
           ::abort();
         }
       }

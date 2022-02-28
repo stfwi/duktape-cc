@@ -208,11 +208,11 @@ int main(int argc, const char** argv)
   js.define("my.numArgs2", argument_count2);
 
   // Evaluating code
-  cout << js.eval<int>("my.numArgs1(1,2,3,4)") << endl; // --> 4
-  cout << js.eval<bool>("isEqual(1,2)") << endl; // --> false
+  cout << js.eval<int>("my.numArgs1(1,2,3,4)") << "\n"; // --> 4
+  cout << js.eval<bool>("isEqual(1,2)") << "\n"; // --> false
 
   // Call functions in JS from c++
-  cout << js.call<string>("isEqual", 100, 100) << endl; // --> "true"
+  cout << js.call<string>("isEqual", 100, 100) << "\n"; // --> "true"
 
   // Include script file and return last statement result
   string result = js.include<string>("myscript.js");
@@ -221,7 +221,7 @@ int main(int argc, const char** argv)
   try {
     js.eval<void>("throw new Error('not good');");
   } catch(const duktape::script_error& e) {
-    cout << "Caught '" << e.what() << "'" << endl; // --> Caught 'Error: not good'
+    cout << "Caught '" << e.what() << "'\n"; // --> Caught 'Error: not good'
   }
   return 0;
 }
@@ -286,6 +286,8 @@ int main(int argc, const char** argv)
   - console.log(args)
   - console.read(arg)
   - console.write(args)
+  - console.readline(args)
+  - console.vt100(enable)
 
 
 ### File system object

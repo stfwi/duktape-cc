@@ -1357,6 +1357,12 @@ namespace duktape { namespace detail {
     { return get_top(); }
 
     /**
+     * Alias of get_top_index()
+     */
+    index_t top_index() const
+    { return get_top_index(); }
+
+    /**
      * Returns true of a value on the stack corresponds to the c++ type specified
      * with typename T, false otherwise. Note that `const char*` is not valid, use
      * `string` instead. Uses functions `duk_is_*`.
@@ -1526,12 +1532,27 @@ namespace duktape { namespace detail {
      */
     template <typename T>
     bool set(string&& key, T&& value)
+    { return property(std::move(key), std::move(value)); }
+
+    template <typename T>
+    bool property(string&& key, T&& value)
     {
       if(!is_object(-1)) return false;
       push(std::move(key));
       push(std::move(value));
       put_prop(-3);
       return true;
+    }
+
+    template <typename T>
+    T property(string&& key)
+    {
+      if(!is_object(-1)) return T();
+      push(std::move(key));
+      get_prop(-2);
+      const T value = is_undefined(-1) ? T() : to<T>(-1);
+      pop();
+      return value;
     }
 
     bool is_date(index_t index) const

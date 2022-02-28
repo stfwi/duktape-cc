@@ -42,15 +42,13 @@
 #endif
 
 #include "../duktape.hh"
+#include "mod.sys.os.hh"
 #include <algorithm>
 #include <chrono>
 #include <thread>
 #include <cmath>
 #include <unistd.h>
-#if defined(WIN32) || defined(__MINGW32__) || defined(__MINGW64__)
-  #ifndef WINDOWS
-    #define WINDOWS
-  #endif
+#if defined(OS_WINDOWS)
   #include <windows.h>
   #include <Lmcons.h>
 #else
@@ -61,7 +59,7 @@
   #include <sys/ioctl.h>
   #include <sys/types.h>
   #include <unistd.h>
-  #ifdef __linux__
+  #ifdef OS_LINUX
     #include <linux/kd.h>
   #endif
 #endif
@@ -181,7 +179,7 @@ namespace duktape { namespace detail { namespace system {
   template <typename=void>
   int getpid(duktape::api& stack)
   {
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     pid_t val = ::getpid();
     if(val < 0) return 0;
     stack.push(val);
@@ -195,7 +193,7 @@ namespace duktape { namespace detail { namespace system {
   template <typename=void>
   int getuid(duktape::api& stack)
   {
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     uid_t val = ::getuid();
     static_assert(!std::numeric_limits<uid_t>::is_signed, "Additional uid_t value check needed.");
     // if(std::numeric_limits<uid_t>::is_signed) if(val < 0) return 0;
@@ -210,7 +208,7 @@ namespace duktape { namespace detail { namespace system {
   template <typename=void>
   int getgid(duktape::api& stack)
   {
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     gid_t val = ::getgid();
     static_assert(!std::numeric_limits<uid_t>::is_signed, "Additional gid_t value check needed.");
     // if(std::numeric_limits<gid_t>::is_signed && val < 0) return 0;
@@ -225,7 +223,7 @@ namespace duktape { namespace detail { namespace system {
   template <typename=void>
   int getuser(duktape::api& stack)
   {
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     uid_t uid;
     if(stack.is_undefined(0)) {
       uid = ::getuid();
@@ -254,7 +252,7 @@ namespace duktape { namespace detail { namespace system {
   template <typename=void>
   int getgroup(duktape::api& stack)
   {
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     gid_t gid = 0;
     if(stack.is_undefined(0)) {
       gid = ::getgid();
@@ -292,7 +290,7 @@ namespace duktape { namespace detail { namespace system {
       int ic[4];
       ic[0] = CTL_KERN; ic[1] = KERN_PROC; ic[2] = KERN_PROC_PATHNAME; ic[3] = -1;
       size_t sz = sizeof(lnk_path)-1;
-      if(sysctl(ic, 4, lnk_path, &sz, NULL, 0)) lnk_path[0] = '\0';
+      if(sysctl(ic, 4, lnk_path, &sz, nullptr, 0)) lnk_path[0] = '\0';
       #elif defined (__DragonFly__)
       ::strncpy(lnk_path, "/proc/curproc/file", sizeof(lnk_path)-1);
       #elif defined (__APPLE__) && __MACH__
@@ -327,7 +325,7 @@ namespace duktape { namespace detail { namespace system {
     stack.set("release", (const char*)un.release);
     stack.set("machine", (const char*)un.machine);
     stack.set("version", (const char*)un.version);
-    #elif defined(WINDOWS)
+    #elif defined(OS_WINDOWS)
       stack.set("sysname", "windows");
     #else
       stack.set("sysname", "unknown");
@@ -416,7 +414,7 @@ namespace duktape { namespace detail { namespace system {
         return 0; // undefined
       }
     }
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     switch(check) {
       case ckin : r = ::isatty(STDIN_FILENO ) != 0; break;
       case ckout: r = ::isatty(STDOUT_FILENO) != 0; break;
@@ -457,7 +455,7 @@ namespace duktape { namespace detail { namespace system {
     const auto frequency = std::min(std::max(stack.get<int>(0), 80), 12000);
     const auto duration  = std::min(int(stack.get<double>(1) * 1000), 1000);
     if(duration < 10) return 0;
-    #if defined(WINDOWS)
+    #if defined(OS_WINDOWS)
       ::Beep(DWORD(frequency), DWORD(duration));
       stack.top(0);
       stack.push(true);

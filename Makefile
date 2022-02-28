@@ -42,7 +42,7 @@ ifeq ($(OS),Windows_NT)
  LDSTATIC+=-static -Os -s -static-libgcc
  FLAGSCXX+=-D_WIN32_WINNT=0x0601 -DWINVER=0x0601 -D_WIN32_IE=0x0900
  BINARY=$(PROGRAM_NAME)$(BINARY_EXTENSION)
- LIBS+=-ladvapi32 -lshell32 -lws2_32 -lsetupapi
+ LIBS+=-ladvapi32 -lshell32 -lpthread -lws2_32 -lsetupapi
  RC=windres
  RC_OBJ=cli/win32/mainrc.o
 else
@@ -54,6 +54,7 @@ else
  endif
 endif
 
+-include env.mk
 ifeq ($(WITH_EXPERIMENTAL),1)
  FLAGSCXX+=-DWITH_EXPERIMENTAL
 endif
@@ -62,9 +63,6 @@ ifeq ($(WITH_DEFAULT_STRICT_INCLUDE),1)
 endif
 ifneq ($(WITHOUT_APP_ATTACHMENT),1)
  FLAGSCXX+=-DCONFIG_WITH_APP_ATTACHMENT
-endif
-ifeq ($(WITH_SOCKET),1)
- FLAGSCXX+=-DCONFIG_WITH_SOCKET
 endif
 
 #---------------------------------------------------------------------------------------------------

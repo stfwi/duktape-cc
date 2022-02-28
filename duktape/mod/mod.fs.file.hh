@@ -44,7 +44,7 @@
 
 namespace duktape { namespace detail { namespace filesystem { namespace fileobject { namespace {
 
-  #ifndef WINDOWS
+  #ifndef OS_WINDOWS
     template <typename=void>
     struct native_file_handling
     {
@@ -239,7 +239,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     };
   #endif
 
-  #ifdef WINDOWS
+  #ifdef OS_WINDOWS
     template <typename=void>
     struct native_file_handling
     {
@@ -251,7 +251,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
       static std::string error_message(DWORD eno)
       {
         std::string s(256,0);
-        size_t n = ::FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, eno, MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), &s[0], s.size()-1, NULL);
+        size_t n = ::FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, nullptr, eno, MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), &s[0], s.size()-1, nullptr);
         if(!n) return std::string();
         s.resize(n);
         return s;
@@ -884,7 +884,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     stack.get_prop_string(0, "newline");
     if(stack.is_string(-1)) nl = stack.get<std::string>(-1);
     if(nl.empty()) {
-      #ifdef WINDOWS
+      #ifdef OS_WINDOWS
       nl = "\r\n";
       #else
       nl = "\n";

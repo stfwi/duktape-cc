@@ -4,6 +4,7 @@ Thumbs.db
 *.o
 nbproject
 .project
+env.mk
 .metadata
 .vscode
 jsconfig.json
@@ -23,6 +24,7 @@ devlib.js
 dev.cc
 tmp
 tmp/
+/duktape/mod/exp/
 /duktape/*.txt
 /duktape/*.xz
 /duktape/*.tar

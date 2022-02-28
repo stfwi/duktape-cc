@@ -19,7 +19,7 @@ void test_exec(duktape::engine& js)
   test_expect_noexcept( js.eval<int>("sys.exec('echo', {})") ); // no arguments, options directly
   test_expect( js.eval<int>("sys.exec('###notthere')") == 1 );
 
-  #ifndef WINDOWS
+  #ifndef OS_WINDOWS
 
   test_expect( js.eval<int>("sys.exec('/bin/cat')") == 0);
   test_expect( js.eval<int>("sys.exec('/bin/echo')") == 0);
@@ -141,7 +141,7 @@ void test_shell(duktape::engine& js)
   test_expect( js.eval<string>("sys.shell({})") == "" );
   test_expect( js.eval<string>("sys.shell([])") == "" );
 
-  #ifndef WINDOWS
+  #ifndef OS_WINDOWS
   test_note  ( "sys.shell('/usr/bin/env') = '" << js.eval<string>("sys.shell('/usr/bin/env')") << "'");
   test_expect( js.eval<string>("sys.shell('/usr/bin/env')") != "" );
   #else

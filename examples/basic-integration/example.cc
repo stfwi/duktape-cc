@@ -135,8 +135,8 @@ int main(int argc, const char** argv)
     // Evaluate code. The result of the last operation/statement is
     // returned and converted to the C++ type of choice.
     //
-    cout << "my.isPrime(10) = " << js.eval<bool>("my.isPrime(10)") << endl;   // Evaluate, convert to bool
-    cout << "my.isPrime(11) = " << js.eval<string>("my.isPrime(11)") << endl; // Evaluate, convert to string
+    cout << "my.isPrime(10) = " << js.eval<bool>("my.isPrime(10)") << "\n";   // Evaluate, convert to bool
+    cout << "my.isPrime(11) = " << js.eval<string>("my.isPrime(11)") << "\n"; // Evaluate, convert to string
 
     //
     // Calling JS functions with arguments
@@ -149,7 +149,7 @@ int main(int argc, const char** argv)
         cout << " " << i;
       }
     }
-    cout << endl;
+    cout << "\n";
 
     //
     // Catching JS exeptions
@@ -158,7 +158,7 @@ int main(int argc, const char** argv)
       // That will throw because we did not specify a file path.
       js.eval<void>("my.readfile()");
     } catch(const duktape::script_error& e) {
-      cout << "Caught JS exception: '" << e.what() << "'" << endl;
+      cout << "Caught JS exception: '" << e.what() << "'" << "\n";
       // --> Caught JS exception: 'Error: No file given'
     }
 
@@ -168,7 +168,7 @@ int main(int argc, const char** argv)
     //
     js.include("example.js"); // void return (we don't care about the return here).
     cout << "js.include(\"example.js\") returned: '"
-         << js.include<string>("example.js") << "'" << endl;
+         << js.include<string>("example.js") << "'" << "\n";
 
     //
     // Notes
@@ -176,13 +176,13 @@ int main(int argc, const char** argv)
     // All constants you define() are by default not writable from JS code ...
     // To allow things you "define()" to be writable, change the define_flags.
     js.eval("my = 10");
-    cout << "(my === 10) == " << js.eval<bool>("my === 10") << endl; // == false
-    cout << "(typeof(my)) is '" << js.eval<string>("typeof(my)") << "'" << endl; // == still object
+    cout << "(my === 10) == " << js.eval<bool>("my === 10") << "\n"; // == false
+    cout << "(typeof(my)) is '" << js.eval<string>("typeof(my)") << "'\n"; // == still object
     js.define_flags(duktape::engine::defflags::writable); // Subsequent defines are writable
     js.define("my.nonconst", 10);
-    cout << "original my.nonconst == " << js.eval<int>("my.nonconst") << endl; // == 10
+    cout << "original my.nonconst == " << js.eval<int>("my.nonconst") << "\n"; // == 10
     js.eval("my.nonconst = 100");
-    cout << "altered  my.nonconst == " << js.eval<int>("my.nonconst") << endl; // == now 100
+    cout << "altered  my.nonconst == " << js.eval<int>("my.nonconst") << "\n"; // == now 100
 
     return 0;
   } catch(const duktape::exit_exception& e) {
@@ -196,7 +196,7 @@ int main(int argc, const char** argv)
     // derived from `std::runtime_error`. The message is what the JS exception
     // says.
     //
-    cerr << "Error: " << e.what() << endl;
+    cerr << "Error: " << e.what() << "\n";
     return 1;
   } catch(const duktape::engine_error& e) {
     //
@@ -204,14 +204,14 @@ int main(int argc, const char** argv)
     // that something really went wrong in the engine. Means search for bugs
     // and race conditions.
     //
-    cerr << "Fatal: " << e.what() << endl;
+    cerr << "Fatal: " << e.what() << "\n";
     return 1;
   } catch(const std::exception& e) {
     //
     // STL containers may throw e.g. when they are out of memory, so that should
     // be caught, too.
     //
-    cerr << "Fatal: " << e.what() << endl;
+    cerr << "Fatal: " << e.what() << "\n";
     return 1;
   } catch (...) {
     //

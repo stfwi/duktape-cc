@@ -186,13 +186,13 @@ int main(int, const char**)
   } catch(const duktape::exit_exception& e) {
     return e.exit_code();
   } catch(const duktape::script_error& e) {
-    cerr << "Error: " << e.what() << endl;
+    cerr << "Error: " << e.what() << "\n";
     return 1;
   } catch(const duktape::engine_error& e) {
-    cerr << "Fatal: " << e.what() << endl;
+    cerr << "Fatal: " << e.what() << "\n";
     return 1;
   } catch(const std::exception& e) {
-    cerr << "Fatal: " << e.what() << endl;
+    cerr << "Fatal: " << e.what() << "\n";
     return 1;
   } catch (...) {
     throw;

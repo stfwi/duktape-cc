@@ -93,7 +93,7 @@ void test(duktape::engine& js)
   } catch(const duktape::script_error& e) {
     test_pass(string("test() catch: caught:") + e.what());
     test_note("test() catch: context:" << js.stack().dump_context());
-    test_note("test() catch: callstack:" << endl << e.callstack());
+    test_note("test() catch: callstack:\n" << e.callstack());
   }
 
   if(!throwing_cc_function_called) {

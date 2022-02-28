@@ -90,7 +90,7 @@
 
 #include <string>
 #include <cstring>
-#if defined(OS_WIN) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
+#if defined(OS_WINDOWS) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
 #include <stdint.h>
 #else
 #include <inttypes.h>
@@ -264,7 +264,7 @@ namespace sw {
 #ifndef MD5_HH
 #define MD5_HH
 
-#if defined(OS_WIN) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
+#if defined(OS_WINDOWS) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
 #include <stdint.h>
 #else
 #include <inttypes.h>
@@ -521,7 +521,7 @@ namespace sw {
 #ifndef SHA1_HH
 #define SHA1_HH
 
-#if defined(OS_WIN) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
+#if defined(OS_WINDOWS) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
 #include <stdint.h>
 #else
 #include <inttypes.h>
@@ -782,7 +782,7 @@ namespace sw {
 #ifndef SHA512_HH
 #define SHA512_HH
 
-#if defined(OS_WIN) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
+#if defined(OS_WINDOWS) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
 #include <inttypes.h>
 #else
 #include <stdint.h>

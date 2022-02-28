@@ -39,9 +39,9 @@
 #include "mod.fs.hh" /* All settings and definitions of fs apply */
 #include <regex>
 
-#if (__cplusplus >= 201700L) && (!defined(WINDOWS)) /* skip_permission_denied aborts with an exception under windows. */
+#if (__cplusplus >= 201700L) && (!defined(OS_WINDOWS)) /* skip_permission_denied aborts with an exception under windows. */
   #include <filesystem>
-#elif defined(WINDOWS)
+#elif defined(OS_WINDOWS)
   #include <Shellapi.h>
 #elif defined(__linux__)
   #include <fts.h>
@@ -50,7 +50,7 @@
 
 namespace duktape { namespace detail { namespace filesystem { namespace extended {
 
-  #ifdef WINDOWS
+  #ifdef OS_WINDOWS
   namespace {
 
     template <typename=void>
@@ -149,7 +149,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     const bool f_sock = f_all || (ftype.find('s') != ftype.npos);
     const bool f_hidden = f_all || (ftype.find('h') != ftype.npos);
 
-    #if (__cplusplus >= 201700L) && (!defined(WINDOWS)) /* skip_permission_denied aborts with an exception under windows. */
+    #if (__cplusplus >= 201700L) && (!defined(OS_WINDOWS)) /* skip_permission_denied aborts with an exception under windows. */
     {
       (void) no_outside; // Not applicable here, we don't follow directory symlinks.
       (void) xdev; // Need to check how this can be done.
@@ -180,7 +180,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
             continue;
           }
           if(!f_hidden) {
-            #ifdef WINDOWS
+            #ifdef OS_WINDOWS
               const auto hidden_attr = !!(::GetFileAttributesA(entry.path().string().c_str()) & FILE_ATTRIBUTE_HIDDEN);
             #else
               constexpr auto hidden_attr = false;
@@ -290,7 +290,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
       tree.ptr = nullptr;
       return (!errno);
     }
-    #elif defined(WINDOWS)
+    #elif defined(OS_WINDOWS)
     {
       (void) no_outside; (void) f_lnk; (void) f_fifo; (void) f_cdev;
       (void) f_bdev; (void) f_sock; (void) xdev;
@@ -367,11 +367,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
      * @param const char* pipe_stdin=nullptr
      * @return int
      */
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
       template <typename=void>
       int sysexec(std::vector<std::string>&& args, const char* pipe_stdin=nullptr)
       {
-        // { std::string s; for(auto e:args) { s += string("'") + e + "' "; } std::cerr << s << std::endl; }
         using fd_t = int;
         fd_t pi[2] = {-1,-1};
         ::pid_t pid = -1;
@@ -431,7 +430,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     int depth = std::numeric_limits<int>::max()-1;
     bool no_outside = true;
     bool xdev = false;
-    #ifdef WINDOWS
+    #ifdef OS_WINDOWS
     bool case_sensitive = false;
     #else
     bool case_sensitive = true;
@@ -539,7 +538,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     if(dst.find_first_of("*?") != dst.npos) return stack.throw_exception("Wildcards not allowed in destination path");
     if(src.find_first_of("'\"") != src.npos) return stack.throw_exception("Invalid characters in the destination path");
     if(dst.find_first_of("'\"") != dst.npos) return stack.throw_exception("Invalid characters in the destination path");
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     if(::access(src.c_str(), F_OK) != 0) return stack.throw_exception(std::string("Source path to move does not exist: '") + src + "'");
     // Composition of args, invoke POSIX mv
     std::vector<std::string> args;
@@ -616,7 +615,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     if(dst.empty()) return stack.throw_exception("Cannot copy, no destionation file/directory specified");
     if(src.find_first_of("'\"") != src.npos) return stack.throw_exception("Invalid characters in the destination path");
     if(dst.find_first_of("'\"") != dst.npos) return stack.throw_exception("Invalid characters in the destination path");
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     // Composition of args, invoke POSIX cp. Upside is: The copy
     // will be done exactly as cp does (permissions error checks
     // etc). Downside: Does not work when chroot is applied and
@@ -761,7 +760,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     if(dst.empty()) return stack.throw_exception("No file specified to remove");
     if(dst.find_first_of("*?") != dst.npos) return stack.throw_exception("Wildcards not allowed for remove");
     if(dst.find_first_of("'\"") != dst.npos) return stack.throw_exception("Invalid characters in the path to remove");
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     struct ::stat st;
     if(::stat(dst.c_str(), &st) != 0) {
       return stack.throw_exception(std::string("Failed to remove '") + dst + "': " + ::strerror(errno));

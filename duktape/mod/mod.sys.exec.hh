@@ -36,6 +36,7 @@
 #ifndef DUKTAPE_MOD_BASIC_PROCESS_EXEC_HH
 #define DUKTAPE_MOD_BASIC_PROCESS_EXEC_HH
 #include "../duktape.hh"
+#include "mod.sys.os.hh"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -59,12 +60,9 @@
   #pragma GCC diagnostic push
   #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 
-  #if defined(_WIN32) || defined(_MSCVER) || defined(__MINGW32__) || defined(__MINGW64__)
+  #if defined(OS_WINDOWS)
     #include <windows.h>
     #include <processenv.h>
-    #ifndef WINDOWS
-      #define WINDOWS
-    #endif
   #else
     #include <unistd.h>
     #include <cstdio>
@@ -81,7 +79,7 @@
     #include <sys/stat.h>
     #include <sys/types.h>
     #include <sys/time.h>
-    #ifdef __linux__
+    #ifdef OS_LINUX
       #include <wait.h>
     #else
       #include <sys/wait.h>
@@ -234,7 +232,7 @@
 
       static string_type escape(string_type arg)
       {
-        #ifndef WINDOWS
+        #ifndef OS_WINDOWS
         string_type esc("'");
         for(auto e:arg) {
           if((e=='\\') || (e=='\'')) esc.push_back('\\');
@@ -264,7 +262,7 @@
         #endif
       }
 
-  #ifndef WINDOWS
+  #ifndef OS_WINDOWS
 
     private:
       using fd_t = int;
@@ -340,7 +338,7 @@
                 ::execvpe(program.c_str(), (char* const*)(&argv[0]), (char* const*)(&envv[0]));
               }
             }
-            cerr << "Failed to run ''" << program << "': " << ::strerror(errno) << endl;
+            cerr << "Failed to run ''" << program << "': " << ::strerror(errno) << "\n";
           }
           _exit(1);
         } else {
@@ -759,7 +757,7 @@
       static string_type errstr() noexcept
       {
         string_type s(256,0);
-        size_t n = ::FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, ::GetLastError(), MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), &s[0], s.size()-1, NULL);
+        size_t n = ::FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, nullptr, ::GetLastError(), MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), &s[0], s.size()-1, nullptr);
         if(!n) return string_type();
         s.resize(n);
         return s;
@@ -1155,7 +1153,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       return 1;
     } else {
       std::vector<std::string> args;
-      #ifndef WINDOWS
+      #ifndef OS_WINDOWS
       constexpr bool no_arg_escape = false;
       const std::string sh = "/bin/sh";
       args.push_back("-c");

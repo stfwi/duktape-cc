@@ -50,10 +50,8 @@
 #include <streambuf>
 #include <sstream>
 #include <string>
-#if defined(__MINGW32__) || defined(__MINGW64__)
-  #ifndef WINDOWS
-    #define WINDOWS
-  #endif
+
+#ifdef OS_WINDOWS
   #include <sys/stat.h>
   #include <sys/types.h>
   #include <limits.h>
@@ -89,14 +87,11 @@
   #include <pwd.h>
   #include <grp.h>
   #include <utime.h>
-  #if defined(__linux__)
+  #if defined(OS_LINUX)
     #include <wait.h>
     #include <sys/file.h>
     #include <sys/sendfile.h>
     #include <fcntl.h>
-  #elif defined(__APPLE__) & __MACH__
-    #define MACINTOSH
-    #include <sys/wait.h>
   #else
     #include <sys/wait.h>
   #endif
@@ -316,7 +311,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
   template<typename StringType>
   StringType homedir()
   {
-    #ifdef WINDOWS
+    #ifdef OS_WINDOWS
     char p[MAX_PATH];
     if(SUCCEEDED(::SHGetFolderPathA(nullptr, CSIDL_PROFILE, nullptr, 0, p))) {
       return StringType(p);
@@ -351,7 +346,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename PathAccessor>
   int tmpdir(duktape::api& stack)
   {
-    #ifdef WINDOWS
+    #ifdef OS_WINDOWS
     char bf[MAX_PATH+1];
     DWORD r = ::GetTempPathA(sizeof(bf), bf);
     if(!r || r > sizeof(bf)) return 0;
@@ -378,7 +373,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     template <typename=void>
     std::string get_realpath(const std::string& path)
     {
-      #ifdef WINDOWS
+      #ifdef OS_WINDOWS
       {
         std::string s = path;
         while(!s.empty() && ((s.back() == '\\') || (s.back() == '/'))) s.resize(s.length()-1);
@@ -409,7 +404,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     if(!stack.is<std::string>(0)) return 0;
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
     if(path.empty()) return 0;
-    #ifdef WINDOWS
+    #ifdef OS_WINDOWS
     {
       if(path[0] == '~') {
         path = duktape::detail::filesystem::generic::homedir<std::string>() + "/" + path.substr(1);
@@ -573,7 +568,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     stack.push_object();
     stack.set("path", PathAccessor::to_js(path));
     stack.set("size", st.st_size);
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     {
       stack.set("mtime", unix_timestamp(st.st_mtim));
       stack.set("ctime", unix_timestamp(st.st_ctim));
@@ -618,7 +613,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
     struct ::stat st;
     if(LinkStat) {
-      #ifndef WINDOWS
+      #ifndef OS_WINDOWS
       if(::lstat(path.c_str(), &st) != 0) return 0;
       #else
       if(::stat(path.c_str(), &st) != 0) return 0;
@@ -646,7 +641,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   {
     if(!stack.is<std::string>(0)) return 0;
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     struct ::stat st;
     if(::stat(path.c_str(), &st) != 0) return 0;
     char name[256];
@@ -689,7 +684,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename PathAccessor>
   int filegroup(duktape::api& stack)
   {
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     if(!stack.is<std::string>(0)) return 0;
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
     struct ::stat st;
@@ -715,9 +710,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
     struct ::stat st;
     if(::stat(path.c_str(), &st) != 0) return 0;
-    #ifdef MACINTOSH
+    #ifdef OS_MAC
     stack.push(unix_timestamp(st.st_mtimespec.tv_sec));
-    #elif defined(WINDOWS)
+    #elif defined(OS_WINDOWS)
     stack.push(unix_timestamp(st.st_mtime));
     #else
     stack.push(unix_timestamp(st.st_mtim));
@@ -732,9 +727,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
     struct ::stat st;
     if(::stat(path.c_str(), &st) != 0) return 0;
-    #ifdef MACINTOSH
+    #ifdef OS_MAC
     stack.push(unix_timestamp(st.st_atimespec.tv_sec));
-    #elif defined(WINDOWS)
+    #elif defined(OS_WINDOWS)
     stack.push(unix_timestamp(st.st_atime));
     #else
     stack.push(unix_timestamp(st.st_atim));
@@ -749,9 +744,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
     struct ::stat st;
     if(::stat(path.c_str(), &st) != 0) return 0;
-    #ifdef MACINTOSH
+    #ifdef OS_MAC
     stack.push(unix_timestamp(st.st_ctimespec.tv_sec));
-    #elif defined(WINDOWS)
+    #elif defined(OS_WINDOWS)
     stack.push(unix_timestamp(st.st_ctime));
     #else
     stack.push(unix_timestamp(st.st_ctim));
@@ -762,7 +757,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename PathAccessor>
   int exists(duktape::api& stack)
   {
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     struct ::stat st;
     stack.push((stack.is<std::string>(0))
       && (::stat(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &st) == 0)
@@ -782,7 +777,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename PathAccessor>
   int isfile(duktape::api& stack)
   {
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     struct ::stat st;
     stack.push(stack.is<std::string>(0) && (::stat(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &st) == 0) && S_ISREG(st.st_mode));
     return 1;
@@ -799,7 +794,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename PathAccessor>
   int isdir(duktape::api& stack)
   {
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     struct ::stat st;
     stack.push(stack.is<std::string>(0) && (::stat(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &st) == 0) && S_ISDIR(st.st_mode));
     return 1;
@@ -816,7 +811,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename PathAccessor>
   int islink(duktape::api& stack)
   {
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     struct ::stat st;
     stack.push(stack.is<std::string>(0) && (::lstat(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &st) == 0) && S_ISLNK(st.st_mode));
     #else
@@ -828,7 +823,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename PathAccessor>
   int isfifo(duktape::api& stack)
   {
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     struct ::stat st;
     stack.push(stack.is<std::string>(0) && (::stat(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &st) == 0) && S_ISFIFO(st.st_mode));
     #else
@@ -840,7 +835,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename PathAccessor>
   int is_writable(duktape::api& stack)
   {
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     stack.push(stack.is<std::string>(0) && ::access(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), W_OK) == 0);
     #else
     stack.push(stack.is<std::string>(0) && _access(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), W_OK) == 0);
@@ -851,7 +846,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename PathAccessor>
   int is_readable(duktape::api& stack)
   {
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     stack.push(stack.is<std::string>(0) && ::access(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), R_OK) == 0);
     #else
     stack.push(stack.is<std::string>(0) && _access(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), 4) == 0);
@@ -862,7 +857,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename PathAccessor>
   int is_executable(duktape::api& stack)
   {
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     stack.push(stack.is<std::string>(0) && ::access(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), X_OK) == 0);
     #else
     DWORD r=0;
@@ -874,7 +869,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename PathAccessor>
   int readlink(duktape::api& stack)
   {
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     if(!stack.is<std::string>(0)) return 0;
     std::string inpath = PathAccessor::to_sys(stack.to<std::string>(0));
     char outpath[PATH_MAX];
@@ -905,7 +900,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     std::string options = stack.is<std::string>(1) ? stack.get<std::string>(1) : std::string();
     bool recursive = (!options.empty()) && ((options[0] == 'p') || (options[0] == 'r'));
     if((path.length() > PATH_MAX)) { stack.push(false); return 1; };
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     if(::mkdir(path.c_str(), mode) == 0) {
       // ok, created
       stack.push(true);
@@ -987,10 +982,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     if(!mtime_set || !atime_set) {
       struct ::stat st;
       if(::stat(path.c_str(), &st) != 0) return 0;
-      #ifdef MACINTOSH
+      #ifdef OS_MAC
       ut.modtime = st.st_mtimespec.tv_sec;
       ut.actime = st.st_atimespec.tv_sec;
-      #elif defined(WINDOWS)
+      #elif defined(OS_WINDOWS)
       ut.modtime = st.st_mtime;
       ut.actime = st.st_atime;
       #else
@@ -1017,7 +1012,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename PathAccessor>
   int symlink(duktape::api& stack)
   {
-    #ifdef WINDOWS
+    #ifdef OS_WINDOWS
       // Here we have a problem: It's not understandable to people why
       // "shortcuts" should not be available. Hence, here we throw to
       // clearify that actual symlinking is meant, not .lnk files.
@@ -1044,7 +1039,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename PathAccessor>
   int hardlink(duktape::api& stack)
   {
-    #ifdef WINDOWS
+    #ifdef OS_WINDOWS
     // @todo: implement hardlink for windows >=0x0601
     (void) stack;
     return 0;
@@ -1060,7 +1055,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename PathAccessor>
   int chmod(duktape::api& stack)
   {
-    #ifdef WINDOWS
+    #ifdef OS_WINDOWS
     (void) stack;
     return 0;
     #else
@@ -1076,7 +1071,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #endif
   }
 
-  #ifdef WINDOWS
+  #ifdef OS_WINDOWS
   namespace {
     template <typename PathAccessor>
     int win32_glob_push_stack(duktape::api& stack, std::string path_pattern)
@@ -1125,7 +1120,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     } else {
       path = PathAccessor::to_sys(stack.to<std::string>(0));
     }
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     struct dir_guard {
       DIR* dir;
       explicit dir_guard() noexcept : dir(nullptr) {}
@@ -1169,7 +1164,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   {
     if(!stack.is<std::string>(0)) return 0;
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     {
       struct glob_data {
         glob_t data;
@@ -1209,7 +1204,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename=void>
   static std::string get_path_separator() noexcept
   {
-    #ifdef WINDOWS
+    #ifdef OS_WINDOWS
     return ";";
     #else
     return ":";
@@ -1219,7 +1214,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename=void>
   static std::string get_directory_separator() noexcept
   {
-    #ifdef WINDOWS
+    #ifdef OS_WINDOWS
     return "\\";
     #else
     return "/";

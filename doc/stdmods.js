@@ -128,8 +128,8 @@ var console = {};
 console.log = function(args) {};
 
 /**
- * Read from STDIN until EOF. Using the argument `arg` it is possible
- * to use further functionality:
+ * Read from STDIN (default until EOF). Using the argument `arg`
+ * it is possible to use further functionality:
  *
  *  - By default (if `arg` is undefined or not given) the function
  *    returns a string when all data are read.
@@ -146,6 +146,13 @@ console.log = function(args) {};
  *   Otherwise, if `arg` is not `true` and no string, the line is
  *   skipped.
  *
+ * - If `arg` is a number, then reading from a pipe or tty/console
+ *   is nonblocking if supported by the device, returning maximum
+ *   `arg` characters. Returns `undefined` on EOF or read error
+ *   (e.g. broken-pipe). Console interfaces are temporarily set to
+ *   non-canonical mode for this purpose (settings restored after
+ *   reading).
+ *
  * @param {function|boolean} arg
  * @return {string|buffer}
  */
@@ -158,6 +165,20 @@ console.read = function(arg) {};
  * @param {...*} args
  */
 console.write = function(args) {};
+
+/**
+ * Blocking string line input.
+ * @return {string}
+ */
+console.readline = function(args) {};
+
+/**
+ * Enable/disable VT100 processing (default: enabled).
+ * Only relevant on Windows operating systems.
+ *
+ * @param {boolean} enable
+ */
+console.vt100 = function(enable) {};
 
 /** @file: mod.fs.hh */
 
