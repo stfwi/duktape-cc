@@ -1368,10 +1368,7 @@
         char s[256];
         memset(s,0,sizeof(s));
         s[sizeof(s)-1] = '\0';
-        ::FormatMessageA(
-          FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-          nullptr, ::GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), s, sizeof(s)-1, nullptr
-        );
+        ::FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM|FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, ::GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), s, sizeof(s)-1, nullptr);
         char* p = &s[strlen(s)-1];
         while(p>=s && (::isspace(*p) || (*p=='.'))) *p-- = '\0';
         error_message_ = s;

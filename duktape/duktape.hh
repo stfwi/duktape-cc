@@ -149,8 +149,14 @@ namespace duktape {
     class basic_exit_exception
     {
       public:
-        explicit basic_exit_exception() : code_(0) { ; }
-        explicit basic_exit_exception(int code) : code_(code) { ; }
+        explicit basic_exit_exception() noexcept : code_(0) { ; }
+        explicit basic_exit_exception(int code) noexcept : code_(code) { ; }
+        basic_exit_exception(const basic_exit_exception&) noexcept = default;
+        basic_exit_exception(basic_exit_exception&&) noexcept = default;
+        basic_exit_exception& operator=(const basic_exit_exception&) noexcept = default;
+        basic_exit_exception& operator=(basic_exit_exception&&) noexcept = default;
+        ~basic_exit_exception() noexcept = default;
+
         const char* what() const noexcept { return "exit"; }
         int exit_code() const noexcept { return code_; }
       private:
@@ -271,19 +277,23 @@ namespace duktape { namespace detail {
   {
   public:
 
-    basic_stack_guard() : ctx_(0), initial_top_(0), gc_(false)
+    basic_stack_guard() noexcept : ctx_(0), initial_top_(0), gc_(false)
     { ; }
 
-    basic_stack_guard(const basic_stack_guard& g, bool collect_garbage=false)
+    basic_stack_guard(const basic_stack_guard& g) noexcept
+            : ctx_(g.ctx_), initial_top_(g.initial_top_), gc_(false)
+    { ; }
+
+    basic_stack_guard(const basic_stack_guard& g, bool collect_garbage) noexcept
             : ctx_(g.ctx_), initial_top_(g.initial_top_), gc_(collect_garbage)
     { ; }
 
-    basic_stack_guard(::duk_context* ctx, bool collect_garbage=false)
+    basic_stack_guard(::duk_context* ctx, bool collect_garbage=false) noexcept
             : ctx_(ctx), initial_top_(-1), gc_(collect_garbage)
     { if(ctx_) initial_top_ = ::duk_get_top(ctx_); }
 
     template <typename T>
-    basic_stack_guard(const basic_api<T>& o, bool collect_garbage=false)
+    basic_stack_guard(const basic_api<T>& o, bool collect_garbage=false) noexcept
             : ctx_(o.ctx()), gc_(collect_garbage)
     { if(ctx_) initial_top_ = ::duk_get_top(ctx_); }
 
@@ -325,15 +335,11 @@ namespace duktape { namespace detail {
 
     basic_engine_lock() = delete;
     basic_engine_lock(const basic_engine_lock&) = delete;
-    basic_engine_lock(basic_engine_lock&&) = default;
+    basic_engine_lock(basic_engine_lock&&) noexcept = default;
     basic_engine_lock& operator=(const basic_engine_lock&) = delete;
-    basic_engine_lock& operator=(basic_engine_lock&&) = default;
-
-    basic_engine_lock(engine_type& js) noexcept : lock_(js.mutex_)
-    {}
-
-    ~basic_engine_lock()
-    {}
+    basic_engine_lock& operator=(basic_engine_lock&&) noexcept = default;
+    basic_engine_lock(engine_type& js) noexcept : lock_(js.mutex_) {}
+    ~basic_engine_lock() noexcept = default;
 
   private:
 
@@ -468,6 +474,8 @@ namespace duktape { namespace detail {
     basic_api(const basic_api& o) noexcept : ctx_(o.ctx_)
     { ; }
 
+    basic_api(basic_api&&) noexcept = default;
+
     basic_api(::duk_context* ct) noexcept : ctx_(ct)
     { ; }
 
@@ -477,6 +485,9 @@ namespace duktape { namespace detail {
 
     ~basic_api() noexcept
     { ; }
+
+    basic_api& operator=(const basic_api&) = delete;
+    basic_api& operator=(basic_api&&) = default;
 
   public:
 
@@ -2143,12 +2154,13 @@ namespace duktape {
 
   public:
 
-    native_object() = default;
+    native_object() noexcept = default;
     native_object(const native_object&) = default;
-    native_object(native_object&&) = default;
-    ~native_object() = default;
+    native_object(native_object&&) noexcept = default;
+    ~native_object() noexcept = default;
 
-    explicit native_object(std::string name) : name_(name), constructor_([](api&){return new value_type();}),
+    explicit native_object(std::string name) noexcept : name_(name),
+                                               constructor_([](api&){return new value_type();}), // Note: The raw pointer is passed to Duktape, memory management of these objects is handled there.
                                                methods_(), getters_(), setters_()
     {}
 
@@ -2628,12 +2640,13 @@ namespace duktape { namespace detail {
     /**
      * d' tor
      */
-    virtual ~basic_engine()
+    virtual ~basic_engine() noexcept
     { if(ctx()) ::duk_destroy_heap(ctx()); }
 
     basic_engine(const basic_engine&) = delete;
-    basic_engine(basic_engine&&) = delete;
+    basic_engine(basic_engine&&) noexcept = delete;
     basic_engine& operator=(const basic_engine&) = delete;
+    basic_engine& operator=(basic_engine&&) noexcept = delete;
 
   public:
 

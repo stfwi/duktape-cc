@@ -48,6 +48,8 @@ ifeq ($(OS),Windows_NT)
 else
  BINARY_EXTENSION=.elf
  BINARY=$(PROGRAM_NAME)
+ INSTALLDIR=/usr/local/bin
+ DESTDIR=$(INSTALLDIR)
  LIBS+=-lrt
  ifdef STATIC
   LDSTATIC+=-static -Os -s -static-libgcc
@@ -96,10 +98,11 @@ MAIN_TESTJS:=$(wildcard main.js)
 # make targets
 #---------------------------------------------------------------------------------------------------
 MAKEFLAGS+=--no-print-directory --output-sync=target
-.PHONY: default clean all binary documentation documentation-clean dev run test test-binaries test-clean-all test-clean mrproper help
+.PHONY: default clean all binary dist install documentation documentation-clean dev run test test-binaries test-clean-all test-clean mrproper help
 #---------------------------------------------------------------------------------------------------
 
 default: binary
+dist: clean | binary
 
 all: binary | test
 
@@ -138,6 +141,12 @@ run: binary cli/dev.js
 	@cd ./cli; ./$(BINARY) dev.js
 
 binary: cli/$(BINARY)
+
+install: binary
+	@if [ -z "$(DESTDIR)" ]; then echo "[fail] No DESTDIR specified for installing."; /bin/false; fi
+	@if [ ! -d "$(DESTDIR)" ]; then echo "[fail] DESTDIR for installing does not exist."; /bin/false; fi
+	@echo "[inst] cli/$(BINARY) -> $(DESTDIR)/$(BINARY) ..."
+	@cp -f cli/$(BINARY) "$(DESTDIR)"
 
 cli/$(BINARY): duktape/duktape.o cli/main.o $(RC_OBJ)
 	@echo "[ld  ] $^ $@"

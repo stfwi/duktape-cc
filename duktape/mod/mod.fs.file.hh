@@ -272,33 +272,31 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
         DWORD share_mode = FILE_SHARE_READ; //|FILE_SHARE_WRITE;
         DWORD creation_disposition = OPEN_EXISTING;
         DWORD flags_attr = FILE_ATTRIBUTE_NORMAL;
-        {
-          bool w=options.find('w') != options.npos;
-          bool r=options.find('r') != options.npos;
-          bool a=options.find('a') != options.npos;
-          bool e=options.find('e') != options.npos;
-          bool x=options.find('x') != options.npos;
-          bool p=options.find('p') != options.npos;
-          if(w || a) {
-            access_mode = r ? GENERIC_READ|GENERIC_WRITE : GENERIC_WRITE;
-            if(e) {
-              creation_disposition = p ? OPEN_EXISTING : TRUNCATE_EXISTING;
-            } else {
-              creation_disposition = x ? CREATE_NEW : ( p ? OPEN_ALWAYS : CREATE_ALWAYS);
-            }
-            if(a) {
-              if(!::SetFilePointerEx(fd2handle(fd), LARGE_INTEGER(), nullptr, FILE_END)) {
-                throw std::runtime_error(std::string("Failed to set file position (") + error_message() + ")");
-              }
-            }
+        const bool w=options.find('w') != options.npos;
+        const bool r=options.find('r') != options.npos;
+        const bool a=options.find('a') != options.npos;
+        const bool e=options.find('e') != options.npos;
+        const bool x=options.find('x') != options.npos;
+        const bool p=options.find('p') != options.npos;
+        if(w || a) {
+          access_mode = r ? GENERIC_READ|GENERIC_WRITE : GENERIC_WRITE;
+          if(e) {
+            creation_disposition = p ? OPEN_EXISTING : TRUNCATE_EXISTING;
           } else {
-            access_mode = GENERIC_READ;
-            creation_disposition = OPEN_EXISTING;
+            creation_disposition = x ? CREATE_NEW : ( p ? OPEN_ALWAYS : CREATE_ALWAYS);
           }
+        } else {
+          access_mode = GENERIC_READ;
+          creation_disposition = OPEN_EXISTING;
         }
         fd = handle2fd(::CreateFileA(path.c_str(), access_mode, share_mode, nullptr, creation_disposition, flags_attr, nullptr));
         if(fd == invalid_descriptor) {
           throw std::runtime_error(std::string("Failed to open '") + path + "' (" + error_message() + ")");
+        }
+        if(a) {
+          if(!::SetFilePointerEx(fd2handle(fd), LARGE_INTEGER(), nullptr, FILE_END)) {
+            throw std::runtime_error(std::string("Failed to set file position (") + error_message() + ")");
+          }
         }
       }
 
