@@ -310,6 +310,15 @@ fs.home = function() {};
 fs.realpath = function(path) {};
 
 /**
+ * Returns the path of the executing interpreter binary,
+ * `undefined` if the function is not supported on the
+ * current operating system.
+ *
+ * @return {string|undefined}
+ */
+fs.app_path = function() {};
+
+/**
  * Returns directory part of the given path (without tailing slash/backslash)
  * or `undefined` on error.
  * Does strictly require one String argument (the path).
@@ -1462,6 +1471,88 @@ sys.serialport.prototype.writeln = function(data) {};
  */
 sys.serialport.portlist = function(data) {};
 
+/** @file: mod.ext.mmap.hh */
+
+/**
+ * Memory mapped file accessor.
+ * - The `path` is the filesystem path to the file referred to the mapping,
+ * - The `size` is the number of bytes to be mapped into RAM,
+ * - The `flags` is a string, which characters have the meanings:
+ *    - 'r': Readonly: Open/map readonly (for this application).
+ *    - 'w': Read-Write: Open/map read-write ("w" and "rw" is identical).
+ *    - 's': Shared: Allow other processes to access the map.
+ *    - 'p': Protected: Do not allow other processes to write to the mapped range.
+ *    - 'n': No-create: For 'w', the file must already exist, throw otherwise.
+ *
+ * @constructor
+ * @throws {Error}
+ * @param {string} path
+ * @param {string} flags
+ * @param {string} size
+ *
+ * @property {number}  size         - Size of the mapped range.
+ * @property {number}  length       - Size of the mapped range (alias of size).
+ * @property {number}  offset       - Offset of the mapped range.
+ * @property {boolean} closed       - Holds true when the file is not opened/nothing mapped.
+ * @property {string}  error        - Error string representation of the last method call.
+ */
+sys.mmap = function(path, flags) {};
+
+/**
+ * Closes and invalidates the memory map.
+ * @return {sys.mmap}
+ */
+sys.mmap.prototype.close = function() {};
+
+/**
+ * Synchronizes the RAM state to the filesystem.
+ *
+ * @return {sys.mmap}
+ */
+sys.mmap.prototype.sync = function() {};
+
+/**
+ * Reads bytes (by offset and size) from the mapped memory,
+ * returns a buffer if `size`>0, a single byte if `size`
+ * is 0 or omitted.
+ *
+ * @param {number} offset
+ * @param {number} size
+ * @return {buffer|number}
+ */
+sys.mmap.prototype.get = function(offset, size) {};
+
+/**
+ * Writes data data to the mapped memory, stating at position
+ * `offset`. The value can be a single byte or a buffer.
+ *
+ * @param {number} offset
+ * @param {buffer|number} data|value
+ * @return {sys.mmap}
+ */
+sys.mmap.prototype.set = function(data) {};
+
+/** @file: mod.ext.resource_blob.hh */
+
+/**
+ * Loads and returns the contents of a binary encoded
+ * resource file (saved with `sys.resource.save()`).
+ *
+ * @param {string} path
+ * @return {any}
+ */
+sys.resource.load = function(path) {};
+
+/**
+ * Saves data to a binary encoded resource file, throws
+ * on error. The data can be a buffer, string or any JSON
+ * serializable object.
+ *
+ * @param {string} path
+ * @param {any} data
+ */
+sys.resource.load = function(path, data) {};
+
 /** @file: mod.sys.hash.hh */
 
 /**
@@ -1522,3 +1613,7 @@ sys.hash.sha1 = function(data, isfile) {};
  * @return {string}
  */
 sys.hash.sha512 = function(data, isfile) {};
+
+/** @file: mod.xlang.hh */
+
+Number.prototype.limit = function(min, max) {};

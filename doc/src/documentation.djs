@@ -35,9 +35,11 @@ function unindent(text) {
  *
  * @return {String}
  */
-function scan_js_docs() {
+function scan_js_docs(root_path) {
   var docs = {};
-  fs.find(fs.realpath(sys.app.path + "../../duktape"), {
+  const root = fs.realpath(root_path);
+  if(!root) throw "Could not find duktape root path '"+root_path + "/duktape'";
+  fs.find(root, {
     name:"*.hh",
     type:"f",
     filter: function(path) {
@@ -89,5 +91,99 @@ function scan_js_docs() {
   return (sorted_docs.replace(/[\s]+$/, "") + "\n").replace(/[\r]/g,'');
 }
 
-// result to stdout
-console.write(scan_js_docs());
+/**
+ * Generates the function list from scanned JS docs.
+ * @param {string} text_input
+ * @returns {string}
+ */
+function make_function_list(text)
+{
+  text = text.split(/\n/);
+
+  const objects = {};
+  for(var i in text) {
+    if(text[i].match(/^[\w\d\.]+[\s]+=[\s]+function\([^\)]+\)[\s{};]+/)) {
+      const line = text[i]
+        .replace(/^[\s]+/,"")
+        .replace(/[\s]+$/,"")
+        .replace(/[\s]*=[\s]*function[\s]*/,"")
+        .replace(/[\s;{}]+$/g,"")
+      ;
+      const o = line.match(/[\.]/) ? line.replace(/[\.].*$/,"") : "";
+      if(objects[o] === undefined) objects[o] = [];
+      objects[o].push(line);
+    }
+  }
+
+  const list_object_functions = function(it) {
+    const replace_list = {
+      "": "Global namespace",
+      "fs": "File system object",
+      "sys": "System object",
+      "console": "Console object"
+    };
+    var text = "";
+    if(replace_list[it] !== undefined) {
+      text += "### " + replace_list[it] + "\n\n";
+    } else {
+      text += "### " + it + " object" + "\n\n";
+    }
+    for(var it2 in objects[it]) {
+      text += "  - " + objects[it][it2] + "\n";
+    }
+    text += "\n\n";
+    return text;
+  }
+
+  text = "";
+  for(var it in objects) {
+    text += list_object_functions(it);
+  }
+  text = text.replace(/[\s]+$/,'\n').replace(/[\r]/g, '');
+  return text;
+}
+
+/**
+ *
+ * @param {string} readme_src_path
+ * @param {object} variables
+ * @returns {string}
+ */
+function make_readme(readme_src_path, variables)
+{
+  readme_src_path = fs.realpath(readme_src_path);
+  if(!readme_src_path) throw "Could not find readme source file.";
+  var text = fs.readfile(readme_src_path);
+  if(!text) throw "Failed to read readme source file.";
+
+  // [](!var VARIABLE_NAME) replacement.
+  text = text.replace(/\[\]\(\!var[\s]+([\w\d\-\\/\.]+)\)/g, function(m, var_name) {
+    if(variables[var_name] !== undefined) return variables[var_name];
+    throw new Error("Missing replacement variable '"+var_name+"'");
+  });
+
+  text = (text.replace(/[\s]+$/, '') + "\n").replace(/[\r]/g,'');
+  return text;
+}
+
+function main(args)
+{
+  const task = args.shift();
+  const scanned = scan_js_docs("./duktape");
+  if(task === "--stdmods") {
+    console.write(scanned);
+    return 0;
+  } else if(task !== "--readme") {
+    alert("Invalid task, use --stdmods or --readme.");
+    return 1;
+  } else {
+    const variables = {
+      function_list: make_function_list(scanned)
+    }
+    const readme = make_readme("doc/src/readme.src.md", variables);
+    console.write(readme);
+    return 0;
+  }
+}
+
+main(sys.args);

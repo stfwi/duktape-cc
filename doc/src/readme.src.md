@@ -270,4 +270,4 @@ int main(int argc, const char** argv)
 
 ## List of available builtin functions and objects
 
-[](!include doc/src/function-list.md)
+[](!var function_list)

@@ -364,9 +364,19 @@ int main(int argc, const char** argv)
   - sys.serialport.prototype.readln(timeout_ms, ignore_empty)
   - sys.serialport.prototype.writeln(data)
   - sys.serialport.portlist(data)
+  - sys.mmap(path, flags)
+  - sys.mmap.prototype.get(offset, size)
+  - sys.mmap.prototype.set(data)
+  - sys.resource.load(path)
+  - sys.resource.load(path, data)
   - sys.hash.crc8(data)
   - sys.hash.crc16(data)
   - sys.hash.crc32(data)
   - sys.hash.md5(data, isfile)
   - sys.hash.sha1(data, isfile)
   - sys.hash.sha512(data, isfile)
+
+
+### Number object
+
+  - Number.prototype.limit(min, max)

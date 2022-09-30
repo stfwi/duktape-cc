@@ -22,6 +22,8 @@ cli/dev*
 dev.js
 devlib.js
 dev.cc
+/build
+/dist
 tmp
 tmp/
 /duktape/mod/exp/
