@@ -8,10 +8,7 @@ env.mk
 .metadata
 .vscode
 jsconfig.json
-cli/js
 cli/djs
-cli/dev
-cli/dev*
 /bin
 /ext
 *.elf
@@ -19,9 +16,8 @@ cli/dev*
 *.exe
 *.tmp
 *.stackdump
-dev.js
-devlib.js
-dev.cc
+/test/?xxx-*
+/test/*_
 /build
 /dist
 tmp

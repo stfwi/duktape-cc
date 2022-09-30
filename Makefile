@@ -10,7 +10,7 @@ TOOLCHAIN=
 CXX=$(TOOLCHAIN)g++
 LD=$(CXX)
 CXX_STD=c++17
-FLAGSCXX=-std=$(CXX_STD) -W -Wall -Wextra -pedantic
+FLAGSCXX=-std=$(CXX_STD) -W -Wall -Wextra -pedantic -Werror
 FLAGSCXX+=-Iduktape
 DUKOPTS+=-std=$(CXX_STD) -fstrict-aliasing -fdata-sections -ffunction-sections -Os -DDUK_USE_CPP_EXCEPTIONS
 GIT_COMMIT_VERSION:=$(shell git log --pretty=format:%h -1 || echo 0000001)
@@ -73,25 +73,14 @@ endif
 # Test selection
 #---------------------------------------------------------------------------------------------------
 wildcardr=$(foreach d,$(wildcard $1*),$(call wildcardr,$d/,$2) $(filter $(subst *,%,$2),$d))
-DEVBINARY=$(BUILDDIR)/dev$(BINARY_EXTENSION)
-EXAMPLEBINARY=$(BUILDDIR)/example$(BINARY_EXTENSION)
-TEST_BINARIES_SOURCES:=$(foreach F, $(filter %/ , $(sort $(wildcard test/0*/))), $Ftest.cc)
+TEST_SELECTION:=$(sort $(wildcard test/*$(TEST)*/))
+TEST_BINARIES_SOURCES:=$(foreach F, $(filter test/0%/ , $(TEST_SELECTION)), $Ftest.cc)
 TEST_BINARIES:=$(patsubst %.cc,$(BUILDDIR)/%$(BINARY_EXTENSION),$(TEST_BINARIES_SOURCES))
 TEST_BINARIES_RESULTS:=$(patsubst %.cc,$(BUILDDIR)/%.log,$(TEST_BINARIES_SOURCES))
-TEST_SCRIPT_SOURCES:=$(foreach F, $(filter %/ , $(sort $(wildcard test/1*/))), $Ftest.js)
+TEST_SCRIPT_SOURCES:=$(foreach F, $(filter test/1%/ , $(TEST_SELECTION)), $Ftest.js)
 TEST_SCRIPT_RESULTS:=$(patsubst %.js,$(BUILDDIR)/%.log,$(TEST_SCRIPT_SOURCES))
 TEST_SCRIPT_BINARY_SOURCE:=test/1000-script-test-binary/test.cc
 TEST_SCRIPT_BINARY:=$(BUILDDIR)/test/1000-script-test-binary/test$(BINARY_EXTENSION)
-
-
-ifneq ($(TEST),)
-  TESTDIRS=$(wildcard test/*$(TEST)*/)
-  TEST_BINARIES:=$(foreach f,$(TESTDIRS),$(filter $(f)%,$(TEST_BINARIES)))
-  TEST_BINARIES_RESULTS:=$(foreach f,$(TESTDIRS),$(filter $(f)%,$(TEST_BINARIES_RESULTS)))
-  TEST_BINARIES_SOURCES:=$(foreach f,$(TESTDIRS),$(filter $(f)%,$(TEST_BINARIES_SOURCES)))
-  TEST_SCRIPT_SOURCES:=$(foreach f,$(TESTDIRS),$(filter $(f)%,$(TEST_SCRIPT_SOURCES)))
-  TEST_SCRIPT_RESULTS:=$(foreach f,$(TESTDIRS),$(filter $(f)%,$(TEST_SCRIPT_RESULTS)))
-endif
 
 STDMOD_SOURCES:=$(sort $(call wildcardr, duktape/mod, *.hh))
 HEADER_DEPS=duktape/duktape.hh $(STDMOD_SOURCES)
@@ -155,7 +144,7 @@ ifneq ($(WITHOUT_APP_ATTACHMENT),1)
 	@cd $(BUILDDIR)/duktape/mod/ext/app_attachment; make -s patch-binary TARGET_BINARY=../../../../cli/$(BINARY)
 endif
 
-$(BUILDDIR)/cli/main.o: cli/main.cc $(HEADER_DEPS) $(TEST_BINARIES_SOURCES)
+$(BUILDDIR)/cli/main.o: cli/main.cc $(HEADER_DEPS)
 	@echo "[c++ ] $<  $@"
 	@mkdir -p $(BUILDDIR)/cli
 	@$(CXX) -c -o $@ $< $(FLAGSCXX) $(OPTS) -I. -DPROGRAM_VERSION='"""$(GIT_COMMIT_VERSION)"""' -DPROGRAM_NAME='"""$(PROGRAM_NAME)"""'
@@ -170,24 +159,6 @@ $(BUILDDIR)/%.ico: %.png
 	@mkdir -p $(dir $@)
 	@magick convert $< -define icon:auto-resize="256,128,96,64,48,32,16" $@
 endif
-
-#---------------------------------------------------------------------------------------------------
-# Developer testing grounds
-#---------------------------------------------------------------------------------------------------
-.PHONY: run dev
-
-# Run dev.js using default CLI application
-run: binary dev.js
-	@echo "[ js ] dev.js"
-	@mkdir -p $(BUILDDIR)/cli
-	@cd $(BUILDDIR)/cli; ./$(BINARY) ../../dev.js
-
-# Run dev.js using own experimental CLI application
-dev: cli/dev.cc $(BUILDDIR)/duktape/duktape.o $(HEADER_DEPS) $(TEST_BINARIES_SOURCES) $(RC_OBJ)
-	@echo "[c++ ] $< $@"
-	@$(CXX) -o $@ $< $(BUILDDIR)/duktape/duktape.o $(FLAGSCXX) $(OPTS) -I. $(FLAGSLD) $(LDSTATIC) $(LIBS)
-	@echo "[note] Running development binary ..."
-	@cd $(BUILDDIR)/cli; ./$(DEVBINARY) dev.js
 
 #---------------------------------------------------------------------------------------------------
 # Examples
@@ -217,52 +188,52 @@ documentation: $(BUILDDIR)/cli/$(BINARY) | doc/src/documentation.djs doc/src/rea
 
 # Test invocation and summary (we can't use a js script to analyze the tests, so the unix tools
 # that are available on linux and windows (with GIT) are the tools of choice).
-test:
+test: $(TEST_BINARIES_SOURCES) $(TEST_SCRIPT_SOURCES) $(TEST_SCRIPT_BINARY_SOURCE)
 	@mkdir -p $(BUILDDIR)/test
 	@rm -f $(BUILDDIR)/test/*.log
-	@$(MAKE) -j test-results | tee $(BUILDDIR)/test/summary.log
+ifneq ($(TEST),)
+	@rm -f $(TEST_BINARIES_RESULTS) $(TEST_SCRIPT_RESULTS)
+endif
+	@$(MAKE) -j -k test-results | tee $(BUILDDIR)/test/summary.log 2>&1
 	@if grep -e '^\[fail\]' -- $(BUILDDIR)/test/summary.log >/dev/null 2>&1; then echo "[FAIL] At least one test failed."; /bin/false; else echo "[PASS] All tests passed."; fi
+ifneq ($(TEST),)
+	-@cat $(TEST_BINARIES_RESULTS) $(TEST_SCRIPT_RESULTS) 2>/dev/null
+endif
 
 # Actual test compilations and runs
 .PHONY: test-results
-test-results: binary | $(TEST_SCRIPT_BINARY) $(TEST_BINARIES) $(TEST_BINARIES_RESULTS) $(TEST_SCRIPT_RESULTS)
+test-results: $(TEST_SCRIPT_BINARY) $(TEST_BINARIES) $(TEST_BINARIES_RESULTS) $(TEST_SCRIPT_RESULTS)
 
 # Test binaries (compile test No < 1000)
 $(BUILDDIR)/test/%/test$(BINARY_EXTENSION): test/%/test.cc test/testenv.hh test/microtest.hh $(BUILDDIR)/duktape/duktape.o $(HEADER_DEPS)
-	-@echo "[c++ ] $@"
-	-@mkdir -p $(dir $@)
-	-@cp -f $(dir $<)/* $(dir $@)/
-	-@$(CXX) -o $@ $< $(BUILDDIR)/duktape/duktape.o $(FLAGSCXX) $(OPTS) -I. $(FLAGSLD) $(LDSTATIC) $(LIBS) $(shell cat $(dir $<)/compiler.flags 2>/dev/null || /bin/true) || echo "[fail] $@"
+	@echo "[c++ ] $@"
+	@mkdir -p $(dir $@)
+	@cp -rf $(dir $<)/* $(dir $@)/
+	@$(CXX) -o $@ $< $(BUILDDIR)/duktape/duktape.o $(FLAGSCXX) $(OPTS) -I. $(FLAGSLD) $(LDSTATIC) $(LIBS) $(shell cat $(dir $<)/compiler.flags 2>/dev/null || /bin/true) || echo "[fail] $@"
 
 # Test binaries (run, test No < 1000)
 $(BUILDDIR)/test/0%/test.log: $(BUILDDIR)/test/0%/test$(BINARY_EXTENSION)
-	-@mkdir -p $(dir $@)
+	@mkdir -p $(dir $@)
 ifneq ($(OS),Windows_NT)
-	-@rm -f $@
-	-@cd $(dir $<); ./$(notdir $<) $(ARGS) </dev/null >$(notdir $@) 2>&1 && echo "[pass] $<" || echo "[fail] $@"
+	@rm -f $@
+	@cd $(dir $<); ./$(notdir $<) $(ARGS) </dev/null >$(notdir $@) 2>&1 && echo "[pass] $<" || echo "[fail] $@"
 else
-	-@rm -f $@
-	-@cd "$(dir $<)"; echo "" | "./$(notdir $<)" $(ARGS) >$(notdir $@) && echo "[pass] $<" || echo "[fail] $@"
-endif
-ifneq ($(TEST),)
-	-@[ -f $@ ] && cat $@
+	@rm -f $@
+	@cd "$(dir $<)"; echo "" | "./$(notdir $<)" $(ARGS) >$(notdir $@) && echo "[pass] $<" || echo "[fail] $@"
 endif
 
 # Test scripts runner binary (No > 1000)
 $(TEST_SCRIPT_BINARY): $(TEST_SCRIPT_BINARY_SOURCE) $(BUILDDIR)/duktape/duktape.o $(HEADER_DEPS) test/testenv.hh test/microtest.hh
-	-@echo "[c++ ] $@"
-	-@mkdir -p $(dir $@)
-	-@$(CXX) -o $@ $< $(BUILDDIR)/duktape/duktape.o $(FLAGSCXX) $(OPTS) -I. $(FLAGSLD) $(LDSTATIC) $(LIBS) || echo "[fail] $@"
+	@echo "[c++ ] $@"
+	@mkdir -p $(dir $@)
+	@$(CXX) -o $@ $< $(BUILDDIR)/duktape/duktape.o $(FLAGSCXX) $(OPTS) -I. $(FLAGSLD) $(LDSTATIC) $(LIBS) || echo "[fail] $@"
 
 # Test scripts runs (No > 1000)
 $(BUILDDIR)/test/1%/test.log: test/1%/test.js $(TEST_SCRIPT_BINARY)
-	-@mkdir -p $(dir $@)
-	-@rm -f $@
-	-@cp -f $(dir $<)/* $(dir $@)/
-	-@cd $(dir $@); ../../../$(TEST_SCRIPT_BINARY) </dev/null >$(notdir $@) 2>&1 && echo "[pass] $<" || echo "[fail] $@"
-ifneq ($(TEST),)
-	-@[ -f $@ ] && cat $@
-endif
+	@mkdir -p $(dir $@)
+	@rm -f $@
+	@cp -f $(dir $<)/* $(dir $@)/
+	@cd $(dir $@); ../../../$(TEST_SCRIPT_BINARY) </dev/null >$(notdir $@) 2>&1 && echo "[pass] $<" || echo "[fail] $@"
 
 #---------------------------------------------------------------------------------------------------
 # Dump environment
@@ -271,8 +242,7 @@ endif
 
 vars:
 	@echo "BINARY=$(BINARY)"
-	@echo "DEVBINARY='$(DEVBINARY)'"
-	@echo "EXAMPLEBINARY='$(EXAMPLEBINARY)'"
+	@echo "TEST_SELECTION=$(TEST_SELECTION)"
 	@echo "TEST_BINARIES_SOURCES='$(TEST_BINARIES_SOURCES)'"
 	@echo "TEST_BINARIES='$(TEST_BINARIES)'"
 	@echo "TEST_BINARIES_RESULTS='$(TEST_BINARIES_RESULTS)'"
