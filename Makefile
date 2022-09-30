@@ -26,8 +26,8 @@ ifdef DEBUG
  DUKOPTS+=-g -O0
 else
  STRIP=$(TOOLCHAIN)strip
- FLAGSCXX+=-Os -fomit-frame-pointer -fdata-sections -ffunction-sections
- FLAGSLD+=-Os -Wl,--gc-sections
+ FLAGSCXX+=-Os -s -fomit-frame-pointer -fdata-sections -ffunction-sections
+ FLAGSLD+=-Os -s -Wl,--gc-sections
  LIBS+=-lm
 endif
 
@@ -39,7 +39,7 @@ FLAGSLD+=$(LDFLAGS)
 # Pick windows, other platforms are compatible.
 ifeq ($(OS),Windows_NT)
  BINARY_EXTENSION=.exe
- LDSTATIC+=-static -Os -s -static-libgcc
+ LDSTATIC+=-static -static-libstdc++ -static-libgcc
  FLAGSCXX+=-D_WIN32_WINNT=0x0601 -DWINVER=0x0601 -D_WIN32_IE=0x0900
  BINARY=$(PROGRAM_NAME)$(BINARY_EXTENSION)
  LIBS+=-ladvapi32 -lshell32 -lpthread -lws2_32 -lsetupapi
@@ -52,7 +52,7 @@ else
  DESTDIR=$(INSTALLDIR)
  LIBS+=-lrt
  ifdef STATIC
-  LDSTATIC+=-static -Os -s -static-libgcc
+  LDSTATIC+=-static -static-libstdc++ -static-libgcc
  endif
 endif
 
@@ -219,7 +219,8 @@ readme.md: doc/src/readme.src.md doc/src/function-list.md doc/src/mkreadme.js
 #---------------------------------------------------------------------------------------------------
 # Tests
 #---------------------------------------------------------------------------------------------------
-test: binary $(TEST_BINARIES) $(TEST_BINARIES_RESULTS) $(TEST_SCRIPT_BINARY) $(TEST_SCRIPT_RESULTS)
+test: $(TEST_BINARIES) $(TEST_BINARIES_RESULTS) $(TEST_SCRIPT_BINARY) $(TEST_SCRIPT_RESULTS)
+
 test-binaries: binary $(TEST_BINARIES)
 
 #
@@ -227,16 +228,15 @@ test-binaries: binary $(TEST_BINARIES)
 #
 test/%/test$(BINARY_EXTENSION): test/%/test.cc test/testenv.hh test/microtest.hh duktape/duktape.o $(HEADER_DEPS)
 	@echo "[c++ ] $@"
-	-@$(CXX) -o $@ $< duktape/duktape.o $(FLAGSCXX) $(OPTS) -I. $(FLAGSLD) $(LDSTATIC) $(LIBS) || echo "[fail] $@"
-	-@if [ ! -z "$(STRIP)" ]; then $(STRIP) $@; fi
+	-@$(CXX) -o $@ $< duktape/duktape.o $(FLAGSCXX) $(OPTS) -I. $(FLAGSLD) $(LDSTATIC) $(LIBS) $(shell cat $(dir $<)/compiler.flags 2>/dev/null || /bin/true) || echo "[fail] $@"
 
 test/0%/test.log: test/0%/test$(BINARY_EXTENSION)
 ifneq ($(OS),Windows_NT)
 	-@rm -f $@
-	-@cd $(dir $<); ./$(notdir $<) </dev/null >$(notdir $@) 2>&1 && echo "[pass] $<" || echo "[fail] $@"
+	-@cd $(dir $<); ./$(notdir $<) $(ARGS) </dev/null >$(notdir $@) 2>&1 && echo "[pass] $<" || echo "[fail] $@"
 else
 	-@rm -f $@
-	-@cd "$(dir $<)"; echo "" | "./$(notdir $<)" >$(notdir $@) && echo "[pass] $<" || echo "[fail] $@"
+	-@cd "$(dir $<)"; echo "" | "./$(notdir $<)" $(ARGS) >$(notdir $@) && echo "[pass] $<" || echo "[fail] $@"
 endif
 ifneq ($(TEST),)
 	-@[ -f $@ ] && cat $@
@@ -248,7 +248,6 @@ endif
 $(TEST_SCRIPT_BINARY): $(TEST_SCRIPT_BINARY_SOURCE) duktape/duktape.o $(HEADER_DEPS) test/testenv.hh test/microtest.hh
 	@echo "[c++ ] $@"
 	-@$(CXX) -o $@ $< duktape/duktape.o $(FLAGSCXX) $(OPTS) -I. $(FLAGSLD) $(LDSTATIC) $(LIBS) || echo "[fail] $@"
-	-@if [ ! -z "$(STRIP)" ]; then $(STRIP) $@; fi
 
 test/1%/test.log: test/1%/test.js $(TEST_SCRIPT_BINARY)
 	-@rm -f $@

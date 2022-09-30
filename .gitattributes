@@ -1,0 +1,13 @@
+*.c eol=lf
+*.cc eol=lf
+*.cpp eol=lf
+*.h eol=lf
+*.hh eol=lf
+*.js eol=lf
+*.djs eol=lf
+*.md eol=lf
+*.sh eol=lf
+*.txt eol=lf
+*.json eol=lf
+*.yaml eol=lf
+*.mk eol=lf

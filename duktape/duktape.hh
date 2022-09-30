@@ -2704,13 +2704,15 @@ namespace duktape { namespace detail {
       stack().push_pointer(this);
       stack().put_prop_string(-2, "_engine_");
       stack().top(0);
-      // Remove some Duktape methods which may not be intended to be
-      // available and unknown to the programmer.
-      undef("Duktape.env");
-      undef("Duktape.Pointer");
-      undef("Duktape.info");
-      undef("Duktape.errCreate");
-      undef("Duktape.errThrow");
+      #ifdef WITH_DUKTAPE_OBJECT_EXTENSIONS
+        // Remove some Duktape methods which may not be intended to be
+        // available and unknown to the programmer.
+        undef("Duktape.env");
+        undef("Duktape.Pointer");
+        undef("Duktape.info");
+        undef("Duktape.errCreate");
+        undef("Duktape.errThrow");
+      #endif
       // Global object (in case DUK_USE_GLOBAL_BINDING not set)
       stack().push_global_object();
       stack().push_string("global");

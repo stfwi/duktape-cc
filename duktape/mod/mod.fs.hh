@@ -442,6 +442,31 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   }
 
   template <typename PathAccessor>
+  int app_path(duktape::api& stack)
+  {
+    stack.top(0);
+    #ifdef OS_WINDOWS
+    char path[MAX_PATH+1];
+    const size_t n = ::GetModuleFileNameA(nullptr, path, MAX_PATH);
+    if((n<=0) || (n>MAX_PATH)) return 0;
+    path[n] = '\0';
+    stack.push(path);
+    return 1;
+    #elif defined(OS_MACOS)
+    const char* path = ::getprogname();
+    if(!path) return 0;
+    stack.push(path);
+    return 1;
+    #else
+    char path[PATH_MAX+1];
+    path[PATH_MAX] = '\0';
+    if(::readlink("/proc/self/exe", path, PATH_MAX) < 0) return 0;
+    stack.push(path);
+    return 1;
+    #endif
+  }
+
+  template <typename PathAccessor>
   int getdirname(duktape::api& stack)
   {
     if(!stack.is<std::string>(0)) return 0;
@@ -1422,6 +1447,18 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
     fs.realpath = function(path) {};
     #endif
     js.define("fs.realpath", realpath<PathAccessor>, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns the path of the executing interpreter binary,
+     * `undefined` if the function is not supported on the
+     * current operating system.
+     *
+     * @return {string|undefined}
+     */
+    fs.app_path = function() {};
+    #endif
+    js.define("fs.application", app_path<PathAccessor>, 0);
 
     #if(0 && JSDOC)
     /**

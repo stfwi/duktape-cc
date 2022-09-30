@@ -27,7 +27,7 @@
   #include <duktape/mod/ext/app_attachment/mod.ext.app_attachment.hh>
 #endif
 #ifdef WITH_RESOURCE_IMPORT
-  #include <duktape/mod/ext/mod.resource_blob.hh>
+  #include <duktape/mod/ext/mod.ext.resource_blob.hh>
 #endif
 #include <exception>
 #include <stdexcept>
@@ -170,7 +170,7 @@ int main(int argc, const char** argv, const char** envv)
         duktape::mod::ext::serial_port::define_in(js);
       #endif
       #ifdef WITH_RESOURCE_IMPORT
-        duktape::mod::resource_blob::define_in(js);
+        duktape::mod::ext::resource_blob::define_in(js);
       #endif
       #ifdef WITH_EXPERIMENTAL
         duktape::mod::experimental::define_in(js);

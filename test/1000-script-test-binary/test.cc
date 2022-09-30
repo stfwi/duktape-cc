@@ -7,14 +7,23 @@
 #include <mod/mod.sys.hh>
 #include <mod/mod.sys.exec.hh>
 #include <mod/mod.sys.hash.hh>
+#include <mod/ext/mod.conv.hh>
+#include <mod/ext/mod.ext.mmap.hh>
+#include <mod/ext/mod.ext.serial_port.hh>
+#include <mod/ext/mod.ext.resource_blob.hh>
+#include <mod/mod.sys.os.hh>
+#ifdef WITH_EXTERNAL_DEPENDENCIES
+  #include <mod/ext/mod.ext.srecord.hh>
+#endif
+#ifdef WITH_EXPERIMENTAL
+  #include <mod/exp/mod.experimental.hh>
+#endif
 #include <exception>
 #include <stdexcept>
 #include <iostream>
 #include <string>
 
 using namespace std;
-
-
 
 void test(duktape::engine& js)
 {
@@ -27,7 +36,15 @@ void test(duktape::engine& js)
   duktape::mod::system::define_in(js);
   duktape::mod::system::exec::define_in(js);
   duktape::mod::system::hash::define_in(js);
-
+  duktape::mod::ext::conv::define_in(js);
+  duktape::mod::ext::mmap::define_in(js);
+  duktape::mod::ext::serial_port::define_in(js);
+  #ifdef WITH_EXTERNAL_DEPENDENCIES
+    duktape::mod::ext::srecord::define_in(js);
+  #endif
+  #ifdef WITH_EXPERIMENTAL
+    duktape::mod::experimental::define_in(js);
+  #endif
   // reset some stdio to to testenv
   js.define("print", ecma_print); // may be overwritten by stdio
   js.define("alert", ecma_warn); // may be overwritten by stdio

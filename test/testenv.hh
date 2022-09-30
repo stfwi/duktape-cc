@@ -514,6 +514,8 @@ void test_include_script(duktape::engine& js)
   }
 }
 
+std::vector<std::string> test_cli_args;
+
 int main(int argc, char *argv[])
 {
   try {
@@ -536,10 +538,10 @@ int main(int argc, char *argv[])
     js.define("test_relpath", ecma_testrelpath, 1);
     js.define("callstack", ecma_callstack, 1);
     {
-      std::vector<std::string> args;
+
       for(int i=1; i<argc && argv[i]; ++i) {
-        args.emplace_back(argv[i]);
-        js.define("sys.args", args);
+        test_cli_args.emplace_back(argv[i]);
+        js.define("sys.args", test_cli_args);
       }
     }
     try {

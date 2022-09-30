@@ -171,7 +171,7 @@ namespace duktape { namespace detail { namespace resource_blob { namespace {
 }}}}
 
 
-namespace duktape { namespace mod { namespace resource_blob { namespace {
+namespace duktape { namespace mod { namespace ext { namespace resource_blob { namespace {
 
   template <typename PathAccessor=::duktape::detail::filesystem::path_accessor<std::string>>
   void define_in(duktape::engine& js)
@@ -202,6 +202,6 @@ namespace duktape { namespace mod { namespace resource_blob { namespace {
       js.define("sys.resource.save", duktape::detail::resource_blob::save_resource<PathAccessor>);
   }
 
-}}}}
+}}}}}
 
 #endif
