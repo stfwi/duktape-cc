@@ -88,7 +88,7 @@ function scan_js_docs(root_path) {
     sorted_docs += "/** @file: " + key + " */\n\n";
     sorted_docs += docs[key];
   }
-  return (sorted_docs.replace(/[\s]+$/, "") + "\n").replace(/[\r]/g,'');
+  return (sorted_docs.replace(/[\s]+$/g, "") + "\n").replace(/\r\n/g,'\n').replace(/\r/g,'\n');
 }
 
 /**
@@ -98,8 +98,7 @@ function scan_js_docs(root_path) {
  */
 function make_function_list(text)
 {
-  text = text.split(/\n/);
-
+  text = text.split(/\r?\n/);
   const objects = {};
   for(var i in text) {
     if(text[i].match(/^[\w\d\.]+[\s]+=[\s]+function\([^\)]+\)[\s{};]+/)) {
@@ -139,7 +138,7 @@ function make_function_list(text)
   for(var it in objects) {
     text += list_object_functions(it);
   }
-  text = text.replace(/[\s]+$/,'\n').replace(/[\r]/g, '');
+  text = text.replace(/[\s]+$/g,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n')
   return text;
 }
 
@@ -168,22 +167,21 @@ function make_readme(readme_src_path, variables)
 
 function main(args)
 {
+  // note to self: implement getopt
   const task = args.shift();
+  if(task !== "--stdmods" && task !== "--readme") throw "Invalid task, use --stdmods or --readme.";
+  if(args.shift()!=='-o') throw "Expected '-o <existing output file>' after the task.";
+  const output_file = args.shift();
+  if(!fs.isfile(output_file)) throw "Output file '"+output_file+"' must exist.";
   const scanned = scan_js_docs("./duktape");
   if(task === "--stdmods") {
-    console.write(scanned);
-    return 0;
-  } else if(task !== "--readme") {
-    alert("Invalid task, use --stdmods or --readme.");
-    return 1;
+    if(!fs.write(output_file, scanned)) throw "Failed to write output file '"+output_file+"'.";
   } else {
-    const variables = {
-      function_list: make_function_list(scanned)
-    }
+    const variables = { function_list: make_function_list(scanned) };
     const readme = make_readme("doc/src/readme.src.md", variables);
-    console.write(readme);
-    return 0;
+    if(!fs.write(output_file, readme)) throw "Failed to write output file '"+output_file+"'.";
   }
+  return 0;
 }
 
 main(sys.args);
