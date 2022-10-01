@@ -1,0 +1,23 @@
+name: Commit CI testing c++/js
+
+on:
+  push:
+    branches: [ $default-branch develop ]
+  pull_request:
+    branches: [ $default-branch develop ]
+  workflow_dispatch:
+
+jobs:
+  Makefile-test-run-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Triggered by \"${{ github.event_name }}\", runner OS \"${{ runner.os }}\"."
+      - name: Check out \"${{ github.repository }}\", branch \"${{ github.ref }}\."
+        uses: actions/checkout@v3
+      - name: Check if CLI binary compiles
+        run: make binary
+      - name: Check if examples compile
+        run: make examples
+      - name: Run tests
+        run: make test
+      - run: echo "Job status ${{ job.status }}."
