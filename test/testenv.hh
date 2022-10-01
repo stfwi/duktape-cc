@@ -14,14 +14,14 @@
 #include <clocale>
 
 #if defined(WIN32) || defined(WIN64) || defined(_WIN32) || defined(_WIN64)
-  #ifndef WINDOWS
-    #define WINDOWS
+  #ifndef OS_WINDOWS
+    #define OS_WINDOWS
   #endif
 #endif
 
 
 namespace testenv {
-  #ifndef WINDOWS
+  #ifndef OS_WINDOWS
   int sysshellexec(std::string cmd) {
     int r=::system(cmd.c_str());
     return WEXITSTATUS(r);
@@ -67,7 +67,7 @@ namespace testenv {
 
   void test_makefile(std::string path) {
     std::ofstream fos(test_path(path));
-    fos << path << std::endl;
+    fos << path << "\n";
   }
 
   namespace {
@@ -104,7 +104,7 @@ namespace testenv {
 
   void test_makedir(std::string path, bool ignore_error=false)
   {
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     if(::mkdir(test_path(path).c_str(), 0755) != 0) {
     #else
     if(::mkdir(test_path(path).c_str()) != 0) {
@@ -122,7 +122,7 @@ namespace testenv {
     test_comment("(Re)building test temporary file tree '" << test_path() << "'");
     test_rmfiletree();
     test_makedir(test_path(), true);
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     {
       if(::chdir("/tmp") != 0) {
         test_fail("Failed to chdir to /tmp");
@@ -189,7 +189,7 @@ int ecma_testrelpath(duk_context *ctx)
   if(!stack.top() || (!stack.is_string(0))) return 0;
   std::string path = stack.get<std::string>(0);
   while(!path.empty() && path.front() == '/') path = path.substr(1);
-  #ifdef WINDOWS
+  #ifdef OS_WINDOWS
   for(auto& e:path) if(e=='/') e='\\';
   #endif
   stack.push(path);
@@ -207,9 +207,9 @@ int ecma_print(duk_context *ctx)
   std::stringstream ss;
   int nargs = stack.top();
   if((nargs == 1) && stack.is_buffer(0)) {
-    const char *buf = NULL;
+    const char *buf = nullptr;
     duk_size_t sz = 0;
-    if((buf = (const char *) stack.get_buffer(0, sz)) && sz > 0) {
+    if((buf = reinterpret_cast<const char*>(stack.get_buffer(0, sz))) && (sz > 0)) {
       ss.write(buf, sz);
     }
   } else if(nargs > 0) {
@@ -514,6 +514,8 @@ void test_include_script(duktape::engine& js)
   }
 }
 
+std::vector<std::string> test_cli_args;
+
 int main(int argc, char *argv[])
 {
   try {
@@ -536,10 +538,10 @@ int main(int argc, char *argv[])
     js.define("test_relpath", ecma_testrelpath, 1);
     js.define("callstack", ecma_callstack, 1);
     {
-      std::vector<std::string> args;
+
       for(int i=1; i<argc && argv[i]; ++i) {
-        args.emplace_back(argv[i]);
-        js.define("sys.args", args);
+        test_cli_args.emplace_back(argv[i]);
+        js.define("sys.args", test_cli_args);
       }
     }
     try {

@@ -61,7 +61,7 @@ void test_mkdir(duktape::engine& js)
   test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
   test_expect( js.eval<bool>("fs.isdir('test-dir/4') === true; // check") );
   test_expect( js.eval<bool>("fs.isdir('test-dir/5/6/7') === true; // check") );
-  #ifdef WINDOWS
+  #ifdef OS_WINDOWS
   test_expect( js.eval<bool>("fs.mkdir('test-dir\\\\11\\\\12\\\\13','p') === true;") );
   test_expect( js.eval<bool>("fs.isdir('test-dir\\\\11\\\\12\\\\13') === true; // check") );
   test_expect( js.eval<bool>("fs.chdir('test-dir\\\\11\\\\12') === true") );
@@ -123,7 +123,7 @@ void test_filemod_functions(duktape::engine& js)
   test_expect( js.eval<bool>("fs.mod2str('127') === undefined") );
   test_expect( js.eval<bool>(string("fs.mod2str(") + to_string(0755) + ", 'l') === 'rwxr-xr-x'") );
   test_expect( js.eval<bool>(string("fs.mod2str(") + to_string(0700) + ", 'l') === 'rwx------'") );
-  #ifndef WINDOWS
+  #ifndef OS_WINDOWS
   test_expect( js.eval<bool>("fs.mod2str(fs.stat('/dev/null').modeval, 'e')[0] === 'c'") );
   if(::access("/dev/sda", F_OK)==0) test_expect( js.eval<bool>("fs.mod2str(fs.stat('/dev/sda').modeval, 'e')[0] === 'b'") );
   // @sw: note test for pipe, link, sock
@@ -243,7 +243,7 @@ void test_readdir_function(duktape::engine& js)
 {
   test_comment("test_readdir_function");
   test_makefiletree();
-  #ifndef WINDOWS
+  #ifndef OS_WINDOWS
   test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
   test_expect( js.eval<bool>("fs.mkdir('readdirtest') === true") );
   test_expect( js.eval<bool>("fs.chdir('readdirtest') === true") );
@@ -303,7 +303,7 @@ void test(duktape::engine& js)
     test_readfile_writefile(js);
     test_read_write(js);
     test_readdir_function(js);
-#ifndef WINDOWS
+#ifndef OS_WINDOWS
     test_filemod_functions(js);
 #endif
   } catch(...) {

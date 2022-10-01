@@ -33,7 +33,7 @@ void mk_test_tree()
   test_makefile("b/b/v");
   test_makefile("c/b/c/u");
 
-  #ifndef WINDOWS
+  #ifndef OS_WINDOWS
   #define TEST_NUMSYMLINKS int(1)
   test_makesymlink("a", "/a/b/l");
   #else

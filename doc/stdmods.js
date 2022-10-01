@@ -128,8 +128,8 @@ var console = {};
 console.log = function(args) {};
 
 /**
- * Read from STDIN until EOF. Using the argument `arg` it is possible
- * to use further functionality:
+ * Read from STDIN (default until EOF). Using the argument `arg`
+ * it is possible to use further functionality:
  *
  *  - By default (if `arg` is undefined or not given) the function
  *    returns a string when all data are read.
@@ -146,6 +146,13 @@ console.log = function(args) {};
  *   Otherwise, if `arg` is not `true` and no string, the line is
  *   skipped.
  *
+ * - If `arg` is a number, then reading from a pipe or tty/console
+ *   is nonblocking if supported by the device, returning maximum
+ *   `arg` characters. Returns `undefined` on EOF or read error
+ *   (e.g. broken-pipe). Console interfaces are temporarily set to
+ *   non-canonical mode for this purpose (settings restored after
+ *   reading).
+ *
  * @param {function|boolean} arg
  * @return {string|buffer}
  */
@@ -158,6 +165,20 @@ console.read = function(arg) {};
  * @param {...*} args
  */
 console.write = function(args) {};
+
+/**
+ * Blocking string line input.
+ * @return {string}
+ */
+console.readline = function(args) {};
+
+/**
+ * Enable/disable VT100 processing (default: enabled).
+ * Only relevant on Windows operating systems.
+ *
+ * @param {boolean} enable
+ */
+console.vt100 = function(enable) {};
 
 /** @file: mod.fs.hh */
 
@@ -287,6 +308,15 @@ fs.home = function() {};
  * @return {string|undefined}
  */
 fs.realpath = function(path) {};
+
+/**
+ * Returns the path of the executing interpreter binary,
+ * `undefined` if the function is not supported on the
+ * current operating system.
+ *
+ * @return {string|undefined}
+ */
+fs.app_path = function() {};
 
 /**
  * Returns directory part of the given path (without tailing slash/backslash)
@@ -665,11 +695,10 @@ fs.directoryseparator = "";
  *          - "s": Socket
  *          - "c": Character device (like /dev/tty)
  *          - "b": Block device (like /dev/sda)
- *          - "h": Include hidden files (Win: hidden flag, Linux/Unix: no effect, intentionally
- *                 not applied to files with a leading dot, which are normal files, dirs etc).
+ *          - "h": Include hidden files (dot-files like ".fileordir", and win32 'hidden' flag).
+ *                 If `type` is empty/not specified, hidden files are implicitly included.
  *
- *      - depth: {number} Maximum directory recursion depth. `0` lists nothing, `1` the contents of the
- *               root directory, etc.
+ *      - depth: {number} Maximum directory recursion depth. `0` lists the contents of the root directory, etc.
  *
  *      - icase: {boolean} File name matching is not case sensitive (Linux/Unix: default false, Win32: default true)
  *
@@ -1338,6 +1367,92 @@ sys.process = function(program, arguments, options) {};
  * @param {boolean} force
  */
 sys.process.prototype.kill = function(force) {};
+
+/** @file: mod.xlang.hh */
+
+Number.prototype.limit = function(min, max) {};
+
+/** @file: mod.ext.mmap.hh */
+
+/**
+ * Memory mapped file accessor.
+ * - The `path` is the filesystem path to the file referred to the mapping,
+ * - The `size` is the number of bytes to be mapped into RAM,
+ * - The `flags` is a string, which characters have the meanings:
+ *    - 'r': Readonly: Open/map readonly (for this application).
+ *    - 'w': Read-Write: Open/map read-write ("w" and "rw" is identical).
+ *    - 's': Shared: Allow other processes to access the map.
+ *    - 'p': Protected: Do not allow other processes to write to the mapped range.
+ *    - 'n': No-create: For 'w', the file must already exist, throw otherwise.
+ *
+ * @constructor
+ * @throws {Error}
+ * @param {string} path
+ * @param {string} flags
+ * @param {string} size
+ *
+ * @property {number}  size         - Size of the mapped range.
+ * @property {number}  length       - Size of the mapped range (alias of size).
+ * @property {number}  offset       - Offset of the mapped range.
+ * @property {boolean} closed       - Holds true when the file is not opened/nothing mapped.
+ * @property {string}  error        - Error string representation of the last method call.
+ */
+sys.mmap = function(path, flags) {};
+
+/**
+ * Closes and invalidates the memory map.
+ * @return {sys.mmap}
+ */
+sys.mmap.prototype.close = function() {};
+
+/**
+ * Synchronizes the RAM state to the filesystem.
+ *
+ * @return {sys.mmap}
+ */
+sys.mmap.prototype.sync = function() {};
+
+/**
+ * Reads bytes (by offset and size) from the mapped memory,
+ * returns a buffer if `size`>0, a single byte if `size`
+ * is 0 or omitted.
+ *
+ * @param {number} offset
+ * @param {number} size
+ * @return {buffer|number}
+ */
+sys.mmap.prototype.get = function(offset, size) {};
+
+/**
+ * Writes data data to the mapped memory, stating at position
+ * `offset`. The value can be a single byte or a buffer.
+ *
+ * @param {number} offset
+ * @param {buffer|number} data|value
+ * @return {sys.mmap}
+ */
+sys.mmap.prototype.set = function(data) {};
+
+/** @file: mod.ext.resource_blob.hh */
+
+/**
+ * Loads and returns the contents of a binary encoded
+ * resource file (saved with `sys.resource.save()`).
+ *
+ * @param {string} path
+ * @return {any}
+ */
+sys.resource.load = function(path) {};
+
+/**
+ * Saves data to a binary encoded resource file, throws
+ * on error. The data can be a buffer, string or any JSON
+ * serializable object.
+ *
+ * @param {string} path
+ * @param {any} data
+ */
+sys.resource.load = function(path, data) {};
 
 /** @file: mod.ext.serial_port.hh */
 

@@ -140,7 +140,7 @@ namespace duktape { namespace detail { namespace srecord { namespace {
 
 }}}}
 
-namespace duktape { namespace mod { namespace srecord {
+namespace duktape { namespace mod { namespace ext { namespace srecord {
 
   /**
    * Export main relay. Adds all module functions to the specified engine.
@@ -427,6 +427,6 @@ namespace duktape { namespace mod { namespace srecord {
     );
   }
 
-}}}
+}}}}
 
 #endif

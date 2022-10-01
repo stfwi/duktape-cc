@@ -12,9 +12,11 @@ void test(duktape::engine& js)
   test_expect( js.eval<bool>("d instanceof Date") == true);
 
   {
-    struct ::timespec ts { 3600, 987000000};
+    struct ::timespec ts {3600, 987000000};
     js.define("thetime", ts);
-    test_expect( js.eval<string>("thetime;") == "1970-01-01 02:00:00.987+01:00" );
+    test_info( "::timespec{3600,987000000} === " << js.eval<string>("thetime.valueOf();") );
+    test_info( "::timespec{3600,987000000} === " << js.eval<string>("thetime;") );
+    test_expect( js.eval<int64_t>("thetime.valueOf();") == 3600987 );
   }
   {
     struct ::timespec ts = js.eval<struct ::timespec>("d = new Date('1970-01-01T00:05:00.1'); d;");

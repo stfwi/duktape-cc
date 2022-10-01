@@ -90,7 +90,7 @@
 
 #include <string>
 #include <cstring>
-#if defined(OS_WIN) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
+#if defined(OS_WINDOWS) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
 #include <stdint.h>
 #else
 #include <inttypes.h>
@@ -248,7 +248,7 @@ namespace sw {
 
 #endif
 
-// @version: #f84cdfe 2009-11-01T20:38:02+01:00
+// @version: #e6719f1
 /**
  * @package de.atwillys.cc.swl
  * @file md5.hh
@@ -264,7 +264,7 @@ namespace sw {
 #ifndef MD5_HH
 #define MD5_HH
 
-#if defined(OS_WIN) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
+#if defined(OS_WINDOWS) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
 #include <stdint.h>
 #else
 #include <inttypes.h>
@@ -424,15 +424,15 @@ namespace sw { namespace detail {
      */
     void transform(const uint8_t* block)
     {
-      #define F1(x,y,z) (((x)&(y)) | (~(x)&(z)))
-      #define F2(x,y,z) (((x)&(z)) | ((y)&(~(z))))
-      #define F3(x,y,z) ((x)^(y)^(z))
-      #define F4(x,y,z) ((y)^((x)|(~(z))))
-      #define RL(x,n) (((x)<<(n))|((x)>>(32-(n))))
-      #define FF(a,b,c,d,x,s,ac) { a = RL(a+ F1(b,c,d) + (x) + (ac), (s)) + (b); }
-      #define GG(a,b,c,d,x,s,ac) { a = RL(a + F2(b,c,d) + (x) + (ac), (s)) + (b); }
-      #define HH(a,b,c,d,x,s,ac) { a = RL(a + F3(b,c,d) + x + ac, s) + b; }
-      #define II(a,b,c,d,x,s,ac) { a = RL(a + F4(b,c,d) + x + ac, s) + b; }
+      #define SHA256F1(x,y,z) (((x)&(y)) | (~(x)&(z)))
+      #define SHA256F2(x,y,z) (((x)&(z)) | ((y)&(~(z))))
+      #define SHA256F3(x,y,z) ((x)^(y)^(z))
+      #define SHA256F4(x,y,z) ((y)^((x)|(~(z))))
+      #define SHA256RL(x,n) (((x)<<(n))|((x)>>(32-(n))))
+      #define FF(a,b,c,d,x,s,ac) { a = SHA256RL(a+ SHA256F1(b,c,d) + (x) + (ac), (s)) + (b); }
+      #define GG(a,b,c,d,x,s,ac) { a = SHA256RL(a + SHA256F2(b,c,d) + (x) + (ac), (s)) + (b); }
+      #define HH(a,b,c,d,x,s,ac) { a = SHA256RL(a + SHA256F3(b,c,d) + x + ac, s) + b; }
+      #define II(a,b,c,d,x,s,ac) { a = SHA256RL(a + SHA256F4(b,c,d) + x + ac, s) + b; }
 
       #define B_U32(output, input, len) { \
         for(unsigned i = 0, j = 0; j < len; i++, j += 4) { \
@@ -477,11 +477,11 @@ namespace sw { namespace detail {
       II(c,d,a,b,x[2],15,0x2ad7d2bb);  II(b,c,d,a,x[9],21,0xeb86d391);
       sum_[0] += a; sum_[1] += b; sum_[2] += c; sum_[3] += d;
       memset(x, 0, sizeof x);
-      #undef F1
-      #undef F2
-      #undef F3
-      #undef F4
-      #undef RL
+      #undef SHA256F1
+      #undef SHA256F2
+      #undef SHA256F3
+      #undef SHA256F4
+      #undef SHA256RL
       #undef FF
       #undef GG
       #undef HH
@@ -502,7 +502,7 @@ namespace sw {
 }
 #endif
 
-// @version: #f84cdfe 2009-11-01T20:38:02+01:00
+// @version: #e6719f1
 /**
  * @package de.atwillys.cc.swl
  * @license %, public domain
@@ -521,7 +521,7 @@ namespace sw {
 #ifndef SHA1_HH
 #define SHA1_HH
 
-#if defined(OS_WIN) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
+#if defined(OS_WINDOWS) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
 #include <stdint.h>
 #else
 #include <inttypes.h>
@@ -701,38 +701,38 @@ namespace sw { namespace detail {
      */
     void transform(uint32_t *block)
     {
-      #define rol(value, bits) (((value) << (bits)) | (((value) & 0xffffffff) >> (32-(bits))))
-      #define blk(i) (block[i&15]=rol(block[(i+13)&15]^block[(i+8)&15]^block[(i+2)&15]^block[i&15],1))
-      #define R0(v,w,x,y,z,i) z += ((w&(x^y))^y) + block[i] + 0x5a827999 + rol(v,5); w=rol(w,30);
-      #define R1(v,w,x,y,z,i) z += ((w&(x^y))^y) + blk(i) + 0x5a827999 + rol(v,5); w=rol(w,30);
-      #define R2(v,w,x,y,z,i) z += (w^x^y) + blk(i) + 0x6ed9eba1 + rol(v,5); w=rol(w,30);
-      #define R3(v,w,x,y,z,i) z += (((w|x)&y)|(w&x)) + blk(i) + 0x8f1bbcdc + rol(v,5); w=rol(w,30);
-      #define R4(v,w,x,y,z,i) z += (w^x^y) + blk(i) + 0xca62c1d6 + rol(v,5); w=rol(w,30);
+      #define SHA256ROL(value, bits) (((value) << (bits)) | (((value) & 0xffffffff) >> (32-(bits))))
+      #define SHA256BLK(i) (block[i&15]=SHA256ROL(block[(i+13)&15]^block[(i+8)&15]^block[(i+2)&15]^block[i&15],1))
+      #define SHA1R0(v,w,x,y,z,i) z += ((w&(x^y))^y) + block[i] + 0x5a827999 + SHA256ROL(v,5); w=SHA256ROL(w,30);
+      #define SHA1R1(v,w,x,y,z,i) z += ((w&(x^y))^y) + SHA256BLK(i) + 0x5a827999 + SHA256ROL(v,5); w=SHA256ROL(w,30);
+      #define SHA1R2(v,w,x,y,z,i) z += (w^x^y) + SHA256BLK(i) + 0x6ed9eba1 + SHA256ROL(v,5); w=SHA256ROL(w,30);
+      #define SHA1R3(v,w,x,y,z,i) z += (((w|x)&y)|(w&x)) + SHA256BLK(i) + 0x8f1bbcdc + SHA256ROL(v,5); w=SHA256ROL(w,30);
+      #define SHA1R4(v,w,x,y,z,i) z += (w^x^y) + SHA256BLK(i) + 0xca62c1d6 + SHA256ROL(v,5); w=SHA256ROL(w,30);
       uint32_t a = sum_[0], b = sum_[1], c = sum_[2], d = sum_[3], e = sum_[4];
-      R0(a,b,c,d,e, 0); R0(e,a,b,c,d, 1); R0(d,e,a,b,c, 2); R0(c,d,e,a,b, 3); R0(b,c,d,e,a, 4);
-      R0(a,b,c,d,e, 5); R0(e,a,b,c,d, 6); R0(d,e,a,b,c, 7); R0(c,d,e,a,b, 8); R0(b,c,d,e,a, 9);
-      R0(a,b,c,d,e,10); R0(e,a,b,c,d,11); R0(d,e,a,b,c,12); R0(c,d,e,a,b,13); R0(b,c,d,e,a,14);
-      R0(a,b,c,d,e,15); R1(e,a,b,c,d,16); R1(d,e,a,b,c,17); R1(c,d,e,a,b,18); R1(b,c,d,e,a,19);
-      R2(a,b,c,d,e,20); R2(e,a,b,c,d,21); R2(d,e,a,b,c,22); R2(c,d,e,a,b,23); R2(b,c,d,e,a,24);
-      R2(a,b,c,d,e,25); R2(e,a,b,c,d,26); R2(d,e,a,b,c,27); R2(c,d,e,a,b,28); R2(b,c,d,e,a,29);
-      R2(a,b,c,d,e,30); R2(e,a,b,c,d,31); R2(d,e,a,b,c,32); R2(c,d,e,a,b,33); R2(b,c,d,e,a,34);
-      R2(a,b,c,d,e,35); R2(e,a,b,c,d,36); R2(d,e,a,b,c,37); R2(c,d,e,a,b,38); R2(b,c,d,e,a,39);
-      R3(a,b,c,d,e,40); R3(e,a,b,c,d,41); R3(d,e,a,b,c,42); R3(c,d,e,a,b,43); R3(b,c,d,e,a,44);
-      R3(a,b,c,d,e,45); R3(e,a,b,c,d,46); R3(d,e,a,b,c,47); R3(c,d,e,a,b,48); R3(b,c,d,e,a,49);
-      R3(a,b,c,d,e,50); R3(e,a,b,c,d,51); R3(d,e,a,b,c,52); R3(c,d,e,a,b,53); R3(b,c,d,e,a,54);
-      R3(a,b,c,d,e,55); R3(e,a,b,c,d,56); R3(d,e,a,b,c,57); R3(c,d,e,a,b,58); R3(b,c,d,e,a,59);
-      R4(a,b,c,d,e,60); R4(e,a,b,c,d,61); R4(d,e,a,b,c,62); R4(c,d,e,a,b,63); R4(b,c,d,e,a,64);
-      R4(a,b,c,d,e,65); R4(e,a,b,c,d,66); R4(d,e,a,b,c,67); R4(c,d,e,a,b,68); R4(b,c,d,e,a,69);
-      R4(a,b,c,d,e,70); R4(e,a,b,c,d,71); R4(d,e,a,b,c,72); R4(c,d,e,a,b,73); R4(b,c,d,e,a,74);
-      R4(a,b,c,d,e,75); R4(e,a,b,c,d,76); R4(d,e,a,b,c,77); R4(c,d,e,a,b,78); R4(b,c,d,e,a,79);
+      SHA1R0(a,b,c,d,e, 0); SHA1R0(e,a,b,c,d, 1); SHA1R0(d,e,a,b,c, 2); SHA1R0(c,d,e,a,b, 3); SHA1R0(b,c,d,e,a, 4);
+      SHA1R0(a,b,c,d,e, 5); SHA1R0(e,a,b,c,d, 6); SHA1R0(d,e,a,b,c, 7); SHA1R0(c,d,e,a,b, 8); SHA1R0(b,c,d,e,a, 9);
+      SHA1R0(a,b,c,d,e,10); SHA1R0(e,a,b,c,d,11); SHA1R0(d,e,a,b,c,12); SHA1R0(c,d,e,a,b,13); SHA1R0(b,c,d,e,a,14);
+      SHA1R0(a,b,c,d,e,15); SHA1R1(e,a,b,c,d,16); SHA1R1(d,e,a,b,c,17); SHA1R1(c,d,e,a,b,18); SHA1R1(b,c,d,e,a,19);
+      SHA1R2(a,b,c,d,e,20); SHA1R2(e,a,b,c,d,21); SHA1R2(d,e,a,b,c,22); SHA1R2(c,d,e,a,b,23); SHA1R2(b,c,d,e,a,24);
+      SHA1R2(a,b,c,d,e,25); SHA1R2(e,a,b,c,d,26); SHA1R2(d,e,a,b,c,27); SHA1R2(c,d,e,a,b,28); SHA1R2(b,c,d,e,a,29);
+      SHA1R2(a,b,c,d,e,30); SHA1R2(e,a,b,c,d,31); SHA1R2(d,e,a,b,c,32); SHA1R2(c,d,e,a,b,33); SHA1R2(b,c,d,e,a,34);
+      SHA1R2(a,b,c,d,e,35); SHA1R2(e,a,b,c,d,36); SHA1R2(d,e,a,b,c,37); SHA1R2(c,d,e,a,b,38); SHA1R2(b,c,d,e,a,39);
+      SHA1R3(a,b,c,d,e,40); SHA1R3(e,a,b,c,d,41); SHA1R3(d,e,a,b,c,42); SHA1R3(c,d,e,a,b,43); SHA1R3(b,c,d,e,a,44);
+      SHA1R3(a,b,c,d,e,45); SHA1R3(e,a,b,c,d,46); SHA1R3(d,e,a,b,c,47); SHA1R3(c,d,e,a,b,48); SHA1R3(b,c,d,e,a,49);
+      SHA1R3(a,b,c,d,e,50); SHA1R3(e,a,b,c,d,51); SHA1R3(d,e,a,b,c,52); SHA1R3(c,d,e,a,b,53); SHA1R3(b,c,d,e,a,54);
+      SHA1R3(a,b,c,d,e,55); SHA1R3(e,a,b,c,d,56); SHA1R3(d,e,a,b,c,57); SHA1R3(c,d,e,a,b,58); SHA1R3(b,c,d,e,a,59);
+      SHA1R4(a,b,c,d,e,60); SHA1R4(e,a,b,c,d,61); SHA1R4(d,e,a,b,c,62); SHA1R4(c,d,e,a,b,63); SHA1R4(b,c,d,e,a,64);
+      SHA1R4(a,b,c,d,e,65); SHA1R4(e,a,b,c,d,66); SHA1R4(d,e,a,b,c,67); SHA1R4(c,d,e,a,b,68); SHA1R4(b,c,d,e,a,69);
+      SHA1R4(a,b,c,d,e,70); SHA1R4(e,a,b,c,d,71); SHA1R4(d,e,a,b,c,72); SHA1R4(c,d,e,a,b,73); SHA1R4(b,c,d,e,a,74);
+      SHA1R4(a,b,c,d,e,75); SHA1R4(e,a,b,c,d,76); SHA1R4(d,e,a,b,c,77); SHA1R4(c,d,e,a,b,78); SHA1R4(b,c,d,e,a,79);
       sum_[0] += a; sum_[1] += b; sum_[2] += c; sum_[3] += d; sum_[4] += e; iterations_++;
-      #undef rol
-      #undef blk
-      #undef R0
-      #undef R1
-      #undef R2
-      #undef R3
-      #undef R4
+      #undef SHA256ROL
+      #undef SHA256BLK
+      #undef SHA1R0
+      #undef SHA1R1
+      #undef SHA1R2
+      #undef SHA1R3
+      #undef SHA1R4
     }
 
   private:
@@ -749,7 +749,7 @@ namespace sw {
 
 #endif
 
-// @version: #fd54d17 2015-08-18T21:44:36+02:00
+// @version: #e6719f1
 /**
  * @package de.atwillys.cc.swl
  * @file sha512.hh
@@ -782,7 +782,7 @@ namespace sw {
 #ifndef SHA512_HH
 #define SHA512_HH
 
-#if defined(OS_WIN) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
+#if defined(OS_WINDOWS) || defined (_WINDOWS_) || defined(_WIN32) || defined(__MSC_VER)
 #include <inttypes.h>
 #else
 #include <stdint.h>
@@ -944,49 +944,49 @@ namespace sw { namespace detail {
      */
     void transform(const uint8_t *data, size_t size)
     {
-      #define SR(x, n) (x >> n)
-      #define RR(x, n) ((x >> n) | (x << ((sizeof(x) << 3) - n)))
-      #define RL(x, n) ((x << n) | (x >> ((sizeof(x) << 3) - n)))
-      #define CH(x, y, z)  ((x & y) ^ (~x & z))
-      #define MJ(x, y, z) ((x & y) ^ (x & z) ^ (y & z))
-      #define F1(x) (RR(x, 28) ^ RR(x, 34) ^ RR(x, 39))
-      #define F2(x) (RR(x, 14) ^ RR(x, 18) ^ RR(x, 41))
-      #define F3(x) (RR(x,  1) ^ RR(x,  8) ^ SR(x,  7))
-      #define F4(x) (RR(x, 19) ^ RR(x, 61) ^ SR(x,  6))
+      #define SHA256SR(x, n) (x >> n)
+      #define SHA256RR(x, n) ((x >> n) | (x << ((sizeof(x) << 3) - n)))
+      #define SHA256RL(x, n) ((x << n) | (x >> ((sizeof(x) << 3) - n)))
+      #define SHA256CH(x, y, z)  ((x & y) ^ (~x & z))
+      #define SHA256MJ(x, y, z) ((x & y) ^ (x & z) ^ (y & z))
+      #define SHA256F1(x) (SHA256RR(x, 28) ^ SHA256RR(x, 34) ^ SHA256RR(x, 39))
+      #define SHA256F2(x) (SHA256RR(x, 14) ^ SHA256RR(x, 18) ^ SHA256RR(x, 41))
+      #define SHA256F3(x) (SHA256RR(x,  1) ^ SHA256RR(x,  8) ^ SHA256SR(x,  7))
+      #define SHA256F4(x) (SHA256RR(x, 19) ^ SHA256RR(x, 61) ^ SHA256SR(x,  6))
       #if (defined (BYTE_ORDER)) && (defined (BIG_ENDIAN)) && ((BYTE_ORDER == BIG_ENDIAN))
-      #define B_U64(b,x) *(x)=((uint64_t)*((b)+0))|((uint64_t)*((b)+1)<<8)|\
+      #define SHA256BU64(b,x) *(x)=((uint64_t)*((b)+0))|((uint64_t)*((b)+1)<<8)|\
         ((uint64_t)*((b)+2)<<16)|((uint64_t)*((b)+3)<<24)|((uint64_t)*((b)+4)<<32)|\
         ((uint64_t)*((b)+5)<<40)|((uint64_t)*((b)+6)<<48)|((uint64_t)*((b)+7)<<56);
       #else
-      #define B_U64(b,x) *(x)=((uint64_t)*((b)+7))|((uint64_t)*((b)+6)<<8)|\
+      #define SHA256BU64(b,x) *(x)=((uint64_t)*((b)+7))|((uint64_t)*((b)+6)<<8)|\
         ((uint64_t)*((b)+5)<<16)|((uint64_t)*((b)+4)<<24)|((uint64_t)*((b)+3)<<32)|\
         ((uint64_t)*((b)+2)<<40)|((uint64_t)*((b)+1)<<48)|((uint64_t)*((b)+0)<<56);
       #endif
       uint64_t t, u, v[8], w[80];
       const uint8_t *tblock;
-      unsigned j;
-      for(unsigned i = 0; i < size; ++i) {
+      size_t j;
+      for(size_t i = 0; i < size; ++i) {
         tblock = data + (i << 7);
-        for(j = 0; j < 16; ++j) B_U64(&tblock[j<<3], &w[j]);
-        for(j = 16; j < 80; ++j) w[j] = F4(w[j-2]) + w[j-7] + F3(w[j-15]) + w[j-16];
+        for(j = 0; j < 16; ++j) SHA256BU64(&tblock[j<<3], &w[j]);
+        for(j = 16; j < 80; ++j) w[j] = SHA256F4(w[j-2]) + w[j-7] + SHA256F3(w[j-15]) + w[j-16];
         for(j = 0; j < 8; ++j) v[j] = sum_[j];
         for(j = 0; j < 80; ++j) {
-          t = v[7] + F2(v[4]) + CH(v[4], v[5], v[6]) + lut_[j] + w[j];
-          u = F1(v[0]) + MJ(v[0], v[1], v[2]); v[7] = v[6]; v[6] = v[5]; v[5] = v[4];
+          t = v[7] + SHA256F2(v[4]) + SHA256CH(v[4], v[5], v[6]) + lut_[j] + w[j];
+          u = SHA256F1(v[0]) + SHA256MJ(v[0], v[1], v[2]); v[7] = v[6]; v[6] = v[5]; v[5] = v[4];
           v[4] = v[3] + t; v[3] = v[2]; v[2] = v[1]; v[1] = v[0]; v[0] = t + u;
         }
         for(j = 0; j < 8; ++j) sum_[j] += v[j];
       }
-      #undef SR
-      #undef RR
-      #undef RL
-      #undef CH
-      #undef MJ
-      #undef F1
-      #undef F2
-      #undef F3
-      #undef F4
-      #undef B_U64
+      #undef SHA256SR
+      #undef SHA256RR
+      #undef SHA256RL
+      #undef SHA256CH
+      #undef SHA256MJ
+      #undef SHA256F1
+      #undef SHA256F2
+      #undef SHA256F3
+      #undef SHA256F4
+      #undef SHA256BU64
     }
 
   private:

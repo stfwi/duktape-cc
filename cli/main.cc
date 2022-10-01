@@ -10,8 +10,8 @@
  * @cxxflags -std=c++17 -W -Wall -Wextra -pedantic -fstrict-aliasing
  */
 #include <duktape/duktape.hh>
-#ifdef CONFIG_WITH_SOCKET
-  #include <duktape/mod/mod.sys.socket.hh>
+#ifdef WITH_EXPERIMENTAL
+  #include <duktape/mod/exp/mod.experimental.hh>
 #endif
 #include <duktape/mod/mod.stdio.hh>
 #include <duktape/mod/mod.stdlib.hh>
@@ -21,10 +21,13 @@
 #include <duktape/mod/mod.sys.hh>
 #include <duktape/mod/mod.sys.exec.hh>
 #include <duktape/mod/mod.sys.hash.hh>
-#include <duktape/mod/ext/serial_port/mod.ext.serial_port.hh>
-#include <duktape/mod/ext/conv/mod.conv.hh>
+#include <duktape/mod/ext/mod.ext.serial_port.hh>
+#include <duktape/mod/ext/mod.conv.hh>
 #ifdef CONFIG_WITH_APP_ATTACHMENT
   #include <duktape/mod/ext/app_attachment/mod.ext.app_attachment.hh>
+#endif
+#ifdef WITH_RESOURCE_IMPORT
+  #include <duktape/mod/ext/mod.ext.resource_blob.hh>
 #endif
 #include <exception>
 #include <stdexcept>
@@ -69,38 +72,38 @@ int main(int argc, const char** argv, const char** envv)
         } else if(arg == "--") {
           was_last_opt = true;
         } else if(arg == "--help") {
-          cerr << "NAME" << endl << endl
-               << "  " << PROGRAM_NAME << endl << endl
-               << "SYNOPSIS" << endl << endl
-               << "  " << PROGRAM_NAME << " [ -h ] [ -e '<code>' | -s <script file> ] [--] [script arguments]" << endl << endl
-               << "DESCRIPTION" << endl << endl
-               << "  Evaluate javascript code pass via -e argument, via script " << endl
-               << "  file, or via piping into stdin." << endl << endl
-               << "ARGUMENTS" << endl << endl
-               << "       --help         : Print help and exit." << endl
-               << "  -e | --eval <code>  : Evaluate code given as argument. Done after loading" << endl
-               << "                        a file (or stdin)." << endl
-               << "  -s | --script <file>: Optional explicit flag for <script file> shown below." << endl
-               << "  <script file>       : (First positional argument). A javascript file to" << endl
-               << "                        load and run or - (dash) for piping in from stdin" << endl
-               << "  --                  : Optional separator between program options and" << endl
-               << "                        script options/arguments. Useful if e.g. '-e'" << endl
-               << "                        shall be passed to the script instead of evaluating." << endl
-               << "  script arguments    : All arguments after '--' or the script file are passed" << endl
-               << "                        to the script and are there available as the 'sys.args'" << endl
-               << "                        array." << endl << endl
-               << "EXIT CODE" << endl << endl
-               << "  0=success, other codes indicate an error, either from a script exception or " << endl
-               << "                       from binary program error." << endl << endl
-               << (PROGRAM_NAME) << " " << (PROGRAM_VERSION) << ", (CC) stfwi 2015-2020, lic: MIT" << endl
+          cerr << "NAME\n\n"
+               << "  " << PROGRAM_NAME << "\n\n"
+               << "SYNOPSIS" << "\n\n"
+               << "  " << PROGRAM_NAME << " [ -h ] [ -e '<code>' | -s <script file> ] [--] [script arguments]\n\n"
+               << "DESCRIPTION" << "\n\n"
+               << "  Evaluate javascript code pass via -e argument, via script\n"
+               << "  file, or via piping into stdin.\n\n"
+               << "ARGUMENTS\n\n"
+               << "       --help         : Print help and exit.\n"
+               << "  -e | --eval <code>  : Evaluate code given as argument. Done after loading\n"
+               << "                        a file (or stdin).\n"
+               << "  -s | --script <file>: Optional explicit flag for <script file> shown below.\n"
+               << "  <script file>       : (First positional argument). A javascript file to\n"
+               << "                        load and run or - (dash) for piping in from stdin\n"
+               << "  --                  : Optional separator between program options and\n"
+               << "                        script options/arguments. Useful if e.g. '-e'\n"
+               << "                        shall be passed to the script instead of evaluating.\n"
+               << "  script arguments    : All arguments after '--' or the script file are passed\n"
+               << "                        to the script and are there available as the 'sys.args'\n"
+               << "                        array.\n\n"
+               << "EXIT CODE\n\n"
+               << "  0=success, other codes indicate an error, either from a script exception or\n"
+               << "                       from binary program error.\n"
+               << (PROGRAM_NAME) << " " << (PROGRAM_VERSION) << ", (CC) stfwi 2015-2020, lic: MIT\n"
                ;;
           return 1;
         } else if((argc == 2) && ((arg == "--version") || (arg == "-v"))) {
-          cout << "program: " << PROGRAM_NAME << endl << "version: " << PROGRAM_VERSION << endl;
+          cout << "program: " << PROGRAM_NAME << "\nversion: " << PROGRAM_VERSION << "\n";
           return 0;
         } else if(arg == "-e" || arg == "--eval") {
           if((++i >= argc) || (!argv[i]) || ((arg=argv[i]) == "--")) {
-            cerr << "No code after '-e/--eval'" << endl;
+            cerr << "No code after '-e/--eval'\n";
             return 1;
           } else {
             eval_code = arg;
@@ -109,7 +112,7 @@ int main(int argc, const char** argv, const char** envv)
           has_verbose = true;
         } else if(arg == "-s" || arg == "--script") {
           if((++i >= argc) || (!argv[i]) || ((arg=argv[i]) == "--")) {
-            cerr << "No script file after '-s/--script'" << endl;
+            cerr << "No script file after '-s/--script'\n";
             return 1;
           } else {
             has_file_arg = true;
@@ -144,7 +147,7 @@ int main(int argc, const char** argv, const char** envv)
       }
     }
   } catch(const std::exception& e) {
-    cerr << e.what() << endl;
+    cerr << e.what() << "\n";
     return 1;
   }
 
@@ -166,8 +169,11 @@ int main(int argc, const char** argv, const char** envv)
         duktape::mod::ext::conv::define_in(js);
         duktape::mod::ext::serial_port::define_in(js);
       #endif
-      #ifdef CONFIG_WITH_SOCKET
-        duktape::mod::system::socket::define_in(js);
+      #ifdef WITH_RESOURCE_IMPORT
+        duktape::mod::ext::resource_blob::define_in(js);
+      #endif
+      #ifdef WITH_EXPERIMENTAL
+        duktape::mod::experimental::define_in(js);
       #endif
     }
     // Built-in constant definitions.
@@ -256,19 +262,19 @@ int main(int argc, const char** argv, const char** envv)
     return e.exit_code();
   } catch(const duktape::script_error& e) {
     if(e.callstack().empty()) {
-      cerr << "Error: " << e.what() << endl;
+      cerr << "Error: " << e.what() << "\n";
     } else {
-      cerr << e.callstack() << endl;
+      cerr << e.callstack() << "\n";
     }
     return 1;
   } catch(const duktape::engine_error& e) {
-    cerr << "Fatal: " << e.what() << endl;
+    cerr << "Fatal: " << e.what() << "\n";
     return 1;
   } catch(const std::exception& e) {
-    cerr << "Fatal: " << e.what() << endl;
+    cerr << "Fatal: " << e.what() << "\n";
     return 1;
   } catch(std::exception* e) {
-    cerr << "Fatal: EXCEPTION THROWN BY POINTER FROM NATIVE CODE (REMOVE NEW):" << e->what() << endl;
+    cerr << "Fatal: EXCEPTION THROWN BY POINTER FROM NATIVE CODE (REMOVE NEW):" << e->what() << "\n";
     // let the kernel clean after us this time.
     return 1;
   } catch (...) {

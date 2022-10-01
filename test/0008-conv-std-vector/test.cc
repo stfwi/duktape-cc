@@ -34,4 +34,3 @@ void test(duktape::engine& js)
     }
   }
 }
-

@@ -39,19 +39,18 @@
 #include "mod.fs.hh" /* All settings and definitions of fs apply */
 #include <regex>
 
-#if (__cplusplus >= 201700L)
+#if (__cplusplus >= 201700L) && (!defined(OS_WINDOWS)) /* skip_permission_denied aborts with an exception under windows. */
   #include <filesystem>
-#elif defined(WINDOWS)
+#elif defined(OS_WINDOWS)
   #include <Shellapi.h>
 #elif defined(__linux__)
   #include <fts.h>
 #endif
 
-#define return_true { stack.push(true); return 1; }
 
 namespace duktape { namespace detail { namespace filesystem { namespace extended {
 
-  #ifdef WINDOWS
+  #ifdef OS_WINDOWS
   namespace {
 
     template <typename=void>
@@ -150,7 +149,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     const bool f_sock = f_all || (ftype.find('s') != ftype.npos);
     const bool f_hidden = f_all || (ftype.find('h') != ftype.npos);
 
-    #if (__cplusplus >= 201700L)
+    #if (__cplusplus >= 201700L) && (!defined(OS_WINDOWS)) /* skip_permission_denied aborts with an exception under windows. */
     {
       (void) no_outside; // Not applicable here, we don't follow directory symlinks.
       (void) xdev; // Need to check how this can be done.
@@ -181,7 +180,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
             continue;
           }
           if(!f_hidden) {
-            #ifdef WINDOWS
+            #ifdef OS_WINDOWS
               const auto hidden_attr = !!(::GetFileAttributesA(entry.path().string().c_str()) & FILE_ATTRIBUTE_HIDDEN);
             #else
               constexpr auto hidden_attr = false;
@@ -291,7 +290,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
       tree.ptr = nullptr;
       return (!errno);
     }
-    #elif defined(WINDOWS)
+    #elif defined(OS_WINDOWS)
     {
       (void) no_outside; (void) f_lnk; (void) f_fifo; (void) f_cdev;
       (void) f_bdev; (void) f_sock; (void) xdev;
@@ -368,11 +367,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
      * @param const char* pipe_stdin=nullptr
      * @return int
      */
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
       template <typename=void>
       int sysexec(std::vector<std::string>&& args, const char* pipe_stdin=nullptr)
       {
-        // { std::string s; for(auto e:args) { s += string("'") + e + "' "; } std::cerr << s << std::endl; }
         using fd_t = int;
         fd_t pi[2] = {-1,-1};
         ::pid_t pid = -1;
@@ -432,7 +430,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     int depth = std::numeric_limits<int>::max()-1;
     bool no_outside = true;
     bool xdev = false;
-    #ifdef WINDOWS
+    #ifdef OS_WINDOWS
     bool case_sensitive = false;
     #else
     bool case_sensitive = true;
@@ -470,10 +468,20 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
       if(filter_function !=0 ) return stack.throw_exception("Two filter function given, use either the options.filter or the third argument");
       filter_function = 2;
     }
+    if((path.size() > 1) && (path.back()=='/')) path.resize(path.size()-1);
+    auto home_expansion = std::string();
+    const auto expand_home = [&home_expansion](std::string path) {
+      if(path.empty() || (path.front()!='~') || ((path.size()>1) && (path[1]!='/'))) return path;
+      home_expansion = duktape::detail::filesystem::generic::homedir<std::string>();
+      return home_expansion + path.substr(1);
+    };
+    const auto unexpand_home = [&home_expansion](std::string path) {
+      return (home_expansion.empty() || (path.find(home_expansion) != 0)) ? (path) : (std::string("~") + path.substr(home_expansion.size()));
+    };
     duktape::api::array_index_t array_item_index=0;
     auto array_stack_index = stack.push_array();
     if(recurse_directory(
-      path, pattern, ftype, depth, no_outside, case_sensitive, xdev,
+      expand_home(path), pattern, ftype, depth, no_outside, case_sensitive, xdev,
       [&](std::string&& path) -> bool {
         if(filter_function) {
           stack.dup(filter_function);
@@ -499,7 +507,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
           stack.pop();
         }
         if(!path.empty()) {
-          stack.push(PathAccessor::to_js(path));
+          stack.push(PathAccessor::to_js(unexpand_home(path)));
           if(!stack.put_prop_index(array_stack_index, array_item_index)) return 0;
           ++array_item_index;
         }
@@ -530,7 +538,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     if(dst.find_first_of("*?") != dst.npos) return stack.throw_exception("Wildcards not allowed in destination path");
     if(src.find_first_of("'\"") != src.npos) return stack.throw_exception("Invalid characters in the destination path");
     if(dst.find_first_of("'\"") != dst.npos) return stack.throw_exception("Invalid characters in the destination path");
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     if(::access(src.c_str(), F_OK) != 0) return stack.throw_exception(std::string("Source path to move does not exist: '") + src + "'");
     // Composition of args, invoke POSIX mv
     std::vector<std::string> args;
@@ -539,7 +547,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     args.emplace_back(src);
     args.emplace_back(dst);
     switch(sysexec<>(std::move(args))) {
-      case 0: return_true;
+      case 0: { stack.push(true); return 1; };
       default:
         return stack.throw_exception(std::string("Failed to move '") + src + "' to '" + dst + "'");
     }
@@ -571,7 +579,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     if(!::MoveFileExA(src.c_str(), dst.c_str(), MOVEFILE_WRITE_THROUGH|MOVEFILE_COPY_ALLOWED)) {
       return stack.throw_exception(std::string("Moving '") + src_path + "' to '" + dst_path + "' failed: " + win32errstr());
     } else {
-      return_true;
+      stack.push(true);
+      return 1;
     }
     #endif
   }
@@ -606,7 +615,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     if(dst.empty()) return stack.throw_exception("Cannot copy, no destionation file/directory specified");
     if(src.find_first_of("'\"") != src.npos) return stack.throw_exception("Invalid characters in the destination path");
     if(dst.find_first_of("'\"") != dst.npos) return stack.throw_exception("Invalid characters in the destination path");
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     // Composition of args, invoke POSIX cp. Upside is: The copy
     // will be done exactly as cp does (permissions error checks
     // etc). Downside: Does not work when chroot is applied and
@@ -620,7 +629,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     args.emplace_back(src);
     args.emplace_back(dst);
     switch(sysexec<>(std::move(args))) {
-      case 0: return_true;
+      case 0:
+        stack.push(true);
+        return 1;
       default:
         return stack.throw_exception(std::string("Failed to move '") + src + "' to '" + dst + "'");
     }
@@ -749,13 +760,14 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     if(dst.empty()) return stack.throw_exception("No file specified to remove");
     if(dst.find_first_of("*?") != dst.npos) return stack.throw_exception("Wildcards not allowed for remove");
     if(dst.find_first_of("'\"") != dst.npos) return stack.throw_exception("Invalid characters in the path to remove");
-    #ifndef WINDOWS
+    #ifndef OS_WINDOWS
     struct ::stat st;
     if(::stat(dst.c_str(), &st) != 0) {
       return stack.throw_exception(std::string("Failed to remove '") + dst + "': " + ::strerror(errno));
     } else if(S_ISDIR(st.st_mode)) {
       if(::rmdir(dst.c_str()) == 0) {
-        return_true;
+        stack.push(true);
+        return 1;
       } else if(!recursive) {
         switch(errno) {
           case ENOTEMPTY: return stack.throw_exception(std::string("Failed to remove '") + dst + "': Directory not empty and recursive removal option not set");
@@ -771,13 +783,15 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         if(sysexec<>(std::move(args)) != 0) {
           return stack.throw_exception(std::string("Failed to remove '") + dst + "'");
         } else {
-          return_true;
+          stack.push(true);
+          return 1;
         }
       }
     } else if(::unlink(dst.c_str()) != 0) {
       return stack.throw_exception(std::string("Failed to remove '") + dst + "': " + ::strerror(errno));
     } else {
-      return_true;
+      stack.push(true);
+      return 1;
     }
     #else
     auto filetype = [](const std::string& path) -> char {
@@ -793,10 +807,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     if((dst_type == '%')) {
       return stack.throw_exception(std::string("Failed to delete '") + dst + "': No such file or directory");
     } else if(dst_type == 'f') {
-      if(::unlink(dst.c_str()) == 0) return_true;
+      if(::unlink(dst.c_str()) == 0) { stack.push(true); return 1; };
       return stack.throw_exception(std::string("Failed to delete file '") + dst + "': " + ::strerror(errno));
     } else if((dst_type == 'd') && (!recursive)) {
-      if(::rmdir(dst.c_str()) == 0) return_true;
+      if(::rmdir(dst.c_str()) == 0) { stack.push(true); return 1; };
       if(errno == ENOTEMPTY) {
         return stack.throw_exception(std::string("Failed to delete directory '") + dst + "': It is not empty and recursive delete option is not set");
       } else {
@@ -819,8 +833,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
       ::SHFileOperationA(&sfos);
       if(sfos.fAnyOperationsAborted) {
         return stack.throw_exception("Not all files could by copied");
+      } else {
+        stack.push(true);
+        return 1;
       }
-      return_true;
     }
     #endif
   }
@@ -959,7 +975,5 @@ namespace duktape { namespace mod { namespace filesystem { namespace extended {
   }
 
 }}}}
-
-#undef return_true
 
 #endif

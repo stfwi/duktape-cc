@@ -149,8 +149,14 @@ namespace duktape {
     class basic_exit_exception
     {
       public:
-        explicit basic_exit_exception() : code_(0) { ; }
-        explicit basic_exit_exception(int code) : code_(code) { ; }
+        explicit basic_exit_exception() noexcept : code_(0) { ; }
+        explicit basic_exit_exception(int code) noexcept : code_(code) { ; }
+        basic_exit_exception(const basic_exit_exception&) noexcept = default;
+        basic_exit_exception(basic_exit_exception&&) noexcept = default;
+        basic_exit_exception& operator=(const basic_exit_exception&) noexcept = default;
+        basic_exit_exception& operator=(basic_exit_exception&&) noexcept = default;
+        ~basic_exit_exception() noexcept = default;
+
         const char* what() const noexcept { return "exit"; }
         int exit_code() const noexcept { return code_; }
       private:
@@ -271,19 +277,23 @@ namespace duktape { namespace detail {
   {
   public:
 
-    basic_stack_guard() : ctx_(0), initial_top_(0), gc_(false)
+    basic_stack_guard() noexcept : ctx_(0), initial_top_(0), gc_(false)
     { ; }
 
-    basic_stack_guard(const basic_stack_guard& g, bool collect_garbage=false)
+    basic_stack_guard(const basic_stack_guard& g) noexcept
+            : ctx_(g.ctx_), initial_top_(g.initial_top_), gc_(false)
+    { ; }
+
+    basic_stack_guard(const basic_stack_guard& g, bool collect_garbage) noexcept
             : ctx_(g.ctx_), initial_top_(g.initial_top_), gc_(collect_garbage)
     { ; }
 
-    basic_stack_guard(::duk_context* ctx, bool collect_garbage=false)
+    basic_stack_guard(::duk_context* ctx, bool collect_garbage=false) noexcept
             : ctx_(ctx), initial_top_(-1), gc_(collect_garbage)
     { if(ctx_) initial_top_ = ::duk_get_top(ctx_); }
 
     template <typename T>
-    basic_stack_guard(const basic_api<T>& o, bool collect_garbage=false)
+    basic_stack_guard(const basic_api<T>& o, bool collect_garbage=false) noexcept
             : ctx_(o.ctx()), gc_(collect_garbage)
     { if(ctx_) initial_top_ = ::duk_get_top(ctx_); }
 
@@ -325,15 +335,11 @@ namespace duktape { namespace detail {
 
     basic_engine_lock() = delete;
     basic_engine_lock(const basic_engine_lock&) = delete;
-    basic_engine_lock(basic_engine_lock&&) = default;
+    basic_engine_lock(basic_engine_lock&&) noexcept = default;
     basic_engine_lock& operator=(const basic_engine_lock&) = delete;
-    basic_engine_lock& operator=(basic_engine_lock&&) = default;
-
-    basic_engine_lock(engine_type& js) noexcept : lock_(js.mutex_)
-    {}
-
-    ~basic_engine_lock()
-    {}
+    basic_engine_lock& operator=(basic_engine_lock&&) noexcept = default;
+    basic_engine_lock(engine_type& js) noexcept : lock_(js.mutex_) {}
+    ~basic_engine_lock() noexcept = default;
 
   private:
 
@@ -468,6 +474,8 @@ namespace duktape { namespace detail {
     basic_api(const basic_api& o) noexcept : ctx_(o.ctx_)
     { ; }
 
+    basic_api(basic_api&&) noexcept = default;
+
     basic_api(::duk_context* ct) noexcept : ctx_(ct)
     { ; }
 
@@ -477,6 +485,9 @@ namespace duktape { namespace detail {
 
     ~basic_api() noexcept
     { ; }
+
+    basic_api& operator=(const basic_api&) = delete;
+    basic_api& operator=(basic_api&&) = default;
 
   public:
 
@@ -1357,6 +1368,12 @@ namespace duktape { namespace detail {
     { return get_top(); }
 
     /**
+     * Alias of get_top_index()
+     */
+    index_t top_index() const
+    { return get_top_index(); }
+
+    /**
      * Returns true of a value on the stack corresponds to the c++ type specified
      * with typename T, false otherwise. Note that `const char*` is not valid, use
      * `string` instead. Uses functions `duk_is_*`.
@@ -1526,12 +1543,27 @@ namespace duktape { namespace detail {
      */
     template <typename T>
     bool set(string&& key, T&& value)
+    { return property(std::move(key), std::move(value)); }
+
+    template <typename T>
+    bool property(string&& key, T&& value)
     {
       if(!is_object(-1)) return false;
       push(std::move(key));
       push(std::move(value));
       put_prop(-3);
       return true;
+    }
+
+    template <typename T>
+    T property(string&& key)
+    {
+      if(!is_object(-1)) return T();
+      push(std::move(key));
+      get_prop(-2);
+      const T value = is_undefined(-1) ? T() : to<T>(-1);
+      pop();
+      return value;
     }
 
     bool is_date(index_t index) const
@@ -2122,12 +2154,13 @@ namespace duktape {
 
   public:
 
-    native_object() = default;
+    native_object() noexcept = default;
     native_object(const native_object&) = default;
-    native_object(native_object&&) = default;
-    ~native_object() = default;
+    native_object(native_object&&) noexcept = default;
+    ~native_object() noexcept = default;
 
-    explicit native_object(std::string name) : name_(name), constructor_([](api&){return new value_type();}),
+    explicit native_object(std::string name) noexcept : name_(name),
+                                               constructor_([](api&){return new value_type();}), // Note: The raw pointer is passed to Duktape, memory management of these objects is handled there.
                                                methods_(), getters_(), setters_()
     {}
 
@@ -2607,12 +2640,13 @@ namespace duktape { namespace detail {
     /**
      * d' tor
      */
-    virtual ~basic_engine()
+    virtual ~basic_engine() noexcept
     { if(ctx()) ::duk_destroy_heap(ctx()); }
 
     basic_engine(const basic_engine&) = delete;
-    basic_engine(basic_engine&&) = delete;
+    basic_engine(basic_engine&&) noexcept = delete;
     basic_engine& operator=(const basic_engine&) = delete;
+    basic_engine& operator=(basic_engine&&) noexcept = delete;
 
   public:
 
@@ -2670,13 +2704,15 @@ namespace duktape { namespace detail {
       stack().push_pointer(this);
       stack().put_prop_string(-2, "_engine_");
       stack().top(0);
-      // Remove some Duktape methods which may not be intended to be
-      // available and unknown to the programmer.
-      undef("Duktape.env");
-      undef("Duktape.Pointer");
-      undef("Duktape.info");
-      undef("Duktape.errCreate");
-      undef("Duktape.errThrow");
+      #ifdef WITH_DUKTAPE_OBJECT_EXTENSIONS
+        // Remove some Duktape methods which may not be intended to be
+        // available and unknown to the programmer.
+        undef("Duktape.env");
+        undef("Duktape.Pointer");
+        undef("Duktape.info");
+        undef("Duktape.errCreate");
+        undef("Duktape.errThrow");
+      #endif
       // Global object (in case DUK_USE_GLOBAL_BINDING not set)
       stack().push_global_object();
       stack().push_string("global");

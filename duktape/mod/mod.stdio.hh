@@ -37,21 +37,32 @@
 #define DUKTAPE_STDIO_HH
 
 #include "../duktape.hh"
+#include "mod.sys.os.hh"
 #include <iostream>
 #include <sstream>
 #include <streambuf>
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
+
+#ifndef OS_WINDOWS
+  #include <errno.h>
+  #include <fcntl.h>
+  #include <unistd.h>
+  #include <poll.h>
+  #include <termios.h>
+#else
+  #include <windows.h>
+#endif
+
 
 namespace duktape { namespace detail {
 
   template <typename=void>
   struct stdio
   {
-    static std::ostream* out_stream;
-    static std::ostream* err_stream;
-    static std::ostream* log_stream;
-    static std::istream* in_stream;
+  public:
 
     /**
      * Export main relay. Adds all module functions to the specified engine.
@@ -182,8 +193,8 @@ namespace duktape { namespace detail {
 
       #if(0 && JSDOC)
       /**
-       * Read from STDIN until EOF. Using the argument `arg` it is possible
-       * to use further functionality:
+       * Read from STDIN (default until EOF). Using the argument `arg`
+       * it is possible to use further functionality:
        *
        *  - By default (if `arg` is undefined or not given) the function
        *    returns a string when all data are read.
@@ -199,6 +210,13 @@ namespace duktape { namespace detail {
        *   case the returned string is added to the output.
        *   Otherwise, if `arg` is not `true` and no string, the line is
        *   skipped.
+       *
+       * - If `arg` is a number, then reading from a pipe or tty/console
+       *   is nonblocking if supported by the device, returning maximum
+       *   `arg` characters. Returns `undefined` on EOF or read error
+       *   (e.g. broken-pipe). Console interfaces are temporarily set to
+       *   non-canonical mode for this purpose (settings restored after
+       *   reading).
        *
        * @param {function|boolean} arg
        * @return {string|buffer}
@@ -217,7 +235,30 @@ namespace duktape { namespace detail {
       console.write = function(args) {};
       #endif
       js.define("console.write", console_write);
+
+      #if(0 && JSDOC)
+      /**
+       * Blocking string line input.
+       * @return {string}
+       */
+      console.readline = function(args) {};
+      #endif
+      js.define("console.readline", console_readline);
+
+      #if(0 && JSDOC)
+      /**
+       * Enable/disable VT100 processing (default: enabled).
+       * Only relevant on Windows operating systems.
+       *
+       * @param {boolean} enable
+       */
+      console.vt100 = function(enable) {};
+      #endif
+      js.define("console.vt100", win32vt100);
+      win32vt100(true);
     }
+
+  public:
 
     static int print(duktape::api& stack)
     { return print_to(stack, out_stream); }
@@ -265,7 +306,7 @@ namespace duktape { namespace detail {
       int nargs = stack.top();
       for(int i=0; i<nargs; ++i) {
         if(stack.is_buffer(i)) {
-          const char *buf = NULL;
+          const char *buf = nullptr;
           duk_size_t sz = 0;
           if((buf = (const char *) stack.get_buffer(0, sz)) && (sz > 0)) {
             (*out_stream).write(buf, sz);
@@ -293,22 +334,106 @@ namespace duktape { namespace detail {
           stack.call(1);
           if(stack.is_string(-1)) {
             s = stack.get<std::string>(-1);
-            ss << s << std::endl;
+            ss << s << "\n";
           } else if(stack.get<bool>(-1)) {
-            ss << s << std::endl;
+            ss << s << "\n";
           }
           stack.top(1);
         }
         stack.top(0);
         stack.push(ss.str());
         return 1;
+      } else if((nargs > 0) && stack.is_number(0)) {
+        // Jaja, von wegen cin.readsome() ... "heavily implementation defined."
+        // -> for(auto n=in_stream->readsome(buf, sizeof(buf)); n > 0; n=in_stream->readsome(buf, sizeof(buf))) s.append(buf, n);
+        static constexpr size_t buffer_size = 1024;
+        const size_t arg = stack.get<size_t>(0);
+        const size_t max_chars = ((arg>0) && (arg<buffer_size)) ? (arg) : (buffer_size);
+        auto s = std::string();
+        #ifdef OS_WINDOWS
+        {
+          const auto hnd = ::GetStdHandle(STD_INPUT_HANDLE);
+          if(hnd == INVALID_HANDLE_VALUE) return 0; // Unusual for stdin, return undefined.
+          const auto file_type = ::GetFileType(hnd);
+          switch(file_type) {
+            case FILE_TYPE_CHAR: {
+              // Console
+              DWORD console_mode = 0;
+              if(::GetConsoleMode(hnd, &console_mode)) {
+                if(::WaitForSingleObject(hnd, 0) == WAIT_OBJECT_0) {
+                  char buf[buffer_size];
+                  DWORD n_read = 0;
+                  ::SetConsoleMode(hnd, console_mode & ~DWORD(ENABLE_LINE_INPUT));
+                  if((!::ReadConsoleA(hnd, buf, max_chars, &n_read, nullptr)) || (!n_read)) break;
+                  ::SetConsoleMode(hnd, console_mode);
+                  // Console is user input text mode, so normalizing CR to LF is valid.
+                  for(size_t i=0; i<n_read; ++i) { if(buf[i]=='\r') { buf[i] = '\n'; } }
+                  s.append(buf, n_read);
+                }
+              } else {
+                // Not a console but something entirely unexpected, read blocking.
+                std::string buf((std::istreambuf_iterator<char>(*in_stream)), std::istreambuf_iterator<char>());
+                s.swap(buf);
+              }
+              break;
+            }
+            case FILE_TYPE_PIPE: {
+              DWORD n_avail = 0;
+              char buf[buffer_size];
+              while(::PeekNamedPipe(hnd, nullptr, max_chars, nullptr, &n_avail, nullptr) && (n_avail > 0)) {
+                if(n_avail > max_chars) n_avail = max_chars;
+                DWORD n_read = 0;
+                if(!::ReadFile(hnd, buf, n_avail, &n_read, nullptr) || (!n_read)) break;
+                s.append(buf, n_read);
+              }
+              break;
+            }
+          }
+        }
+        #else
+        {
+          bool return_undefined = false;
+          const auto fl = ::fcntl(STDIN_FILENO, F_GETFL);
+          if(fl < 0) return 0; // File error (broken pipe, disconnect, etc) -> undefined
+          ::termios tcget, tcset;
+          const bool setterm = (::isatty(STDIN_FILENO)) && (::tcgetattr(STDIN_FILENO, &tcget)==0);
+          if(setterm) {
+            tcset = tcget;
+            tcset.c_lflag &= ~(ICANON);
+            ::tcsetattr(STDIN_FILENO, TCSANOW, &tcset);
+          }
+          auto pfd = ::pollfd{STDIN_FILENO, POLLIN|POLLHUP, 0};
+          const auto r = ::poll(&pfd, 1, 0);
+          if(r < 0) {
+            if(errno != EAGAIN) return_undefined = true; // poll error, undefined.
+          } else if(!r) {
+            (void)0; // timeout, return empty string.
+          } else if(pfd.revents & (POLLIN|POLLHUP)) {
+            char buf[buffer_size];
+            ::fcntl(STDIN_FILENO, F_SETFL, fl|O_NONBLOCK);
+            const auto r = ::read(STDIN_FILENO, buf, max_chars);
+            ::fcntl(STDIN_FILENO, F_SETFL, fl);
+            if(r < 0) {
+              if(errno != EAGAIN) return_undefined = true; // e.g. broken pipe or eof reached before -> undefined.
+            } else if(r > 0) {
+              s.append(buf, size_t(r));
+            } else {
+              return_undefined = true; // eof -> undefined
+            }
+          }
+          if(setterm) {
+            ::tcsetattr(STDIN_FILENO, TCSANOW, &tcget);
+          }
+          if(return_undefined) return 0;
+        }
+        #endif
+        stack.push_string(s);
+        return 1;
       } else {
-        std::string s((std::istreambuf_iterator<char>(*in_stream)),
-                    std::istreambuf_iterator<char>());
-
+        std::string s((std::istreambuf_iterator<char>(*in_stream)), std::istreambuf_iterator<char>());
         if((nargs > 0) && stack.is<bool>(0) && stack.get<bool>(0)) {
           // Binary without filter function
-          char* buf = (char*) stack.push_buffer(s.length(), false);
+          char* buf = reinterpret_cast<char*>(stack.push_buffer(s.length(), false));
           if(!buf) {
             throw script_error("Failed to read binary data from console (buffer allocation failed)");
           } else {
@@ -320,6 +445,15 @@ namespace duktape { namespace detail {
         }
         return 1;
       }
+    }
+
+    static int console_readline(duktape::api& stack)
+    {
+      if(!in_stream) return 0;
+      std::string s;
+      std::getline(*in_stream, s);
+      stack.push(s);
+      return 1;
     }
 
     static int printf_stdout(duktape::api& stack)
@@ -454,9 +588,9 @@ namespace duktape { namespace detail {
       if(!stream) return 0;
       int nargs = stack.top();
       if((nargs == 1) && stack.is_buffer(0)) {
-        const char *buf = NULL;
+        const char *buf = nullptr;
         duk_size_t sz = 0;
-        if((buf = (const char *) stack.get_buffer(0, sz)) && sz > 0) {
+        if((buf = reinterpret_cast<const char*>(stack.get_buffer(0, sz))) && (sz > 0)) {
           (*stream).write(buf, sz);
           (*stream).flush();
         }
@@ -466,11 +600,56 @@ namespace duktape { namespace detail {
           std::string sss = stack.to<std::string>(i);
           (*stream) << " " << sss;
         }
-        (*stream) << std::endl;
+        (*stream) << "\n";
         (*stream).flush();
       }
       return 0;
     }
+
+    static void win32vt100(bool enable)
+    {
+      #ifndef OS_WINDOWS
+      (void)enable;
+      #else
+      {
+        #ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+          #define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+        #endif
+        const auto hout = ::GetStdHandle(STD_OUTPUT_HANDLE);
+        DWORD conmode = 0;
+        if(hout && ::GetConsoleMode(hout, &conmode)) {
+          if(!enable) {
+            ::SetConsoleMode(hout, conmode & ~(ENABLE_VIRTUAL_TERMINAL_PROCESSING));
+          } else {
+            ::SetConsoleMode(hout, conmode|ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+          }
+        }
+      }
+      #ifdef WITH_WIN32VT100_INPUT_PROCESSING
+      {
+          #ifndef ENABLE_VIRTUAL_TERMINAL_INPUT
+          #define ENABLE_VIRTUAL_TERMINAL_INPUT 0x0200
+        #endif
+        const auto hin = ::GetStdHandle(STD_INPUT_HANDLE);
+        DWORD conmode = 0;
+        if(hin && ::GetConsoleMode(hin, &conmode)) {
+          if(!enable) {
+            ::SetConsoleMode(hin, conmode & ~(ENABLE_VIRTUAL_TERMINAL_INPUT));
+          } else {
+            ::SetConsoleMode(hin, conmode|ENABLE_VIRTUAL_TERMINAL_INPUT);
+          }
+        }
+      }
+      #endif
+      #endif
+    }
+
+  public:
+
+    static std::ostream* out_stream;
+    static std::ostream* err_stream;
+    static std::ostream* log_stream;
+    static std::istream* in_stream;
   };
 
   template <typename T>

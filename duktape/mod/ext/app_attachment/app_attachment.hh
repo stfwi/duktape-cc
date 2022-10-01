@@ -32,7 +32,7 @@
  *  int main(int argc, const char** argv) {
  *   (void)argc; (void)argv;
  *    auto data = sw::util::read_executable_attachment<string>();
- *    cout << "'" << data << "'" << endl;
+ *    cout << "'" << data << "'\n";
  *    return 0;
  *  }
  *
@@ -143,7 +143,7 @@ namespace sw { namespace util { namespace detail {
         int ic[4];
         ic[0] = CTL_KERN; ic[1] = KERN_PROC; ic[2] = KERN_PROC_PATHNAME; ic[3] = -1;
         size_t sz = sizeof(lnk_path)-1;
-        if(sysctl(ic, 4, lnk_path, &sz, NULL, 0)) lnk_path[0] = '\0';
+        if(sysctl(ic, 4, lnk_path, &sz, nullptr, 0)) lnk_path[0] = '\0';
         #elif defined (__DragonFly__)
         ::strncpy(lnk_path, "/proc/curproc/file", sizeof(lnk_path)-1);
         #elif defined (__APPLE__) && __MACH__
@@ -214,13 +214,13 @@ namespace sw { namespace util { namespace detail {
       bool verbose = false;
       {
         if(argc < 2 || !argv[argc-1]) {
-          cerr << "No input file." << endl;
+          cerr << "No input file.\n";
           return 1;
         }
         path = argv[argc-1];
         for(int i=argc-2; i>0; --i) {
           if(argv[i][0] != '-') {
-            cerr << "Argument " << (i+1) << " is not an option (-xxx)." << endl;
+            cerr << "Argument " << (i+1) << " is not an option (-xxx).\n";
             return 1;
           }
           opts += argv[i];
@@ -232,11 +232,11 @@ namespace sw { namespace util { namespace detail {
       auto hexdump = [](const vector<char>& data, std::ostream& os) {
         size_t n = 0;
         for(auto e:data) {
-          if(!(n & 63)) os << endl << hex << setw(8) << setfill('0') << n << ": ";
+          if(!(n & 63)) os << "\n" << hex << setw(8) << setfill('0') << n << ": ";
           os << hex << setw(2) << setfill('0') << ((int)(e&0xff));
           ++n;
         }
-        os << dec << endl;
+        os << dec << "\n";
       };
 
       // file size using stat to double check later read
@@ -244,12 +244,12 @@ namespace sw { namespace util { namespace detail {
       {
         struct ::stat st;
         if(::stat(path.c_str(), &st) != 0) {
-          cerr << "stat failed for " << path << endl;
+          cerr << "stat failed for " << path << "\n";
           return 1;
         } else {
           filesize = st.st_size;
           if(verbose) {
-            cerr << "File size: " << dec << ((long)filesize) << " (0x" << hex << ((long)filesize) << ")" << endl;
+            cerr << "File size: " << dec << ((long)filesize) << " (0x" << hex << ((long)filesize) << ")\n";
           }
         }
       }
@@ -263,10 +263,10 @@ namespace sw { namespace util { namespace detail {
       );
 
       if(verbose) {
-        cerr << "----------------------" << endl;
-        cerr << "reverse_boundary_key:" << endl;
+        cerr << "----------------------\n";
+        cerr << "reverse_boundary_key:\n";
         hexdump(reverse_boundary_key, cerr);
-        cerr << "----------------------" << endl;
+        cerr << "----------------------\n";
       }
 
       // Read whole application
@@ -275,9 +275,9 @@ namespace sw { namespace util { namespace detail {
         std::ifstream fis(path.c_str(), std::ios::in|std::ios::binary);
         contents.assign((std::istreambuf_iterator<char>(fis)), std::istreambuf_iterator<char>());
         if(contents.size() != filesize) {
-          cerr << "file size mismatch" << endl
-              << "- file size : " << filesize << endl
-              << "- file size read: " << contents.size() << endl;
+          cerr << "file size mismatch\n"
+              << "- file size : " << filesize << "\n"
+              << "- file size read: " << contents.size() << "\n";
           return 1;
         }
       }
@@ -290,18 +290,18 @@ namespace sw { namespace util { namespace detail {
 
       // Fill up the file until it has 4k size (app checks the start of each read 4k block to save time).
       while((contents.size() & (4095u)) != 0) contents.push_back(0);
-      if(verbose) cerr << "File size after alignment fill: " << dec << ((long)contents.size()) << " (0x" << hex << ((long)contents.size()) << ")" << endl;
+      if(verbose) cerr << "File size after alignment fill: " << dec << ((long)contents.size()) << " (0x" << hex << ((long)contents.size()) << ")\n";
 
       // Find placeholder
       auto key_patch_position_it = std::search(contents.begin(), contents.end(), reverse_boundary_key.begin(), reverse_boundary_key.end());
       {
         if(key_patch_position_it == contents.end()) {
-          cerr << "reverse boundary placeholder not found" << endl;
+          cerr << "reverse boundary placeholder not found\n";
           return 1;
         }
         if(verbose) {
           size_t pos = static_cast<size_t>(key_patch_position_it - contents.begin()) / sizeof(decltype(contents)::iterator::difference_type);
-          cerr << "Boundary placeholder at: " << pos << endl;
+          cerr << "Boundary placeholder at: " << pos << "\n";
         }
       }
 
@@ -325,14 +325,14 @@ namespace sw { namespace util { namespace detail {
           if((check_it == contents.end()) && (check_sym != patch_key)) break;
         }
         if(!retries) {
-          cerr << "failed to generate collisionless boundary" << endl;
+          cerr << "failed to generate collisionless boundary\n";
           return 1;
         }
         if(verbose) {
-          cerr << "----------------------" << endl;
-          cerr << "patch key:'" << ofs << "'" << endl;
+          cerr << "----------------------\n";
+          cerr << "patch key:'" << ofs << "'\n";
           hexdump(patch_key, cerr);
-          cerr << "----------------------" << endl;
+          cerr << "----------------------\n";
         }
       }
       // Patch the placeholder position with the generated key.
@@ -340,9 +340,9 @@ namespace sw { namespace util { namespace detail {
       // Reverse the key and write it at the end.
       reverse(patch_key.begin(), patch_key.end());
       for(auto e:patch_key) contents.push_back(e);
-      if(verbose) cerr << "File size after adding the boundary: " << dec << ((long)contents.size()) << " (0x" << hex << ((long)contents.size()) << ")" << endl;
+      if(verbose) cerr << "File size after adding the boundary: " << dec << ((long)contents.size()) << " (0x" << hex << ((long)contents.size()) << ")\n";
       std::ofstream fos(path.c_str(), ofstream::out|ofstream::binary);
-      if(!fos.write(contents.data(), contents.size())) { cerr << "failed to write file" << endl; return 1; }
+      if(!fos.write(contents.data(), contents.size())) { cerr << "failed to write file\n" ; return 1; }
       if(verbose) {
         std::ofstream fos((path+".patched.tmp").c_str(), std::ios::out|std::ios::binary);
         hexdump(contents, fos);
