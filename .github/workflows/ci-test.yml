@@ -1,4 +1,4 @@
-name: Commit CI testing c++/js
+name: C++/JS CI test run
 
 on:
   push:
