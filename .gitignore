@@ -15,6 +15,10 @@ cli/djs
 *.log
 *.exe
 *.tmp
+*.gcda
+*.gcno
+*.lcov
+*.gcov
 *.stackdump
 /test/?xxx-*
 /test/*_

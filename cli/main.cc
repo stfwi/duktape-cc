@@ -21,8 +21,10 @@
 #include <duktape/mod/mod.sys.hh>
 #include <duktape/mod/mod.sys.exec.hh>
 #include <duktape/mod/mod.sys.hash.hh>
-#include <duktape/mod/ext/mod.ext.serial_port.hh>
+#include <duktape/mod/mod.xlang.hh>
 #include <duktape/mod/ext/mod.conv.hh>
+#include <duktape/mod/ext/mod.ext.serial_port.hh>
+#include <duktape/mod/ext/mod.ext.mmap.hh>
 #ifdef CONFIG_WITH_APP_ATTACHMENT
   #include <duktape/mod/ext/app_attachment/mod.ext.app_attachment.hh>
 #endif
@@ -166,8 +168,10 @@ int main(int argc, const char** argv, const char** envv)
         duktape::mod::system::define_in(js);
         duktape::mod::system::exec::define_in(js);
         duktape::mod::system::hash::define_in(js);
+        duktape::mod::xlang::define_in(js);
         duktape::mod::ext::conv::define_in(js);
         duktape::mod::ext::serial_port::define_in(js);
+        duktape::mod::ext::mmap::define_in(js);
       #endif
       #ifdef WITH_RESOURCE_IMPORT
         duktape::mod::ext::resource_blob::define_in(js);

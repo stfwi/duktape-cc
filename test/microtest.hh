@@ -78,7 +78,7 @@
  *
  * -----------------------------------------------------------------------------
  * +++ BSD license header +++
- * Copyright (c) 2012-2020, Stefan Wilhelm (stfwi, <cerbero s@atwilly s.de>)
+ * Copyright (c) 2012-2022, Stefan Wilhelm (stfwi, <cerbero s@atwilly s.de>)
  * All rights reserved.
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met: (1) Redistributions

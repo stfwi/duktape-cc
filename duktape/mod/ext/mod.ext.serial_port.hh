@@ -18,7 +18,7 @@
  *
  * -----------------------------------------------------------------------------
  * License: http://opensource.org/licenses/MIT
- * Copyright (c) 2014-2017, the authors (see the @authors tag in this file).
+ * Copyright (c) 2014-2022, the authors (see the @authors tag in this file).
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -907,7 +907,7 @@
     {
       n_written = 0;
       if(closed()) return false;
-      if(sz > std::numeric_limits<int>::max()) {
+      if(sz >= std::numeric_limits<size_type>::max()) {
         error_ = e_inval;
         error_message_ = "write(): number of bytes to write too big.";
         return false;
@@ -1084,7 +1084,7 @@
      * @return bool
      */
     bool settings(const typename string_type::value_type *str, device_match strict=device_match::strict)
-    { return settings(string_type(str)); }
+    { return settings(string_type(str)); (void)strict; }
 
     /**
      * Parses the setting from string. On error, it sets the

@@ -476,7 +476,7 @@ std::string replace_expect_function_arguments(std::string&& code, std::string fu
       }
     }
   }
-  return code;
+  return std::move(code);
 }
 
 

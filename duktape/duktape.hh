@@ -15,7 +15,7 @@
  *
  * -----------------------------------------------------------------------------
  * License: http://opensource.org/licenses/MIT
- * Copyright (c) 2014-2017, the authors (see the @authors tag in this file).
+ * Copyright (c) 2014-2022, the authors (see the @authors tag in this file).
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -137,7 +137,7 @@ namespace duktape {
             }
             callstack_.swap(stack);
           } catch(...) {
-            // leave callstack_ stack as it is.
+            (void)0; // leave callstack_ stack as it is.
           }
         }
 
@@ -722,7 +722,7 @@ namespace duktape { namespace detail {
     { return ::duk_get_pointer_default(ctx_, index, default_value); }
 
     string get_string(index_t index)  const
-    { size_t l; const char* s = ::duk_get_lstring(ctx_, index, &l); return (s && (l>0))?s:""; }
+    { size_t l=0; const char* s = ::duk_get_lstring(ctx_, index, &l); return (s && (l>0))?s:""; }
 
     unsigned get_uint(index_t index) const
     { return ::duk_get_uint(ctx_, index); }
@@ -845,10 +845,10 @@ namespace duktape { namespace detail {
     { return ::duk_push_bare_object(ctx_); }
 
     void push_boolean(bool val) const
-    { ::duk_push_boolean(ctx_, (::duk_bool_t) val); }
+    { ::duk_push_boolean(ctx_, ::duk_bool_t(val)); }
 
     void* push_buffer(size_t size, bool dynamic) const
-    { return duk_push_buffer(ctx_, size, (::duk_bool_t) dynamic); }
+    { return duk_push_buffer(ctx_, size, ::duk_bool_t(dynamic)); }
 
     void push_buffer_object(index_t buffer_index, size_t byte_offset, size_t byte_length, unsigned flags) const
     { return ::duk_push_buffer_object(ctx_, buffer_index, ::duk_size_t(byte_offset), ::duk_size_t(byte_length), ::duk_uint_t(flags)); }
@@ -890,10 +890,10 @@ namespace duktape { namespace detail {
     { ::duk_push_string(ctx_, s ? s : ""); }
 
     void push_string(const string& s) const
-    { ::duk_push_lstring(ctx_, s.data(), (size_t) s.length()); }
+    { ::duk_push_lstring(ctx_, s.data(), size_t(s.size())); }
 
     void push_string(string&& s) const
-    { ::duk_push_lstring(ctx_, s.data(), (size_t) s.length()); }
+    { ::duk_push_lstring(ctx_, s.data(), size_t(s.size())); }
 
     void push_nan() const
     { ::duk_push_nan(ctx_); }
@@ -959,7 +959,7 @@ namespace duktape { namespace detail {
     { return ::duk_require_int(ctx_, index); }
 
     string require_string(index_t index) const
-    { size_t l; const char* s = ::duk_require_lstring(ctx_, index, &l); return (s && (l>0))?s:""; }
+    { size_t l=0; const char* s = ::duk_require_lstring(ctx_, index, &l); return (s && (l>0)) ? (s) : (""); }
 
     index_t require_normalize_index(index_t index) const
     { return ::duk_require_normalize_index(ctx_, index); }
@@ -1055,13 +1055,13 @@ namespace duktape { namespace detail {
     { ::duk_to_undefined(ctx_, index); }
 
     string to_string(index_t index) const
-    { size_t l; const char* s = ::duk_to_lstring(ctx_, index, &l); return (s && (l>0))?s:""; }
+    { size_t l=0; const char* s = ::duk_to_lstring(ctx_, index, &l); return (s && (l>0))?(s):(""); }
 
     string safe_to_string(index_t index) const
-    { size_t l; const char *s = ::duk_safe_to_lstring(ctx_, index, &l); return string(s, s+l); }
+    { size_t l=0; const char *s = ::duk_safe_to_lstring(ctx_, index, &l); return (s && (l>0)) ? (string(s, s+l)) : (""); }
 
     string to_stacktrace(index_t index) const
-    { const char *s = ::duk_to_stacktrace(ctx_, index); return string(s?s:"Error"); }
+    { const char *s = ::duk_to_stacktrace(ctx_, index); return string((s)?(s):("Error")); }
 
     string safe_to_stacktrace(index_t index) const
     { return string(::duk_safe_to_stacktrace(ctx_, index)); }
@@ -1088,10 +1088,10 @@ namespace duktape { namespace detail {
     { ::duk_json_decode(ctx_, index); }
 
     string json_encode(index_t index) const
-    { const char* s = ::duk_json_encode(ctx_, index); return s ? s : ""; }
+    { const char* s = ::duk_json_encode(ctx_, index); return (s) ? (s) : (""); }
 
     string base64_encode(index_t index) const
-    { const char* s = ::duk_base64_encode(ctx_, index); return s ? s : ""; }
+    { const char* s = ::duk_base64_encode(ctx_, index); return (s) ? (s) : (""); }
 
     void base64_decode(index_t index) const
     { ::duk_base64_decode(ctx_, index); }
@@ -1100,10 +1100,10 @@ namespace duktape { namespace detail {
     { ::duk_hex_decode(ctx_, index); }
 
     string hex_encode(index_t index) const
-    { const char* s = ::duk_hex_encode(ctx_, index); return s ? s : ""; }
+    { const char* s = ::duk_hex_encode(ctx_, index); return (s) ? (s) : (""); }
 
     string buffer_to_string(index_t index) const
-    { const char* s = ::duk_buffer_to_string(ctx_, index); return s ? s : ""; }
+    { const char* s = ::duk_buffer_to_string(ctx_, index); return (s) ? (s) : (""); }
 
     void map_string(index_t index, ::duk_map_char_function callback, void *udata) const
     { ::duk_map_string(ctx_, index, callback, udata); }
@@ -1133,7 +1133,7 @@ namespace duktape { namespace detail {
     { ::duk_free_raw(ctx_, ptr); }
 
     void enumerator(index_t obj_index, enumerator_flags enum_flags)  const
-    { ::duk_enum(ctx_, obj_index, (duk_uint_t) enum_flags); }
+    { ::duk_enum(ctx_, obj_index, ::duk_uint_t(enum_flags)); }
 
     bool equals(index_t index1, index_t index2) const
     { return ::duk_equals(ctx_, index1, index2) != 0; }
@@ -1148,10 +1148,10 @@ namespace duktape { namespace detail {
     { ::duk_throw_raw(ctx_); return 0; }
 
     int throw_exception(string msg) const
-    { error(error_code_t::err_ecma, msg); return 0; }
+    { return error(error_code_t::err_ecma, msg); }
 
     int error(error_code_t err_code, const string& msg, string file="(native c++)", int line=0) const
-    { ::duk_error_raw(ctx_, (::duk_errcode_t)err_code, file.c_str(), (::duk_int_t)line, msg.c_str()); return 0; }
+    { ::duk_error_raw(ctx_, ::duk_errcode_t(err_code), file.c_str(), ::duk_int_t(line), msg.c_str()); return 0; }
 
     error_code_t get_error_code(index_t index) const
     { return error_code_t(::duk_get_error_code(ctx_, index));  }
@@ -1169,7 +1169,7 @@ namespace duktape { namespace detail {
     { stack_guard sg(ctx_); push_context_dump(); return safe_to_string(-1); }
 
     void def_prop(index_t index, unsigned flags) const
-    { ::duk_def_prop(ctx_, index, (::duk_uint_t)flags); }
+    { ::duk_def_prop(ctx_, index, ::duk_uint_t(flags)); }
 
     void def_prop(index_t index) const
     { ::duk_def_prop(ctx_, index, detail::defprop_flags::convert(detail::defprop_flags::defaults)); }
@@ -1265,7 +1265,7 @@ namespace duktape { namespace detail {
      */
     void* push_array_buffer(size_t size, bool dynamic) const
     {
-      void* p = duk_push_buffer(ctx_, size, (duk_bool_t) dynamic);
+      void* p = duk_push_buffer(ctx_, size, ::duk_bool_t(dynamic));
       if(p) ::duk_push_buffer_object(ctx_, -1, 0, size, DUK_BUFOBJ_ARRAYBUFFER);
       return p;
     }
@@ -1337,10 +1337,11 @@ namespace duktape { namespace detail {
      * @return int
      */
     int eval_raw(const char* src_buffer, size_t src_length, unsigned flags)
-    { return ::duk_eval_raw(ctx_, src_buffer, (::duk_size_t) src_length, (::duk_uint_t) flags); }
+    { return ::duk_eval_raw(ctx_, src_buffer, ::duk_size_t(src_length), ::duk_uint_t(flags)); }
 
     /**
      * Returns the type name of a ECMA value on the stack.
+     * The returned pointer is guaranteed non-nullptr.
      * @param int index
      * @return const char*
      */
@@ -1356,8 +1357,8 @@ namespace duktape { namespace detail {
         case DUK_TYPE_BUFFER:    return "Buffer";
         case DUK_TYPE_POINTER:   return "Pointer";
         case DUK_TYPE_LIGHTFUNC: return "Function pointer";
+        default:                 return "(unknown type!)";
       }
-      return "(unknown type!)";
     }
 
     /**
@@ -1420,7 +1421,7 @@ namespace duktape { namespace detail {
      */
     template <typename T>
     T get(index_t index, const T& default_value) const
-    { return (top() <= index) ? default_value : conv<T>::get(ctx_, index); }
+    { return (top() <= index) ? (default_value) : (conv<T>::get(ctx_, index)); }
 
     /**
      * Get a value from the stack without implicit conversion / coersion, throwing
@@ -1778,7 +1779,7 @@ namespace duktape { namespace detail {
     { return api(ctx).push_boolean(val); }
 
     static void push(duk_context* ctx, type&& val)
-    { return api(ctx).push_boolean(std::move(val)); }
+    { return api(ctx).push_boolean(val); }
   };
 
   // @note: Intentionally wstring, u16/u32string omitted.
@@ -1811,7 +1812,7 @@ namespace duktape { namespace detail {
     { return api(ctx).push_string(val); }
 
     static void push(duk_context* ctx, type&& val)
-    { return api(ctx).push_string(std::move(val)); }
+    { return api(ctx).push_string(val); }
   };
 
   template <> struct conv<const char*>
@@ -1849,8 +1850,8 @@ namespace duktape { namespace detail {
     static constexpr int nret() noexcept
     { return 1; }
 
-    static constexpr const char* cc_name() noexcept
-    { return (std::string("vector<") + conv<T>::cc_name() + ">").c_str(); }
+    static inline const char* cc_name() noexcept
+    { static const auto name = std::string("vector<") + conv<T>::cc_name() + ">"; return name.c_str(); }
 
     static constexpr const char* ecma_name() noexcept
     { return "Array"; }

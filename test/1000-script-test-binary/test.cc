@@ -7,6 +7,7 @@
 #include <mod/mod.sys.hh>
 #include <mod/mod.sys.exec.hh>
 #include <mod/mod.sys.hash.hh>
+#include <mod/mod.xlang.hh>
 #include <mod/ext/mod.conv.hh>
 #include <mod/ext/mod.ext.mmap.hh>
 #include <mod/ext/mod.ext.serial_port.hh>
@@ -36,6 +37,7 @@ void test(duktape::engine& js)
   duktape::mod::system::define_in(js);
   duktape::mod::system::exec::define_in(js);
   duktape::mod::system::hash::define_in(js);
+  duktape::mod::xlang::define_in(js);
   duktape::mod::ext::conv::define_in(js);
   duktape::mod::ext::mmap::define_in(js);
   duktape::mod::ext::serial_port::define_in(js);

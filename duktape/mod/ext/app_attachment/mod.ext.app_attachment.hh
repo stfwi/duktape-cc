@@ -18,7 +18,7 @@
  *
  * -----------------------------------------------------------------------------
  * License: http://opensource.org/licenses/MIT
- * Copyright (c) 2014-2017, the authors (see the @authors tag in this file).
+ * Copyright (c) 2014-2022, the authors (see the @authors tag in this file).
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -80,8 +80,8 @@ namespace duktape { namespace mod { namespace ext { namespace app_attachment {
   static bool define_in(duktape::engine& js, const bool renaming_check=true)
   {
     using namespace std;
-    js.define("sys.app.attachment.write", write_attachment);
-    js.define("sys.app.attachment.read", read_attachment);
+    js.define("sys.app.attachment.write", write_attachment<>);
+    js.define("sys.app.attachment.read", read_attachment<>);
     auto attachment = read_attachment();
     if(attachment.empty()) return false;
     // Shall run with c++14 and minimum dependencies, so the lambdas represent `to_lower(std::filesystem::stem(path))`.

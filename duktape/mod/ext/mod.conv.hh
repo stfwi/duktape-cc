@@ -102,16 +102,18 @@
     }
 
     template <endian FromEndianess, endian ToEndianess, typename Integer>
-    constexpr Integer convert_endianess(Integer value) noexcept
+    constexpr Integer convert_endianess(const Integer value) noexcept
     {
       static_assert((FromEndianess!=endian::middle) && (ToEndianess!=endian::middle), "Tell me when that is still needed.");
-      if(FromEndianess==ToEndianess) return value;
+      if/*constexpr*/(FromEndianess==ToEndianess) return value;
+      if/*constexpr*/(sizeof(Integer)==1) return value;
       // No byte swaps etc, the compiler inline and unroll that:
       auto i = sizeof(Integer);
       auto swapped = Integer(0);
+      auto val = value;
       while(i--) {
-        swapped = (swapped<<8) | (value & 0xff);
-        value >>= 8;
+        swapped = (swapped<<8) | (val & Integer(0xff));
+        val >>= 8;
       }
       return swapped;
     }
@@ -206,7 +208,7 @@ namespace duktape { namespace mod { namespace ext { namespace conv {
     using namespace std;
     using namespace sw;
     // Note: U8 big/little endian are nonsense but registered for completeness.
-    js.define("Number.machineEndianess", get_machine_endianess);
+    js.define("Number.machineEndianess", get_machine_endianess<>);
     js.define("Number.fromHexS32", from_hex<int32_t, machine_endianness()>);
     js.define("Number.fromHexS16", from_hex<int16_t, machine_endianness()>);
     js.define("Number.fromHexS8",  from_hex<int8_t, machine_endianness()>);

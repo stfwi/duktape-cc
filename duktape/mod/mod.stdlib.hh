@@ -17,7 +17,7 @@
  *
  * -----------------------------------------------------------------------------
  * License: http://opensource.org/licenses/MIT
- * Copyright (c) 2014-2017, the authors (see the @authors tag in this file).
+ * Copyright (c) 2014-2022, the authors (see the @authors tag in this file).
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -61,7 +61,7 @@ namespace duktape { namespace detail {
       if(!std::regex_search(path, std::regex("\\.json$", std::regex_constants::icase|std::regex_constants::nosubs|std::regex_constants::ECMAScript))) {
         stack.top(0);
         stack.require_stack(3);
-        stack.push_string(std::move(code));
+        stack.push_string(code);
         stack.push_string(path);
         try {
           stack.eval_raw(0, 0, DUK_COMPILE_EVAL | DUK_COMPILE_SHEBANG);
@@ -77,7 +77,7 @@ namespace duktape { namespace detail {
         stack.require_stack(3);
         stack.get_global_string("JSON");
         stack.push("parse");
-        stack.push_string(std::move(code));
+        stack.push_string(code);
         if(stack.pcall_prop(0, 1)==0) return 1;
         if(!stack.is_error(-1)) {
           stack.top(0);

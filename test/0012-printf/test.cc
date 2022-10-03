@@ -116,7 +116,7 @@ void test_valid(duktape::engine& js)
 void test_invalid(duktape::engine& js)
 {
   test_expect_except( printf2str(js, "", 1) );
-  test_expect_except( printf2str(js, "", 1,2,3,'a') == "" );
+  test_expect_except( printf2str(js, "", 1,2,3,'a') );
   test_expect_except( printf2str(js, "%d", "A") );
   test_expect_except( printf2str(js, "%d", "") );
   test_expect_except( printf2str(js, "%ld", "") );
@@ -131,7 +131,7 @@ void test_invalid(duktape::engine& js)
   test_expect_except( printf2str(js, "%d %d", 1) );
   test_expect_except( printf2str(js, "%d %d %d", 1,2) );
   test_expect_except( printf2str(js, "%2049s", " ") ); // width field too large
-  test_expect_except( printf2str(js, "%5000c", " ") == string(5000,' ') ); // width field too large
+  test_expect_except( printf2str(js, "%5000c", " ") ); // width field too large
 }
 
 void test_random(duktape::engine& js)
