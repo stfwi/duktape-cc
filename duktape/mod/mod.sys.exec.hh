@@ -853,7 +853,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
   namespace {
 
     template <typename=void>
-    static void read_callback(duktape::api& stack, const duktape::api::index_t funct, std::string& buf, std::string& out, const char* data, const size_t size)
+    static void read_callback(duktape::api& stack, const duktape::api::index_type funct, std::string& buf, std::string& out, const char* data, const size_t size)
     {
       using namespace std;
       if(size) { // data not checked because reference known
@@ -911,12 +911,12 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       bool& ignore_stderr,
       bool& redirect_stderr_to_stdout,
       bool& no_exception,
-      duktape::api::index_t& stdout_callback,
-      duktape::api::index_t& stderr_callback
+      duktape::api::index_type& stdout_callback,
+      duktape::api::index_type& stderr_callback
     )
     {
-      using index_t = duktape::api::index_t;
-      index_t optindex = -1;
+      using index_type = duktape::api::index_type;
+      index_type optindex = -1;
       if(stack.is_object(0)) {
         optindex = 0;
         no_exception = stack.get_prop_string<bool>(optindex, "noexcept", false);
@@ -930,7 +930,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       }
       if(stack.top() > 1) {
         if(stack.is_array(1)) {
-          arguments = stack.req<std::vector<std::string>>(1);
+          arguments = stack.get<std::vector<std::string>>(1);
         } else if(stack.is_object(1)) {
           optindex = 1;
           no_exception = stack.get_prop_string<bool>(optindex, "noexcept", false);
@@ -970,7 +970,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
           if(optindex > 1) {
             return "exec(): Program arguments already defined as 2nd argument.";
           } else {
-            arguments = stack.req<std::vector<std::string>>(-1);
+            arguments = stack.get<std::vector<std::string>>(-1);
             int i=0;
             for(auto e:arguments) {
               for(auto c:e) {
@@ -1032,7 +1032,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
           } else {
             stack.enumerator(-1, duktape::api::enum_own_properties_only);
             while(stack.next(-1, true)) {
-              environment.push_back(stack.req<std::string>(-2));
+              environment.push_back(stack.get<std::string>(-2));
               environment.push_back(stack.to<std::string>(-1));
               stack.pop(2);
             }
@@ -1062,7 +1062,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
   template <typename=void>
   int execute(duktape::api& stack)
   {
-    using index_t = duktape::api::index_t;
+    using index_type = duktape::api::index_type;
     int exit_code = 0;
     int timeout_ms = -1;
     std::string program;
@@ -1074,8 +1074,8 @@ namespace duktape { namespace detail { namespace system { namespace exec {
     bool ignore_stderr = true;
     bool redirect_stderr_to_stdout = false;
     bool no_exception = false;
-    index_t stdout_callback = -1;
-    index_t stderr_callback = -1;
+    index_type stdout_callback = -1;
+    index_type stderr_callback = -1;
     {
       const std::string error = arguments_import(
         stack, timeout_ms, program, arguments, environment, stdin_data, without_path_search,
@@ -1350,7 +1350,7 @@ namespace duktape { namespace mod { namespace system { namespace exec {
       ::duktape::native_object<native_process>("sys.process")
       // Native constructor from script arguments.
       .constructor([](duktape::api& stack) {
-        using index_t = duktape::api::index_t;
+        using index_type = duktape::api::index_type;
         int timeout_ms = -1;
         std::string program;
         std::vector<std::string> arguments, environment;
@@ -1361,8 +1361,8 @@ namespace duktape { namespace mod { namespace system { namespace exec {
         bool ignore_stderr = true;
         bool redirect_stderr_to_stdout = false;
         bool no_exception = false;
-        index_t stdout_callback = -1;
-        index_t stderr_callback = -1;
+        index_type stdout_callback = -1;
+        index_type stderr_callback = -1;
         const std::string error = arguments_import(
           stack, timeout_ms, program, arguments, environment, stdin_data, without_path_search,
           noenv, ignore_stdout, ignore_stderr, redirect_stderr_to_stdout, no_exception, stdout_callback,

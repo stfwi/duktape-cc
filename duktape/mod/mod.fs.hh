@@ -172,7 +172,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
     if(!stack.is<std::string>(0)) return 0;
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
     bool binary = false;
-    duktape::api::index_t filter_function = 0;
+    duktape::api::index_type filter_function = 0;
 
     if(!stack.is_undefined(1)) {
       if(stack.is<std::string>(1)) {
@@ -229,7 +229,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
         if(!fis.good() && !fis.eof()) return 0;
         std::string line;
         std::string contents;
-        stack.require_stack_top(5);
+        if(!stack.check_stack_top(5)) return stack.throw_exception("Out of JS stack.");
         bool islast = false;
         while(fis.good()) {
           if(!std::getline(fis, line).good()) {
@@ -412,9 +412,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     }
     #else
     {
-      if(::access(path.c_str(), F_OK) != 0) {
-        // knowingly existing
-      } else if(path[0] == '~') {
+      if(path[0] == '~') {
         if(path.length() == 1) {
           return homedir<PathAccessor>(stack);
         } else if(path[1] == '/') {
@@ -423,6 +421,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
           if((::getpwuid_r(::getuid(), &pw, name, sizeof(name), &ppw) != 0) || (!pw.pw_dir)) return 0;
           path = std::string(pw.pw_dir) + path.substr(1);
         }
+      } else if(::access(path.c_str(), F_OK) != 0) {
+        // knowingly existing
       } else if(path[0] == '.') {
         if(path.length() == 1) {
           return cwd<PathAccessor>(stack);
@@ -589,7 +589,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   template <typename PathAccessor, typename StatType>
   int push_filestat(duktape::api& stack, StatType st, std::string path)
   {
-    stack.require_stack_top(5);
+    if(!stack.check_stack_top(5)) return stack.throw_exception("Out of JS stack.");
     stack.push_object();
     stack.set("path", PathAccessor::to_js(path));
     stack.set("size", st.st_size);
@@ -1110,8 +1110,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
       dir_guard dir;
       DWORD err=0;
       if(path_pattern.length() >= MAX_PATH) return 0;
-      stack.require_stack_top(5);
-      duktape::api::array_index_t i=0;
+      if(!stack.check_stack_top(5)) return stack.throw_exception("Out of JS stack.");
+      duktape::api::array_index_type i=0;
       auto array_stack_index = stack.push_array();
       if((dir.hFind = ::FindFirstFileA(path_pattern.c_str(), &ffd)) == INVALID_HANDLE_VALUE) {
         err = ::GetLastError();
@@ -1155,8 +1155,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     struct ::dirent entry;
     struct ::dirent *de = nullptr;
     if(!(dir.dir = ::opendir(path.c_str()))) return 0;
-    stack.require_stack_top(5);
-    duktape::api::array_index_t i=0;
+    if(!stack.check_stack_top(5)) return stack.throw_exception("Out of JS stack.");
+    duktape::api::array_index_type i=0;
     auto array_stack_index = stack.push_array();
     int error = 0;
     // Note: Explicitly using readdir_r until thread safety of `readdir`
@@ -1211,7 +1211,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
             return 0;
         }
       } else {
-        duktape::api::array_index_t array_item_index=0;
+        duktape::api::array_index_type array_item_index=0;
         auto array_stack_index = stack.push_array();
         for(size_t i=0; (i < gb.data.gl_pathc) && (gb.data.gl_pathv[i]); ++i) {
           stack.push(PathAccessor::to_js(gb.data.gl_pathv[i]));
@@ -1456,7 +1456,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace basic {
      *
      * @return {string|undefined}
      */
-    fs.app_path = function() {};
+    fs.application = function() {};
     #endif
     js.define("fs.application", app_path<PathAccessor>, 0);
 

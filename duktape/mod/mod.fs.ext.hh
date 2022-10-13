@@ -435,7 +435,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     #else
     bool case_sensitive = true;
     #endif
-    duktape::api::index_t filter_function = 0;
+    duktape::api::index_type filter_function = 0;
     if(path.empty()) {
       return stack.throw_exception("No directory given to search");
     } else if(!stack.is_undefined(1)) {
@@ -478,7 +478,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     const auto unexpand_home = [&home_expansion](std::string path) {
       return (home_expansion.empty() || (path.find(home_expansion) != 0)) ? (path) : (std::string("~") + path.substr(home_expansion.size()));
     };
-    duktape::api::array_index_t array_item_index=0;
+    duktape::api::array_index_type array_item_index=0;
     auto array_stack_index = stack.push_array();
     if(recurse_directory(
       expand_home(path), pattern, ftype, depth, no_outside, case_sensitive, xdev,

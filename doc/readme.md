@@ -30,13 +30,13 @@ from the `duktape.hh` header to this location:
     // const char *duk_get_string(duk_context *ctx, duk_idx_t idx);
     // const char *duk_push_string(duk_context *ctx, const char *str);
     // const char *duk_push_sprintf(duk_context *ctx, const char *fmt, ...);
-    // duk_bool_t duk_put_prop_string(duk_context *ctx, index_t obj_index, const char *key);
-    // const char *duk_safe_to_lstring(duk_context *ctx, index_t index, size_t *out_len)
-    // const char *duk_safe_to_string(duk_context *ctx, index_t index);
-    // const char *duk_to_lstring(duk_context *ctx, index_t index, size_t *out_len)
-    // const char *duk_to_string(duk_context *ctx, index_t index);
-    // const char* get_string(duk_context *ctx, index_t index)
-    // const char* require_string(duk_context *ctx, index_t index)
+    // duk_bool_t duk_put_prop_string(duk_context *ctx, index_type obj_index, const char *key);
+    // const char *duk_safe_to_lstring(duk_context *ctx, index_type index, size_t *out_len)
+    // const char *duk_safe_to_string(duk_context *ctx, index_type index);
+    // const char *duk_to_lstring(duk_context *ctx, index_type index, size_t *out_len)
+    // const char *duk_to_string(duk_context *ctx, index_type index);
+    // const char* get_string(duk_context *ctx, index_type index)
+    // const char* require_string(duk_context *ctx, index_type index)
     // void duk_pop_2(duk_context *ctx);
     // void duk_pop_3(duk_context *ctx);
     // const char *duk_push_vsprintf(duk_context *ctx, const char *fmt, va_list ap);
@@ -67,7 +67,7 @@ from the `duktape.hh` header to this location:
     // void duk_eval_string(duk_context *ctx, const char *src);
     // void duk_eval_string_noresult(duk_context *ctx, const char *src);
     // duk_bool_t duk_put_global_string(duk_context *ctx, const char *key);
-    // index_t duk_push_error_object(duk_context *ctx, duk_errcode_t err_code, const char *fmt, ...);
+    // index_type duk_push_error_object(duk_context *ctx, duk_errcode_t err_code, const char *fmt, ...);
     // const char *duk_push_sprintf(duk_context *ctx, const char *fmt, ...);
     // const char *duk_push_vsprintf(duk_context *ctx, const char *fmt, va_list ap);
     // duk_idx_t duk_push_error_object_va(duk_context *ctx, duk_errcode_t err_code, const char *fmt, va_list ap);

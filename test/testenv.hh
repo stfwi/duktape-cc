@@ -1,7 +1,6 @@
 #ifndef DUKTAPE_HH_TESTING_ENVIRONMENT_HH
 #define DUKTAPE_HH_TESTING_ENVIRONMENT_HH
 
-
 #include "../duktape/duktape.hh"
 #include "microtest.hh"
 #include <stdexcept>
@@ -12,6 +11,7 @@
 #include <regex>
 #include <locale>
 #include <clocale>
+#include <memory>
 
 #if defined(WIN32) || defined(WIN64) || defined(_WIN32) || defined(_WIN64)
   #ifndef OS_WINDOWS
@@ -21,48 +21,53 @@
 
 
 namespace testenv {
+
   #ifndef OS_WINDOWS
-  int sysshellexec(std::string cmd) {
-    int r=::system(cmd.c_str());
-    return WEXITSTATUS(r);
-  }
 
-  bool exists(std::string file) {
-    struct ::stat st;
-    return (::stat(file.c_str(), &st)==0);
-  }
-
-  std::string test_path(std::string path="") {
-    while(!path.empty() && path.front() == '/') path = path.substr(1);
-    return path.empty() ? ::sw::utest::tmpdir::path() : (::sw::utest::tmpdir::path() + "/" + path);
-  }
-
-  void test_makesymlink(std::string src, std::string dst) {
-    src = test_path(src);
-    dst = test_path(dst);
-    if(::symlink(src.c_str(), dst.c_str()) != 0) {
-      test_fail(std::string("test_makesymlink(") + src + "," + dst + ") failed");
-      throw std::runtime_error("Aborted due to failed test assertion.");
+    int sysshellexec(std::string cmd) {
+      int r=::system(cmd.c_str());
+      return WEXITSTATUS(r);
     }
-  }
+
+    bool exists(std::string file) {
+      struct ::stat st;
+      return (::stat(file.c_str(), &st)==0);
+    }
+
+    std::string test_path(std::string path="") {
+      while(!path.empty() && path.front() == '/') path = path.substr(1);
+      return path.empty() ? ::sw::utest::tmpdir::path() : (::sw::utest::tmpdir::path() + "/" + path);
+    }
+
+    void test_makesymlink(std::string src, std::string dst) {
+      src = test_path(src);
+      dst = test_path(dst);
+      if(::symlink(src.c_str(), dst.c_str()) != 0) {
+        test_fail(std::string("test_makesymlink(") + src + "," + dst + ") failed");
+        throw std::runtime_error("Aborted due to failed test assertion.");
+      }
+    }
+
   #else
-  int sysshellexec(std::string cmd) { return ::system(cmd.c_str()); }
-  bool exists(std::string file) {
-    for(auto& e:file) if(e=='/') e='\\';
-    struct ::stat st; return (::stat(file.c_str(), &st)==0);
-  }
 
-  std::string test_path(std::string path="") {
-    while(!path.empty() && path.front() == '/') path = path.substr(1);
-    path = path.empty() ? ::sw::utest::tmpdir::path() : (std::string(::sw::utest::tmpdir::path()) + "\\" + path);
-    for(auto& e:path) if(e=='/') e='\\';
-    return path;
-  }
+    int sysshellexec(std::string cmd) { return ::system(cmd.c_str()); }
+    bool exists(std::string file) {
+      for(auto& e:file) if(e=='/') e='\\';
+      struct ::stat st; return (::stat(file.c_str(), &st)==0);
+    }
 
-  void test_makesymlink(std::string src, std::string dst) {
-    (void) src;
-    (void) dst;
-  }
+    std::string test_path(std::string path="") {
+      while(!path.empty() && path.front() == '/') path = path.substr(1);
+      path = path.empty() ? ::sw::utest::tmpdir::path() : (std::string(::sw::utest::tmpdir::path()) + "\\" + path);
+      for(auto& e:path) if(e=='/') e='\\';
+      return path;
+    }
+
+    void test_makesymlink(std::string src, std::string dst) {
+      (void) src;
+      (void) dst;
+    }
+
   #endif
 
   void test_makefile(std::string path) {
@@ -342,7 +347,6 @@ int ecma_reset(duk_context *ctx)
   return 1;
 }
 
-
 // Note: The purpose of this function is to find the outer "test_expect()" locations and
 //       converting the arguments into a string to evaluate in the JS engine. The implementation
 //       is working but somewhat clumsy and will be replaced/optimised at a later date.
@@ -516,34 +520,34 @@ void test_include_script(duktape::engine& js)
 
 std::vector<std::string> test_cli_args;
 
+void testenv_init(duktape::engine& js)
+{
+  js.define("print", ecma_print); // may be overwritten by stdio
+  js.define("alert", ecma_warn); // may be overwritten by stdio
+  js.define("test_fail", ecma_fail);
+  js.define("test_pass", ecma_pass);
+  js.define("test_warn", ecma_warn);
+  js.define("test_expect", ecma_expect);
+  js.define("test_eval_expect", ecma_eexpect, 1);
+  js.define("test_eval_expect_except", ecma_eexpect_except, 1);
+  js.define("test_comment", ecma_comment);
+  js.define("test_note", ecma_comment);
+  js.define("test_reset", ecma_reset);
+  js.define("test_abspath", ecma_testabspath, 1);
+  js.define("test_relpath", ecma_testrelpath, 1);
+  js.define("callstack", ecma_callstack, 1);
+  js.define("sys.args", test_cli_args);
+}
+
 int main(int argc, char *argv[])
 {
   try {
     std::locale::global(std::locale("C"));
     ::setlocale(LC_ALL, "C");
     test_initialize();
+    for(int i=1; i<argc && argv[i]; ++i) test_cli_args.emplace_back(argv[i]);
     duktape::engine js;
-    js.define("print", ecma_print); // may be overwritten by stdio
-    js.define("alert", ecma_warn); // may be overwritten by stdio
-    js.define("test_fail", ecma_fail);
-    js.define("test_pass", ecma_pass);
-    js.define("test_warn", ecma_warn);
-    js.define("test_expect", ecma_expect);
-    js.define("test_eval_expect", ecma_eexpect, 1);
-    js.define("test_eval_expect_except", ecma_eexpect_except, 1);
-    js.define("test_comment", ecma_comment);
-    js.define("test_note", ecma_comment);
-    js.define("test_reset", ecma_reset);
-    js.define("test_abspath", ecma_testabspath, 1);
-    js.define("test_relpath", ecma_testrelpath, 1);
-    js.define("callstack", ecma_callstack, 1);
-    {
-
-      for(int i=1; i<argc && argv[i]; ++i) {
-        test_cli_args.emplace_back(argv[i]);
-        js.define("sys.args", test_cli_args);
-      }
-    }
+    testenv_init(js);
     try {
       test(js);
     } catch(duktape::exit_exception& e) {

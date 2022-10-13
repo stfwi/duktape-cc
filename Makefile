@@ -12,7 +12,7 @@ LD=$(CXX)
 CXX_STD=c++17
 FLAGSCXX=-std=$(CXX_STD) -W -Wall -Wextra -pedantic -Werror
 FLAGSCXX+=-Iduktape
-DUKOPTS+=-std=$(CXX_STD) -fstrict-aliasing -fdata-sections -ffunction-sections -Os -DDUK_USE_CPP_EXCEPTIONS
+DUKOPTS+=-std=$(CXX_STD) -fstrict-aliasing -fdata-sections -ffunction-sections -Os
 GIT_COMMIT_VERSION:=$(shell git log --pretty=format:%h -1 2>/dev/null || echo 0000000)
 HOST_CXX=$(CXX)
 PROGRAM_NAME=djs
@@ -241,10 +241,10 @@ $(BUILDDIR)/test/0%/test.log: $(BUILDDIR)/test/0%/test$(BINARY_EXTENSION)
 	@mkdir -p $(dir $@)
 	@rm -f $@
  ifneq ($(OS),Windows_NT)
-	@cd $(dir $<); ./$(notdir $<) $(ARGS) </dev/null >$(notdir $@) 2>&1 && echo "[pass] $@" || echo "[fail] $@"
+	@cd $(dir $<) && ./$(notdir $<) $(ARGS) </dev/null >$(notdir $@) 2>&1 && echo "[pass] $@" || echo "[fail] $@"
 	@[ -f test.gcda ] && mv test.gcda $(dir $@) || /bin/true
  else
-	@cd "$(dir $<)"; echo "" | "./$(notdir $<)" $(ARGS) >$(notdir $@) && echo "[pass] $@" || echo "[fail] $@"
+	@cd $(dir $<) && echo "" | "./$(notdir $<)" $(ARGS) >$(notdir $@) && echo "[pass] $@" || echo "[fail] $@"
  endif
 
 # Test scripts runner binary (No > 1000)

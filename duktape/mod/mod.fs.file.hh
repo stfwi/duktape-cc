@@ -466,13 +466,13 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
    * on success. On fail an exception is placed on the stack.
    *
    * @param duktape::api& stack
-   * @param api::index_t obj_index
+   * @param api::index_type obj_index
    * @param nfh::descriptor_type& fd
    * @param std::string& opts
    * @return bool
    */
   template <typename=void>
-  bool get_file_object_data(duktape::api& stack, api::index_t obj_index, nfh::descriptor_type& fd, std::string& opts)
+  bool get_file_object_data(duktape::api& stack, api::index_type obj_index, nfh::descriptor_type& fd, std::string& opts)
   {
     int top = stack.top();
     if(  (!stack.is_object(obj_index))
@@ -498,12 +498,12 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
    * on success. On fail an exception is placed on the stack.
    *
    * @param duktape::api& stack
-   * @param api::index_t obj_index
+   * @param api::index_type obj_index
    * @param nfh::descriptor_type& fd
    * @return bool
    */
   template <typename=void>
-  bool get_file_object_data(duktape::api& stack, api::index_t obj_index, nfh::descriptor_type& fd)
+  bool get_file_object_data(duktape::api& stack, api::index_type obj_index, nfh::descriptor_type& fd)
   { std::string o; return get_file_object_data(stack, obj_index, fd, o); }
 
   /**
@@ -991,7 +991,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     std::string path = stack.to<std::string>(-1);
     stack.top(1);
     struct ::stat st = nfh::stat(fd);
-    stack.require_stack_top(5);
+    if(!stack.check_stack_top(5)) return stack.throw_exception("Out of JS stack.");
     return filesystem::basic::push_filestat<PathAccessor>(stack, st, path);
   }
 

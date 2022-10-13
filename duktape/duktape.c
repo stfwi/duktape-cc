@@ -67749,6 +67749,11 @@ DUK_INTERNAL duk_int_t duk_handle_safe_call(duk_hthread *thr,
     DUK_D(DUK_DPRINT("rethrow duk_fatal_exception"));
     DUK_UNREF(exc);
     throw;
+#if defined(DUK_RETHROW_CPP_EXCEPTIONS)
+    } catch (...) {
+      DUK_STATS_INC(thr->heap, stats_safecall_throw);
+      throw;
+#else /* DUK_USE_CPP_EXCEPTIONS without re-throw */
   } catch (std::exception &exc) {
     const char *what = exc.what();
     DUK_ASSERT((duk_size_t) ((duk_uint8_t *) thr->valstack_end - (duk_uint8_t *) thr->valstack) >= entry_valstack_end_byteoff);
@@ -67799,6 +67804,7 @@ DUK_INTERNAL duk_int_t duk_handle_safe_call(duk_hthread *thr,
                                   old_jmpbuf_ptr);
       retval = DUK_EXEC_ERROR;
     }
+#endif
   }
 #endif
 
@@ -79012,6 +79018,11 @@ DUK_INTERNAL void duk_js_execute_bytecode(duk_hthread *exec_thr) {
       DUK_D(DUK_DPRINT("rethrow duk_fatal_exception"));
       DUK_UNREF(exc);
       throw;
+#if defined(DUK_RETHROW_CPP_EXCEPTIONS)
+    } catch (...) {
+      DUK_STATS_INC(exec_thr->heap, stats_exec_throw);
+      throw;
+#else /* DUK_USE_CPP_EXCEPTIONS without re-throw */
     } catch (std::exception &exc) {
       const char *what = exc.what();
       if (!what) {
@@ -79048,6 +79059,7 @@ DUK_INTERNAL void duk_js_execute_bytecode(duk_hthread *exec_thr) {
                                    entry_jmpbuf_ptr,
                  &delayed_catch_setup);
       }
+#endif
     }
 #endif
   }
