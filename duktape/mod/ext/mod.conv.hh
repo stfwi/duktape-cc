@@ -185,11 +185,18 @@ namespace duktape { namespace ext { namespace detail { namespace conv { namespac
     if(stack.top()!=1) throw duktape::script_error("toHex: Needs one Number argument.");
     if(!stack.is<double>(0)) throw duktape::script_error("toHex: Argument is no number.");
     const auto dec = stack.get<double>(0);
-    if((dec < std::numeric_limits<T>::min()) || (dec > std::numeric_limits<T>::max())) throw duktape::script_error(string("toHex: Number exceeds the numeric value range of the conversion: ") + std::to_string(dec));
+    if((dec < numeric_limits<T>::min()) || (dec > numeric_limits<T>::max())) throw duktape::script_error(string("toHex: Number exceeds the numeric value range of the conversion: ") + to_string(dec));
     stack.top(0);
-    T val = convert_endianess<machine_endianness(), E>(T(dec));
-    ostringstream os; os << hex << setfill('0') << setw(sizeof(T)*2) << val;
-    stack.push(os.str());
+    auto val = convert_endianess<machine_endianness(), E>(typename make_unsigned<T>::type(dec));
+    auto s = string(sizeof(T)*2, '0');
+    auto i = s.size();
+    while(val) {
+      const auto digit = (val & 0xfu);
+      s[--i] = (digit<0xa) ? ('0'+char(digit)) : (('a'-10)+char(digit));
+      if(!i) break;
+      val >>= 4u;
+    }
+    stack.push(s);
     return 1;
   }
 

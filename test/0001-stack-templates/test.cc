@@ -73,6 +73,9 @@ namespace {
     stack_move_assigned = std::move(stack_moved);
     test_expect( stack_move_assigned.ctx() == js.stack().ctx() );
     test_expect( &stack_move_assigned != &(js.stack()) );
+    const auto move_constructed = api_type(std::move(stack_move_assigned));
+    test_expect( move_constructed.ctx() == js.stack().ctx() );
+    test_expect( &move_constructed != &(js.stack()) );
   }
 }
 
@@ -89,6 +92,20 @@ namespace {
   template <typename T> typename std::enable_if< std::is_integral<T>::value && sizeof(T)>=2, string>::type itos(const T& v) { return std::to_string(v); }
   template <typename T> typename std::enable_if< std::is_integral<T>::value && sizeof(T)==1, string>::type itos(const T& v) { return std::to_string(int(v)); }
   template <typename T> typename std::enable_if<!std::is_integral<T>::value, T>::type itos(const T& v) { return v; }
+
+  template <typename T>
+  inline void print_type_info()
+  {
+    test_note("Type: c++:" << duktape::detail::conv<T>::cc_name() << " / ecma:" << duktape::detail::conv<T>::ecma_name());
+    test_expect( duktape::detail::conv<T>::nret() == 1 );
+  }
+
+  template <>
+  inline void print_type_info<void>()
+  {
+    test_note("Type: c++:" << duktape::detail::conv<void>::cc_name() << " / ecma:" << duktape::detail::conv<void>::ecma_name());
+    test_expect( duktape::detail::conv<void>::nret() == 0 );
+  }
 
   template <typename T>
   inline void check_typed_value(duktape::api& stack, const T& val)
@@ -108,7 +125,7 @@ namespace {
   template <typename T>
   void check_type(duktape::api& stack)
   {
-    test_comment("type: " << duktape::detail::conv<T>::cc_name());
+    print_type_info<T>();
     T min = numeric_limits<T>::min();
     T max = numeric_limits<T>::max();
 
@@ -138,6 +155,7 @@ namespace {
   template <>
   void check_type<bool>(duktape::api& stack)
   {
+    print_type_info<bool>();
     check_typed_value(stack, true);
     check_typed_value(stack, false);
   }
@@ -145,6 +163,7 @@ namespace {
   template <>
   void check_type<long double>(duktape::api& stack)
   {
+    print_type_info<long double>();
     check_typed_value(stack, numeric_limits<double>::min());
     check_typed_value(stack, numeric_limits<double>::max());
     check_typed_value(stack, sw::utest::random<double>());
@@ -179,6 +198,8 @@ namespace {
     check_type<long double>(stack);
 
     check_typed_value(stack, string("TEST"));
+
+    print_type_info<void>();
 
     {
       const char* val = "TEST";
@@ -1315,7 +1336,7 @@ namespace {
       test_expect( stack.get<int>(-1) == 100 );
       test_note( stack.get<int>(-1) );
     }
-    // push(Args...) / ecma_typename()
+    // push(Args...)
     {
       stack.clear();
       char nonconst_char[2] = {'A','\0'};
@@ -1378,10 +1399,22 @@ namespace {
 
 }
 
-void test_direct_stack_method_use1(duktape::engine& js)
+void test_stack_thread_use(duktape::engine& unused_js)
 {
-  auto stack = js.stack();
-  stack.clear();
+  (void)unused_js;
+  auto js = duktape::engine();
+  auto stack1 = js.stack();
+  stack1.push(true);
+  stack1.push(false);
+  stack1.push(100);
+  stack1.push_thread();
+  auto stack2 = duktape::api(stack1.get_context(-1));
+  test_expect_noexcept( stack1.xcopy_to_thread(stack2, 3) );
+  test_expect_noexcept( stack2.xmove_to_thread(stack1, 3) );
+  test_note( "stack1.top() == " << stack1.top() );
+  test_note( "stack2.top() == " << stack2.top() );
+  stack1.clear();
+  stack2.clear();
 }
 
 /**
@@ -1389,12 +1422,10 @@ void test_direct_stack_method_use1(duktape::engine& js)
  */
 void test(duktape::engine& js)
 {
-  test_direct_stack_method_use1(js);
-
-  volatile int done=0; if(done) return;
   test_api_construction(js);
   test_typed_stack_getters_and_setters(js);
   test_stack_guard(js);
   test_native_class_wrapping_related(js);
   test_direct_stack_method_use(js);
+  test_stack_thread_use(js);
 }

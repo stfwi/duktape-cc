@@ -53,7 +53,6 @@
  * @authors Stefan Wilhelm (stfwi, <cerbero s@atwillys.de>)
  * @platform linux, bsd, windows
  * @standard >= c++14
-
  */
 #ifndef SW_SYS_PROCESS_SNIP
 #define SW_SYS_PROCESS_SNIP
@@ -160,7 +159,7 @@
       { ignore_stdout_ = ignore; return *this; }
 
       bool ignore_stderr() const noexcept
-      { return ignore_stderr_; return *this; }
+      { return ignore_stderr_; }
 
       child_process& ignore_stderr(bool ignore) noexcept
       { ignore_stderr_ = ignore; return *this; }
@@ -172,7 +171,7 @@
       { redirect_stderr_to_stdout_ = redirect; return *this; }
 
       bool no_path_search() const noexcept
-      { return without_path_search_; return *this; }
+      { return without_path_search_; }
 
       child_process& no_path_search(bool no_path) noexcept
       { without_path_search_ = no_path; return *this; }
@@ -190,7 +189,7 @@
       { no_argument_escaping_ = no_esc; return *this; }
 
       exitcode_type exit_code() const noexcept
-      { return exit_code_; }
+      { return was_timeout_ ? exitcode_type(-1) : exitcode_type(exit_code_); }
 
       bool running() const noexcept
       { return !process_terminated_; }
@@ -296,6 +295,9 @@
           }
           envv.push_back(nullptr);
         }
+        program_ = program;
+        arguments_.swap(arguments);
+        environment_.swap(environment);
         int err = 0;
         fd_t pi[2] = {-1,-1}, po[2] = {-1,-1}, pe[2] = {-1,-1};
         if(::pipe(pi)) {
@@ -464,6 +466,7 @@
         }
         proc_.close();
         update(0);
+        exit_code_ = -1;
       }
 
     private:
@@ -531,10 +534,11 @@
         ) {
           throw std::runtime_error("Creating pipes failed.");
         }
-        // argv
-        //@todo: utf8 to wstring when mingw codecvt working.
+        // argv  ; @todo: utf8 to wstring when mingw codecvt working.
         string_type argv;
-        const string_type program_file = escape(program_);
+        string_type program_file = program_;
+        std::replace(program_file.begin(), program_file.end(), '/', '\\');
+        program_file = escape(program_file);
         argv.append(program_file);
         for(auto& e:arguments_) {
           argv.append(" ");
@@ -551,13 +555,9 @@
           if(!dont_inherit_environment_) {
             struct envstrings
             {
-              envstrings() : cstr(nullptr) { cstr = ::GetEnvironmentStrings(); }
-              ~envstrings() { if(cstr) ::FreeEnvironmentStrings(cstr); }
-              #ifdef UNICODE
-              wchar_t* cstr;
-              #else
+              envstrings() : cstr(::GetEnvironmentStringsA()) {}
+              ~envstrings() { if(cstr) ::FreeEnvironmentStringsA(cstr); }
               char* cstr;
-              #endif
             };
             envstrings userenv;
             if(userenv.cstr) {
@@ -569,7 +569,7 @@
             }
           }
           if(!environment_.empty()) {
-            for(size_t i=0; i<environment_.size()-2; i+=2) {
+            for(size_t i=0; i<environment_.size()-1; i+=2) {
               envv += environment_[i] + "=" + environment_[i+1];
               envv.push_back('\0');
             }
@@ -578,7 +578,7 @@
         }
         {
           STARTUPINFOA si = STARTUPINFOA();
-          si.cb = sizeof(STARTUPINFO);
+          si.cb = sizeof(STARTUPINFOA);
           si.dwFlags = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES;
           si.hStdOutput = proc_.out.w;
           si.hStdError = redirect_stderr_to_stdout_ ? proc_.out.w : proc_.err.w;
@@ -590,9 +590,13 @@
           ) {
             switch(::GetLastError()) {
               case ERROR_FILE_NOT_FOUND:
-              case ERROR_PATH_NOT_FOUND:
-                exit_code_ = 1;
-                throw std::runtime_error(string_type("Failed to start process: Program file not found."));
+              case ERROR_PATH_NOT_FOUND: {
+                proc_.in.close();
+                proc_.err.close();
+                proc_.out.close();
+                exit_code_ = -1;
+                return;
+              }
               default:
                 throw std::runtime_error(string_type("Running program failed: ") + errstr());
             }
@@ -1018,7 +1022,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
             stdin_data = stack.get<std::string>(-1);
           } else if(stack.is_false(-1) || stack.is_null(-1) || stack.is_undefined(-1)) {
             stdin_data.clear();
-          } else if(stack.is_buffer(-1)) {
+          } else if(stack.is_buffer(-1) || stack.is_buffer_data(-1)) {
             stdin_data = stack.buffer<std::string>(-1);
           } else {
             return "Invalid value for the 'stdin' exec option.";
@@ -1049,7 +1053,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
         stack.pop();
       }
       if(program.empty()) {
-        return "exec(): Empty string passed as program to execute.";
+        return "exec(): Empty argument passed as program to execute.";
       }
       return std::string();
     }
@@ -1142,7 +1146,6 @@ namespace duktape { namespace detail { namespace system { namespace exec {
     }
   }
 
-
   template <typename=void>
   int execute_shell(duktape::api& stack)
   {
@@ -1162,7 +1165,9 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       constexpr bool no_arg_escape = true;
       const char* p = getenv("ComSpec");
       const std::string sh = (!p) ? std::string("c:\\Windows\\system32\\cmd.exe") : std::string(p);
-      args.push_back(std::string("/c \"") + command + "\"");
+      args.push_back(sh);
+      args.push_back("/C");
+      args.push_back(escape_shell_arg(command));
       #endif
       try {
         auto proc = child_process(
@@ -1335,6 +1340,9 @@ namespace duktape { namespace mod { namespace system { namespace exec {
      * @param {array} [arguments]
      * @param {object} [options]
      *
+     * @property {string}  program      - The program executed.
+     * @property {array}   arguments    - The program CLI arguments passed in.
+     * @property {object}  environment  - The program environment variables passed in or deduced.
      * @property {boolean} running      - True if the child process has not terminated yet. Updates stdout/stderr/stdin/exitcode.
      * @property {number}  exitcode     - The exit code of the child process, or -1.
      * @property {string}  stdout       - Current output received from the child process.
@@ -1375,6 +1383,15 @@ namespace duktape { namespace mod { namespace system { namespace exec {
           noenv, false
         );
       })
+      .getter("program", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.program());
+      })
+      .getter("arguments", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.arguments());
+      })
+      .getter("environment", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.environment());
+      })
       .getter("exitcode", [](duktape::api& stack, native_process& instance) {
         stack.push(int(instance.exit_code()));
       })
@@ -1383,6 +1400,9 @@ namespace duktape { namespace mod { namespace system { namespace exec {
       })
       .setter("stdout", [](duktape::api& stack, native_process& instance) {
         instance.stdout_data(stack.to<std::string>(0));
+      })
+      .getter("stdin", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.stdin_data());
       })
       .getter("stderr", [](duktape::api& stack, native_process& instance) {
         stack.push(instance.stderr_data());
@@ -1399,6 +1419,13 @@ namespace duktape { namespace mod { namespace system { namespace exec {
       })
       .getter("timeout", [](duktape::api& stack, native_process& instance) {
         stack.push(int(instance.timeout()));
+      })
+      .setter("timeout", [](duktape::api& stack, native_process& instance) {
+        if((!stack.is<int>(-1)) && (stack.get<int>(-1)<0)) {
+          stack.throw_exception("sys.process.timeout must be set to an number in milliseconds >0.");
+        } else {
+          instance.timeout(stack.get<int>(-1));
+        }
       })
       .method("update", [](duktape::api& stack, native_process& instance) {
         instance.update(5);
@@ -1422,6 +1449,25 @@ namespace duktape { namespace mod { namespace system { namespace exec {
         stack.top(0);
         stack.push_this();
         return 1;
+      })
+      // undocumented testing properties.
+      .getter("ignore_stdout", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.ignore_stdout());
+      })
+      .getter("ignore_stderr", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.ignore_stderr());
+      })
+      .getter("redirect_stderr_to_stdout", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.redirect_stderr_to_stdout());
+      })
+      .getter("no_path_search", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.no_path_search());
+      })
+      .getter("no_inherited_environment", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.no_inherited_environment());
+      })
+      .getter("no_arg_escaping", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.no_arg_escaping());
       })
     );
   }

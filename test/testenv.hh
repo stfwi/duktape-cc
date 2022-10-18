@@ -484,7 +484,7 @@ std::string replace_expect_function_arguments(std::string&& code, std::string fu
 }
 
 
-void test_include_script(duktape::engine& js)
+void test_include_script(duktape::engine& js, const std::string source_file="test.js")
 {
   using namespace std;
   // Redefine print and alert in case stdio was included in the test c++
@@ -493,7 +493,7 @@ void test_include_script(duktape::engine& js)
 
   // Actual include
   {
-    test_source_file = "test.js";
+    test_source_file = source_file;
     string code;
     {
       string contents;

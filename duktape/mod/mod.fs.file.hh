@@ -121,6 +121,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
       static size_t write(descriptor_type fd, std::string& s)
       {
+        if(fd == invalid_descriptor) throw std::runtime_error("Cannot write file: File not open.");
         if(!s.size()) return 0;
         size_t n_written = 0;
         while(s.size() > 0) {
@@ -138,8 +139,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
               case EAGAIN:
                 return n_written;
               default: {
-                const char* msg = ::strerror(errno);
-                throw std::runtime_error(std::string("Failed to read file (") + std::string(msg?msg:"Unspecified error") + ")");
+                const char* rmsg = ::strerror(errno);
+                const std::string msg = (rmsg) ? (std::string(rmsg)) : (std::string("File I/O error ")+std::to_string(int(errno)));
+                throw std::runtime_error(std::string("Failed to write file (") + msg + ")");
               }
             }
           }
@@ -171,7 +173,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
       static void flush(descriptor_type fd)
       {
-        (void)fd; // syscall based file i/o does not need flushing, @see sync
+        // syscall based file i/o does not need flushing, @see sync
+        if(fd == invalid_descriptor) throw std::runtime_error("Cannot flush file: File not open.");
       }
 
       static size_t size(descriptor_type fd)
@@ -302,10 +305,11 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
       static std::string read(descriptor_type fd, size_t max_size, bool& iseof)
       {
+        if(fd == invalid_descriptor) { iseof=true; throw std::runtime_error("Failed to read file: Not opened."); }
         iseof = false;
         std::string data;
-        if((fd == invalid_descriptor) || (!max_size)) { iseof=true; return data; }
         constexpr auto size_limit = size_t(std::numeric_limits<ssize_t>::max()-4096);
+        if(!max_size) max_size = size_limit;
         if(max_size > size_limit) max_size = size_limit; // as many as possible / limit
         for(;;) {
           char buffer[4096+1];
@@ -320,6 +324,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
               case ERROR_BROKEN_PIPE:
               case ERROR_PIPE_NOT_CONNECTED:
                 iseof = true;
+                return data;
               case ERROR_PIPE_BUSY:
               case ERROR_NO_DATA:
                 return data;
@@ -340,6 +345,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
       static size_t write(descriptor_type fd, std::string& data)
       {
+        if(fd == invalid_descriptor) { throw std::runtime_error("Failed to write file: Not opened."); }
         bool keep_writing = true;
         size_t n_written = 0;
         while(!data.empty() && keep_writing) {
@@ -377,6 +383,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
       static bool is_eof(descriptor_type fd)
       {
+        if(fd == invalid_descriptor) return true;
         // unfortunately no way to use readfile without actually reading
         LARGE_INTEGER pos, size;
         size.QuadPart = 0;
@@ -408,6 +415,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
       static void flush(descriptor_type fd)
       {
+        if(fd == invalid_descriptor) { throw std::runtime_error("Failed to flush: Not opened."); }
         ::FlushFileBuffers(fd2handle(fd));
       }
 
@@ -423,6 +431,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
       static struct ::stat stat(descriptor_type fd)
       {
+        if(fd == invalid_descriptor) { throw std::runtime_error("Failed to get file stat: Not opened."); }
         std::string path;
         {
           char cpath[MAX_PATH+1];
@@ -449,6 +458,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
       static bool lock(descriptor_type fd, char access)
       {
+        if(fd == invalid_descriptor) { throw std::runtime_error("Failed to lock file: Not opened."); }
         return ::LockFile(fd2handle(fd), 0u,0u, DWORD(0xffffffffu),DWORD(0x7fffffffu));
         (void)access; // LockFileEx could lock exclusively, but no OVERLAPPED hazzle for now.
       }
@@ -881,13 +891,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     std::string nl;
     stack.get_prop_string(0, "newline");
     if(stack.is_string(-1)) nl = stack.get<std::string>(-1);
-    if(nl.empty()) {
-      #ifdef OS_WINDOWS
-      nl = "\r\n";
-      #else
-      nl = "\n";
-      #endif
-    }
+    if(nl.empty()) nl = "\n";
     data += nl;
     stack.top(0);
     nfh::write(fd, data);

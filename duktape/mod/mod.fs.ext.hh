@@ -402,7 +402,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
             if(p < 0) {
               switch(errno) {
                 case EAGAIN:
+                  break;
                 case EINTR:
+                  ::kill(pid, SIGINT);
                   break;
                 case ECHILD:
                 default:

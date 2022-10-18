@@ -77,6 +77,9 @@ TEST_BINARIES:=$(patsubst %.cc,$(BUILDDIR)/%$(BINARY_EXTENSION),$(TEST_BINARIES_
 TEST_BINARIES_RESULTS:=$(patsubst %.cc,$(BUILDDIR)/%.log,$(TEST_BINARIES_SOURCES))
 TEST_SCRIPT_SOURCES:=$(foreach F, $(filter test/1%/ , $(TEST_SELECTION)), $Ftest.js)
 TEST_SCRIPT_RESULTS:=$(patsubst %.js,$(BUILDDIR)/%.log,$(TEST_SCRIPT_SOURCES))
+TEST_BINARIES_AUXILIARY_SOURCES:=$(wildcard $(foreach F, $(filter test/0%/ , $(TEST_SELECTION)), $Ftaux.cc))
+TEST_BINARIES_AUXILIARY:=$(patsubst %.cc,$(BUILDDIR)/%$(BINARY_EXTENSION),$(TEST_BINARIES_AUXILIARY_SOURCES))
+TEST_SCRIPT_AUXILIARY_SOURCES:=$(wildcard $(foreach F, $(filter test/0%/ , $(TEST_SELECTION)), $Ftaux.js))
 TEST_SCRIPT_BINARY_SOURCE:=test/1000-script-test-binary/test.cc
 TEST_SCRIPT_BINARY:=$(BUILDDIR)/test/1000-script-test-binary/test$(BINARY_EXTENSION)
 
@@ -212,7 +215,7 @@ documentation: $(BUILDDIR)/cli/$(BINARY) | doc/src/documentation.djs doc/src/rea
 
 # Test invocation and summary (we can't use a js script to analyze the tests, so the unix tools
 # that are available on linux and windows (with GIT) are the tools of choice).
-test: $(TEST_BINARIES_SOURCES) $(TEST_SCRIPT_SOURCES) $(TEST_SCRIPT_BINARY_SOURCE)
+test: $(TEST_BINARIES_SOURCES) $(TEST_SCRIPT_SOURCES) $(TEST_SCRIPT_BINARY_SOURCE) $(TEST_BINARIES_AUXILIARY)
 	@mkdir -p $(BUILDDIR)/test
 	@rm -f $(BUILDDIR)/test/*.log
  ifneq ($(TEST),)
@@ -221,12 +224,14 @@ test: $(TEST_BINARIES_SOURCES) $(TEST_SCRIPT_SOURCES) $(TEST_SCRIPT_BINARY_SOURC
 	@$(MAKE) -j -k test-results | tee $(BUILDDIR)/test/summary.log 2>&1
 	@if grep -e '^\[fail\]' -- $(BUILDDIR)/test/summary.log >/dev/null 2>&1; then echo "[FAIL] At least one test failed."; /bin/false; else echo "[PASS] All tests passed."; fi
  ifneq ($(TEST),)
+  ifneq ($(TEST_BINARIES_RESULTS)$(TEST_SCRIPT_RESULTS),)
 	-@cat $(TEST_BINARIES_RESULTS) $(TEST_SCRIPT_RESULTS) 2>/dev/null
+  endif
  endif
 
 # Actual test compilations and runs
 .PHONY: test-results
-test-results: $(TEST_SCRIPT_BINARY) $(TEST_BINARIES) $(TEST_BINARIES_RESULTS) $(TEST_SCRIPT_RESULTS)
+test-results: $(TEST_SCRIPT_BINARY) $(TEST_BINARIES) $(TEST_BINARIES_AUXILIARY) $(TEST_BINARIES_RESULTS) $(TEST_SCRIPT_RESULTS)
 
 # Test binaries (compile test No < 1000)
 $(BUILDDIR)/test/%/test$(BINARY_EXTENSION): test/%/test.cc test/testenv.hh test/microtest.hh $(BUILDDIR)/duktape/duktape.o $(HEADER_DEPS)
@@ -235,6 +240,14 @@ $(BUILDDIR)/test/%/test$(BINARY_EXTENSION): test/%/test.cc test/testenv.hh test/
 	@cp -rf $(dir $<)/* $(dir $@)/
 	@$(CXX) -o $@ $< $(BUILDDIR)/duktape/duktape.o $(FLAGSCXX) -I. $(FLAGSLD) $(LDSTATIC) $(LIBS) $(TESTOPTS) $(OPTS) || echo "[fail] $@"
 	@[ -f test.gcno ] && mv test.gcno $(dir $@) || /bin/true
+
+# Test auxiliary binaries (compile test No < 1000)
+$(BUILDDIR)/test/%/taux$(BINARY_EXTENSION): test/%/taux.cc $(BUILDDIR)/duktape/duktape.o $(HEADER_DEPS) $(TEST_SCRIPT_AUXILIARY_SOURCES)
+	@echo "[c++ ] $@"
+	@mkdir -p $(dir $@)
+	@cp -rf $(dir $<)/* $(dir $@)/
+	@$(CXX) -o $@ $< $(BUILDDIR)/duktape/duktape.o $(FLAGSCXX) -I. $(FLAGSLD) $(LDSTATIC) $(LIBS) $(TESTOPTS) $(OPTS) || echo "[fail] $@"
+	@[ -f taux.gcno ] && mv taux.gcno $(dir $@) || /bin/true
 
 # Test binaries (run, test No < 1000)
 $(BUILDDIR)/test/0%/test.log: $(BUILDDIR)/test/0%/test$(BINARY_EXTENSION)
@@ -252,6 +265,7 @@ $(TEST_SCRIPT_BINARY): $(TEST_SCRIPT_BINARY_SOURCE) $(BUILDDIR)/duktape/duktape.
 	@echo "[c++ ] $@"
 	@mkdir -p $(dir $@)
 	@$(CXX) -o $@ $< $(BUILDDIR)/duktape/duktape.o $(FLAGSCXX) -I. $(FLAGSLD) $(LDSTATIC) $(LIBS) $(TESTOPTS) $(OPTS) || echo "[fail] $@"
+	@[ -f test.gcno ] && mv test.gcno $(dir $@) || /bin/true
 
 # Test scripts runs (No > 1000)
 $(BUILDDIR)/test/1%/test.log: test/1%/test.js $(TEST_SCRIPT_BINARY)
@@ -259,7 +273,10 @@ $(BUILDDIR)/test/1%/test.log: test/1%/test.js $(TEST_SCRIPT_BINARY)
 	@rm -f $@
 	@cp -f $(dir $<)/* $(dir $@)/
 	@cd $(dir $@); ../../../$(TEST_SCRIPT_BINARY) </dev/null >$(notdir $@) 2>&1 && echo "[pass] $@" || echo "[fail] $@"
-
+ ifneq ($(OS),Windows_NT)
+	@[ -f test.gcda ] && mv test.gcda $(dir $@) || /bin/true
+	@[ ! -f test.gcno ] && cp $(patsubst %$(BINARY_EXTENSION),%.gcno,$(TEST_SCRIPT_BINARY)) >/dev/null 2>&1 $(dir $@) || /bin/true
+ endif
 #---------------------------------------------------------------------------------------------------
 # Coverage (only available with gcov/lcov using linux g++)
 #---------------------------------------------------------------------------------------------------
@@ -283,10 +300,10 @@ coverage:
 	@$(MAKE) coverage-summary
 
 # Selection of tests where c++ coverage makes sense
-coverage-runs: $(TEST_BINARIES_RESULTS)
+coverage-runs: $(TEST_BINARIES_AUXILIARY) $(TEST_BINARIES_RESULTS) $(TEST_SCRIPT_RESULTS)
 
 # All gcov files from the executed tests
-coverage-files: $(patsubst %/test.log,%/test.gcov,$(TEST_BINARIES_RESULTS))
+coverage-files: $(patsubst %/test.log,%/test.gcov,$(TEST_BINARIES_RESULTS))  $(patsubst %/test.log,%/test.gcov,$(TEST_SCRIPT_RESULTS))
 
 # Analysis of one test using gcov/lcov
 $(BUILDDIR)/test/%/test.gcov: $(BUILDDIR)/test/%/test.log
@@ -319,6 +336,9 @@ vars:
 	@echo "TEST_SCRIPT_RESULTS='$(TEST_SCRIPT_RESULTS)'"
 	@echo "TEST_SCRIPT_BINARY_SOURCE='$(TEST_SCRIPT_BINARY_SOURCE)'"
 	@echo "TEST_SCRIPT_BINARY='$(TEST_SCRIPT_BINARY)'"
+	@echo "TEST_BINARIES_AUXILIARY_SOURCES='$(TEST_BINARIES_AUXILIARY_SOURCES)'"
+	@echo "TEST_BINARIES_AUXILIARY='$(TEST_BINARIES_AUXILIARY)'"
+	@echo "TEST_SCRIPT_AUXILIARY_SOURCES='$(TEST_SCRIPT_AUXILIARY_SOURCES)'"
 
 #---------------------------------------------------------------------------------------------------
 # Help

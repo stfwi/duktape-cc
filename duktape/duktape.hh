@@ -1095,7 +1095,7 @@ namespace duktape { namespace detail {
     { return error(error_code_t::err_ecma, msg); }
 
     int error(error_code_t err_code, const string& msg, string file="(native c++)", int line=0)
-    { ::duk_error_raw(ctx_, ::duk_errcode_t(err_code), file.c_str(), ::duk_int_t(line), msg.c_str()); return 0; }
+    { ::duk_error_raw(ctx_, ::duk_errcode_t(err_code), file.c_str(), ::duk_int_t(line), "%s", msg.c_str()); return 0; }
 
     error_code_t get_error_code(index_type index) const
     { return error_code_t(::duk_get_error_code(ctx_, index));  }
@@ -1165,11 +1165,11 @@ namespace duktape { namespace detail {
     void freeze(index_type index) const
     { ::duk_freeze(ctx_, index); }
 
-    static void xcopy_top(context_type to_ctx, context_type from_ctx, size_type count)
-    { duk_xcopy_top(to_ctx, from_ctx, ::duk_idx_t(count)); }
+    void xcopy_to_thread(basic_api& to, size_type count)
+    { ::duk_require_stack(to.ctx_, ::duk_idx_t(count)); ::duk_xcopymove_raw(to.ctx_, ctx_, ::duk_idx_t(count), 1); }
 
-    static void xmove_top(context_type to_ctx, context_type from_ctx, size_type count)
-    { duk_xmove_top(to_ctx, from_ctx, ::duk_idx_t(count)); }
+    void xmove_to_thread(basic_api& to, size_type count)
+    { ::duk_require_stack(to.ctx_, ::duk_idx_t(count)); ::duk_xcopymove_raw(to.ctx_, ctx_, ::duk_idx_t(count), 0); }
 
   public:
 
@@ -1587,6 +1587,50 @@ namespace duktape { namespace detail {
       return s;
     }
 
+    /**
+     * Javascript type name query. Guaranteed non-nullptr.
+     *
+     * @param index_type index
+     * @return const char*
+     */
+    const char* ecma_typename(index_type index) const
+    {
+      const auto& stack = *this;
+      if(index < 0 || index > stack.get_top_index()) {
+        return "(invalid stack index)";
+      } else if(stack.is_undefined(index)) {
+        return "undefined";
+      } else if(stack.is_nan(index)) {
+        return "NaN";
+      } else if(stack.is_boolean(index)) {
+        return stack.get_boolean(index) ? "true" : "false";
+      } else if(stack.is_null(index)) {
+        return "null";
+      } else if(stack.is_string(index)) {
+        return "String";
+      } else if(stack.is_number(index)) {
+        return "Number";
+      } else if(stack.is_c_function(index)) {
+        return "Function (native)";
+      } else if(stack.is_function(index)) {
+        return "Function";
+      } else if(stack.is_array(index)) {
+        return "Array";
+      } else if(stack.is_object(index) || stack.is_null(index)) {
+        return "Object";
+      } else if(stack.is_dynamic_buffer(index)) {
+        return "Buffer (dynamic)";
+      } else if(stack.is_buffer(index)) {
+        return "Buffer";
+      } else if(stack.is_pointer(index)) {
+        return "Pointer";
+      } else if(stack.is_thread(index)) {
+        return "Thread";
+      } else {
+        return "(unrecognised script type)";
+      }
+    }
+
   private:
 
     template <typename T>
@@ -1831,61 +1875,6 @@ namespace duktape { namespace detail {
     }
 
   };
-
-  /**
-   * Javascript type name query. Note: This is a runtime type query and expensive.
-   * Use it only for debugging or in exceptional situations.
-   *
-   * @param api& stack
-   * @return int index
-   */
-  template <typename=void>
-  const char* ecma_typename(api& stack, int index)
-  {
-    if(index < 0 || index > stack.get_top_index()) {
-      return "(invalid stack index)";
-    } else if(stack.is_undefined(index)) {
-      return "undefined";
-    } else if(stack.is_nan(index)) {
-      return "NaN";
-    } else if(stack.is_boolean(index)) {
-      return stack.get_boolean(index) ? "true" : "false";
-    } else if(stack.is_null(index)) {
-      return "null";
-    } else if(stack.is_string(index)) {
-      return "String";
-    } else if(stack.is_number(index)) {
-      return "Number";
-    } else if(stack.is_c_function(index)) {
-      return "Function (native)";
-    } else if(stack.is_function(index)) {
-      return "Function";
-    } else if(stack.is_array(index)) {
-      return "Array";
-    } else if(stack.is_object(index) || stack.is_null(index)) {
-      return "Object";
-    } else if(stack.is_dynamic_buffer(index)) {
-      return "Buffer (dynamic)";
-    } else if(stack.is_buffer(index)) {
-      return "Buffer";
-    } else if(stack.is_pointer(index)) {
-      return "Pointer";
-    } else if(stack.is_thread(index)) {
-      return "Thread";
-    }
-    return "(unrecognised script type)";
-  }
-
-  /**
-   * Javascript type name query. Note: This is a runtime type query and expensive.
-   * Use it only for debugging or in exceptional situations.
-   *
-   * @param duk_context* ctx
-   * @return int index
-   */
-  template <typename=void>
-  const char* ecma_typename(duk_context* ctx, int index)
-  { api stack(ctx); return ecma_typename<void>(stack, index); }
 
 }}
 

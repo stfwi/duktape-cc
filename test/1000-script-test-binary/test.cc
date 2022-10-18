@@ -47,7 +47,7 @@ void test(duktape::engine& js)
   #ifdef WITH_EXPERIMENTAL
     duktape::mod::experimental::define_in(js);
   #endif
-  // reset some stdio to to testenv
+  // Re-route basic stdio to testenv
   js.define("print", ecma_print); // may be overwritten by stdio
   js.define("alert", ecma_warn); // may be overwritten by stdio
   js.define("callstack", ecma_callstack);

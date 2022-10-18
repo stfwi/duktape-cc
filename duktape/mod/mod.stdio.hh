@@ -305,10 +305,10 @@ namespace duktape { namespace detail {
       if(!out_stream) return 0;
       int nargs = stack.top();
       for(int i=0; i<nargs; ++i) {
-        if(stack.is_buffer(i)) {
+        if(stack.is_buffer(i) || stack.is_buffer_data(i)) {
           const char *buf = nullptr;
           duk_size_t sz = 0;
-          if((buf = (const char *) stack.get_buffer(0, sz)) && (sz > 0)) {
+          if((buf = reinterpret_cast<const char*>(stack.is_buffer(i) ? stack.get_buffer(i, sz) : stack.get_buffer_data(i, sz))) && (sz > 0)) {
             (*out_stream).write(buf, sz);
           }
         } else {
@@ -322,7 +322,7 @@ namespace duktape { namespace detail {
     static int console_read(duktape::api& stack)
     {
       if(!in_stream) return 0;
-      int nargs = stack.top();
+      const auto nargs = stack.top();
       if((nargs > 0) && stack.is_callable(0)) {
         // Filtered string from lines
         std::ostringstream ss;
@@ -344,8 +344,7 @@ namespace duktape { namespace detail {
         stack.push(ss.str());
         return 1;
       } else if((nargs > 0) && stack.is_number(0)) {
-        // Jaja, von wegen cin.readsome() ... "heavily implementation defined."
-        // -> for(auto n=in_stream->readsome(buf, sizeof(buf)); n > 0; n=in_stream->readsome(buf, sizeof(buf))) s.append(buf, n);
+        // std::readsome behaviour is implementation defined, this is unsafe: for(auto n=in_stream->readsome(buf, sizeof(buf)); n > 0; n=in_stream->readsome(buf, sizeof(buf))) s.append(buf, n);
         static constexpr size_t buffer_size = 1024;
         const size_t arg = stack.get<size_t>(0);
         const size_t max_chars = ((arg>0) && (arg<buffer_size)) ? (arg) : (buffer_size);
@@ -587,10 +586,10 @@ namespace duktape { namespace detail {
     {
       if(!stream) return 0;
       int nargs = stack.top();
-      if((nargs == 1) && stack.is_buffer(0)) {
+      if((nargs == 1) && (stack.is_buffer(0) || stack.is_buffer_data(0))) {
         const char *buf = nullptr;
         duk_size_t sz = 0;
-        if((buf = reinterpret_cast<const char*>(stack.get_buffer(0, sz))) && (sz > 0)) {
+        if((buf = reinterpret_cast<const char*>(stack.is_buffer(0) ? stack.get_buffer(0, sz) : stack.get_buffer_data(0, sz) )) && (sz > 0)) {
           (*stream).write(buf, sz);
           (*stream).flush();
         }

@@ -193,42 +193,22 @@ int main(int argc, const char** argv, const char** envv)
       js.define_flags(duktape::engine::defflags::configurable|duktape::engine::defflags::writable|duktape::engine::defflags::enumerable);
       js.define("sys.app.verbose", has_verbose);
       js.define("sys.env");
-      #ifndef CONFIG_WITHOUT_ENVIRONMENT_VARIABLES
-      {
-        // Environment can be opt'ed out using the compiler switch.
-        const auto add_environment_variables = [](duktape::engine& js, const char** envv) {
-          if(envv) {
-            auto& stack = js.stack();
-            duktape::stack_guard sg(stack, true);
-            stack.select("sys.env");
-            for(int i=0; envv[i]; ++i) {
-              const auto e = string(envv[i]);
-              const auto pos = e.find('=');
-              if((pos != e.npos) && (pos > 0)) {
-                string key = e.substr(0, pos);
-                string val = e.substr(pos+1);
-                stack.set(move(key), move(val));
-              }
-            }
-          }
-        };
-        if(envv) {
-          auto& stack = js.stack();
-          duktape::stack_guard sg(stack, true);
-          stack.select("sys.env");
-          for(int i=0; envv[i]; ++i) {
-            const auto e = string(envv[i]);
-            const auto pos = e.find('=');
-            if((pos != e.npos) && (pos > 0)) {
-              string key = e.substr(0, pos);
-              string val = e.substr(pos+1);
-              stack.set(move(key), move(val));
-            }
+      if(envv) {
+        #ifndef CONFIG_WITHOUT_ENVIRONMENT_VARIABLES
+        auto& stack = js.stack();
+        duktape::stack_guard sg(stack, true);
+        stack.select("sys.env");
+        for(int i=0; envv[i]; ++i) {
+          const auto e = string(envv[i]);
+          const auto pos = e.find('=');
+          if((pos != e.npos) && (pos > 0)) {
+            string key = e.substr(0, pos);
+            string val = e.substr(pos+1);
+            stack.set(move(key), move(val));
           }
         }
-        add_environment_variables(js, envv);
+        #endif
       }
-      #endif
     }
     // Externally specified modules (e.g. via `-include` compiler option)
     {

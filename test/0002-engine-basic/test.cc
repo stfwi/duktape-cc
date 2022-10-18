@@ -217,6 +217,10 @@ namespace {
       test_expect(stack.has_prop_string(-1, "test1"));
       test_expect(!stack.has_prop_string(-1, "test2"));
     }
+    {
+      duktape::stack_guard sg(stack);
+      test_expect( stack.select("test.not_all~alnum") == false );
+    }
   }
 }
 

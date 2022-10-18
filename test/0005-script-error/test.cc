@@ -1,3 +1,8 @@
+/**
+ * @test script-error
+ *
+ * Error conversion and propagation through the JS/c++ call stack.
+ */
 #include "../testenv.hh"
 #include <duktape.hh>
 #include <mod/mod.stdio.hh>
