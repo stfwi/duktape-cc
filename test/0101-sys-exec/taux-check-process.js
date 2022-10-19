@@ -36,12 +36,12 @@ const timeout_guarded = function(proc, timeout_ms) {
 //----------------------------------------------------------------------------------------------------------
 
 test_note("sys.process: Process prints to stderr/stdout and exits. Manual timeout check.");
-if((proc=timeout_guarded(new sys.process(SCRIPT_TEST_BINARY, {stdout:true, stderr:true, timeout:200}))) != null) {
+if((proc=timeout_guarded(new sys.process(SCRIPT_TEST_BINARY, {stdout:true, stderr:true, timeout:500}))) != null) {
   test_expect( !proc.running );
   test_expect( !proc.ignore_stdout );
   test_expect( !proc.ignore_stderr );
   test_expect( proc.program == SCRIPT_TEST_BINARY);
-  test_expect( proc.timeout == 200 );
+  test_expect( proc.timeout == 500 );
   test_expect( proc.runtime < proc.timeout );
   test_expect( proc.runtime >= 0 );
   test_expect( proc.exitcode == 0 );

@@ -2,13 +2,14 @@
 const is_linux = sys.uname().sysname.search(/linux/i)===0;
 const test_data_file = "test-data.txt";
 fs.unlink(test_data_file);
+var file;
 
 // Closed file data.
 try {
   test_note('--------------------------------------------------------');
   test_note('Checks for: new fs.file()');
   const file_implicit_construction = fs.file(); // new not strictly required.
-  const file = new fs.file();
+  file = new fs.file();
   test_expect( !file.opened() );
   test_expect( file.closed() );
   test_expect( file.eof() );
@@ -32,9 +33,10 @@ try {
 
 // Read-open file nonexisting file.
 try {
+  if(file) file.close();
   test_note('--------------------------------------------------------');
   test_note('Checks for: new fs.file(test_data_file)');
-  const file = new fs.file(test_data_file);
+  file = new fs.file(test_data_file);
   test_fail("new fs.file('not existing file') should have thrown")
 } catch(ex) {
   test_pass("new fs.file() threw for not existing file: " + ex.message);
@@ -42,9 +44,10 @@ try {
 
 // Basic write and consistency
 try {
+  if(file) file.close();
   test_note('--------------------------------------------------------');
   test_note('Checks for: fs.file(test_data_file, "w")');
-  const file = fs.file(test_data_file, "w");
+  file = fs.file(test_data_file, "w");
   test_expect( file.opened() );
   test_expect( !file.closed() );
   test_expect( !file.eof() );
@@ -70,11 +73,12 @@ try {
 
 // Basic read-write and consistency
 try {
+  if(file) file.close();
   test_note('--------------------------------------------------------');
   test_note('Checks for: fs.file(test_data_file, "rw")');
   const prev_size = fs.size(test_data_file);
   test_expect( prev_size > 0 );
-  const file = fs.file(test_data_file, "rw+");
+  file = fs.file(test_data_file, "rw+");
   test_expect(!file.closed() );
   test_expect(!file.eof() );
   test_expect( file.opened() );
@@ -109,11 +113,12 @@ try {
 
 // open
 try {
+  if(file) file.close();
   test_note('--------------------------------------------------------');
   test_note('Checks for: fs.file.open(test_data_file, "rw")');
   const prev_size = fs.size(test_data_file);
   test_expect( prev_size > 0 );
-  const file = fs.file();
+  file = fs.file();
   test_expect( file.closed() );
   test_expect( file.open(test_data_file, "w") );
   test_expect( file.write("TEST") );
@@ -131,9 +136,10 @@ try {
 
 // open/constructor open options
 try {
+  if(file) file.close();
   test_note('--------------------------------------------------------');
   test_note('Checks for: fs.file.open(file, OPTIONS)');
-  const file = fs.file(test_data_file);
+  file = fs.file(test_data_file);
   try { test_expect( file.open(test_data_file, "r") ) } catch(ex) { test_fail("Unexpected fs.file.open exception:" + ex.message); } // read
   file.close();
   try { test_expect( file.open(test_data_file, "w") ) } catch(ex) { test_fail("Unexpected fs.file.open exception:" + ex.message); } // write (clear contents)
@@ -186,9 +192,10 @@ try {
 
 // binary
 try {
+  if(file) file.close();
   test_note('--------------------------------------------------------');
   test_note('Checks for: I/O size');
-  const file = fs.file(test_data_file, "rwb");
+  file = fs.file(test_data_file, "rwb");
   var wdata = (("#".repeat(15)) + "\n").repeat(65536);
   const n_wr1 = file.write(wdata);
   test_note("file.write(wdata) == " + n_wr1);
@@ -206,9 +213,10 @@ try {
 
 // non-blocking readln is not supported
 try {
+  if(file) file.close();
   test_note('--------------------------------------------------------');
   test_note('Checks for: readln nonblocking');
-  const file = fs.file(test_data_file, "w");
+  file = fs.file(test_data_file, "w");
   var wdata = (("#".repeat(15)) + "\n").repeat(10);
   const n_wr1 = file.write(wdata);
   test_note("file.write(wdata) == " + n_wr1);
@@ -225,9 +233,10 @@ try {
 
 // readln
 try {
+  if(file) file.close();
   test_note('--------------------------------------------------------');
   test_note('Checks for: readln');
-  const file = fs.file(test_data_file, "w");
+  file = fs.file(test_data_file, "w");
   const num_lines = 15;
   const line_data = "#".repeat(15);
   const wdata = (line_data+"\n").repeat(num_lines);
@@ -235,24 +244,27 @@ try {
   test_note("file.write(wdata) == " + n_wr1);
   test_expect(n_wr1 == wdata.length);
   file.close();
+  test_note("file size is == " + fs.size(test_data_file));
   file.open(test_data_file, "r");
-  var line = "";
-  for(var line_count=0; line_count<=num_lines; ++line_count) {
-    line = file.readln();
+  var lines = "";
+  for(var n=0; n<=num_lines; ++n) {
+    const line = file.readln();
     if(line === undefined) break;
+    lines += line + "\n";
   }
   file.close();
-  test_note( "line_count==" + line_count, "num_lines="+num_lines );
-  test_expect( line_count == num_lines );
+  test_note( "lines.length==" + lines.length, "num_lines="+num_lines );
+  test_expect( lines.replace(/[\s]+$/,"") == wdata.replace(/[\s]+$/,"") ); // win32 triggers EOF in the next loop, so the manual `lines` composition of the test adds one newline too much.
 } catch(ex) {
   test_fail("Unexpected exception: " + ex.message);
 }
 
 // non-blocking writeln is not supported
 try {
+  if(file) file.close();
   test_note('--------------------------------------------------------');
   test_note('Checks for: writeln nonblocking');
-  const file = fs.file(test_data_file, "wn");
+  file = fs.file(test_data_file, "wn");
   file.writeln("data");
   file.close();
   test_fail("file.writeln() should have thrown for non-blocking i/o");
@@ -262,9 +274,10 @@ try {
 
 // non-blocking printf is not supported
 try {
+  if(file) file.close();
   test_note('--------------------------------------------------------');
   test_note('Checks for: printf nonblocking');
-  const file = fs.file(test_data_file, "wn");
+  file = fs.file(test_data_file, "wn");
   file.prinf("%d", 10);
   test_fail("file.printf() should have thrown for non-blocking i/o");
 } catch(ex) {
@@ -273,13 +286,15 @@ try {
 
 // seek invalid whence
 try {
+  if(file) file.close();
   test_note('--------------------------------------------------------');
   test_note('Checks for: seek invalid');
-  const file = fs.file(test_data_file, "r");
+  file = fs.file(test_data_file, "r");
   file.seek(1,"unknown-whence");
   test_fail("file.seek() should have thrown for invalid whence");
 } catch(ex) {
   test_pass("Expected exception: " + ex.message)
 }
 
+if(file) file.close();
 fs.unlink(test_data_file);
