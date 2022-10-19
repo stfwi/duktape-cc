@@ -1421,7 +1421,7 @@ namespace duktape { namespace mod { namespace system { namespace exec {
         stack.push(int(instance.timeout()));
       })
       .setter("timeout", [](duktape::api& stack, native_process& instance) {
-        if((!stack.is<int>(-1)) && (stack.get<int>(-1)<0)) {
+        if((!stack.is<int>(-1)) || (stack.get<int>(-1)<0)) {
           stack.throw_exception("sys.process.timeout must be set to an number in milliseconds >0.");
         } else {
           instance.timeout(stack.get<int>(-1));

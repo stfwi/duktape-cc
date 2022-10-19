@@ -182,7 +182,6 @@ try {
   }
 } catch(ex) {
   test_pass("Expected exception: " + ex.message)
-  file.close();
 }
 
 // binary
@@ -203,8 +202,84 @@ try {
   file.close();
 } catch(ex) {
   test_pass("Expected exception: " + ex.message)
-  file.close();
 }
 
+// non-blocking readln is not supported
+try {
+  test_note('--------------------------------------------------------');
+  test_note('Checks for: readln nonblocking');
+  const file = fs.file(test_data_file, "w");
+  var wdata = (("#".repeat(15)) + "\n").repeat(10);
+  const n_wr1 = file.write(wdata);
+  test_note("file.write(wdata) == " + n_wr1);
+  test_expect(n_wr1 == wdata.length);
+  wdata = null;
+  file.close();
+  file.open(test_data_file, "rn");
+  var line = file.readln();
+  file.close();
+  test_fail("file.readln() should have thrown for non-blocking i/o");
+} catch(ex) {
+  test_pass("Expected exception: " + ex.message)
+}
+
+// readln
+try {
+  test_note('--------------------------------------------------------');
+  test_note('Checks for: readln');
+  const file = fs.file(test_data_file, "w");
+  const num_lines = 15;
+  const line_data = "#".repeat(15);
+  const wdata = (line_data+"\n").repeat(num_lines);
+  const n_wr1 = file.write(wdata);
+  test_note("file.write(wdata) == " + n_wr1);
+  test_expect(n_wr1 == wdata.length);
+  file.close();
+  file.open(test_data_file, "r");
+  var line = "";
+  for(var line_count=0; line_count<=num_lines; ++line_count) {
+    line = file.readln();
+    if(line === undefined) break;
+  }
+  file.close();
+  test_note( "line_count==" + line_count, "num_lines="+num_lines );
+  test_expect( line_count == num_lines );
+} catch(ex) {
+  test_fail("Unexpected exception: " + ex.message);
+}
+
+// non-blocking writeln is not supported
+try {
+  test_note('--------------------------------------------------------');
+  test_note('Checks for: writeln nonblocking');
+  const file = fs.file(test_data_file, "wn");
+  file.writeln("data");
+  file.close();
+  test_fail("file.writeln() should have thrown for non-blocking i/o");
+} catch(ex) {
+  test_pass("Expected exception: " + ex.message)
+}
+
+// non-blocking printf is not supported
+try {
+  test_note('--------------------------------------------------------');
+  test_note('Checks for: printf nonblocking');
+  const file = fs.file(test_data_file, "wn");
+  file.prinf("%d", 10);
+  test_fail("file.printf() should have thrown for non-blocking i/o");
+} catch(ex) {
+  test_pass("Expected exception: " + ex.message)
+}
+
+// seek invalid whence
+try {
+  test_note('--------------------------------------------------------');
+  test_note('Checks for: seek invalid');
+  const file = fs.file(test_data_file, "r");
+  file.seek(1,"unknown-whence");
+  test_fail("file.seek() should have thrown for invalid whence");
+} catch(ex) {
+  test_pass("Expected exception: " + ex.message)
+}
 
 fs.unlink(test_data_file);

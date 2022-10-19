@@ -814,9 +814,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     nfh::descriptor_type fd = nfh::invalid_descriptor;
     if(!get_file_object_data(stack, 0, fd, openopts)) return 0;
     if(openopts.find('n') != openopts.npos) {
-      return stack.throw_exception("You cannot use the file printf() method in combination with nonblocking "
-              "I/O because it is not guaranteed entirely written, and you do not have the buffered formatted "
-              "output.");
+      return stack.throw_exception("You cannot use the file readln() method in combination with nonblocking.");
     }
     std::string nl;
     stack.get_prop_string(0, "newline");
@@ -884,9 +882,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     nfh::descriptor_type fd = nfh::invalid_descriptor;
     if(!get_file_object_data(stack, 0, fd, openopts)) return 0;
     if(openopts.find('n') != openopts.npos) {
-      return stack.throw_exception("You cannot use the file printf() method in combination with nonblocking "
-              "I/O because it is not guaranteed entirely written, and you do not have the buffered formatted "
-              "output.");
+      return stack.throw_exception("You cannot use the file writeln() method in combination with nonblocking.");
     }
     std::string nl;
     stack.get_prop_string(0, "newline");
@@ -1033,7 +1029,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     nfh::descriptor_type fd = nfh::invalid_descriptor;
     if(!get_file_object_data(stack, 0, fd)) return 0;
     if(!nfh::lock(fd, access)) {
-      stack.throw_exception("Failed to lock file.");
+      return stack.throw_exception("Failed to lock file.");
     }
     stack.top(1);
     return 1;

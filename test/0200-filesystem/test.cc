@@ -225,39 +225,6 @@ namespace {
     #undef LINETEST
   }
 
-  void test_chmod_functions(duktape::engine& js)
-  {
-    test_comment("test_chmod_functions");
-    #ifndef OS_WINDOWS
-      test_makefiletree();
-      test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
-      test_expect( js.eval<bool>("fs.writefile('testfile', 'test') === true") );
-      if(js.eval<bool>("fs.isfile('testfile')")) {
-        test_expect( js.eval<bool>("fs.chmod('testfile', '755') === true") );
-        test_comment( js.eval<string>("fs.stat('testfile').mode") );
-        test_expect( js.eval<bool>("fs.isreadable('testfile') === true") );
-        test_expect( js.eval<bool>("fs.isexecutable('testfile') === true") );
-        test_expect( js.eval<bool>("fs.iswritable('testfile') === true") );
-        test_expect( js.eval<bool>("fs.chmod('testfile', '600') === true") );
-        test_comment( js.eval<string>("fs.stat('testfile').mode") );
-        test_expect( js.eval<bool>("fs.isreadable('testfile') === true") );
-        test_expect( js.eval<bool>("fs.isexecutable('testfile') === false") );
-        test_expect( js.eval<bool>("fs.iswritable('testfile') === true") );
-        test_expect( (js.eval<bool>("fs.stat('testfile').mode === '600'")) );
-        test_expect( js.eval<bool>("fs.chmod('testfile', '644') === true") );
-        test_comment( js.eval<string>("fs.stat('testfile').mode") );
-        test_expect( js.eval<bool>("fs.stat('testfile').mode === '644'"));
-        test_expect( js.eval<bool>("fs.symlink('testfile', 'testfile.ln')") );
-        test_expect( js.eval<bool>("fs.lstat('testfile').mode === '644'") );
-        test_expect( js.eval<bool>("fs.lstat('testfile.ln').mode !== undefined") ); // what it is exactly depends on umask.
-        test_expect( js.eval<bool>("fs.unlink('testfile.ln')") );
-      }
-      test_expect( js.eval<bool>("fs.unlink('testfile')") );
-    #else
-      (void)js;
-    #endif
-  }
-
   void test_readdir_function(duktape::engine& js)
   {
     test_comment("test_readdir_function");
@@ -295,8 +262,60 @@ namespace {
     test_expect( js.eval<string>("fs.glob('*').join(',')") == "1,2,3,4,5" );
   }
 
-}
 
+  void test_chmod_functions(duktape::engine& js)
+  {
+    test_comment("test_chmod_functions");
+    #ifndef OS_WINDOWS
+      test_makefiletree();
+      test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
+      test_expect( js.eval<bool>("fs.writefile('testfile', 'test') === true") );
+      if(test_expect_cond( js.eval<bool>("fs.isfile('testfile')")) ) {
+        test_expect( js.eval<bool>("fs.chmod('testfile', 'rwxr--r--') === true") );
+        test_expect( js.eval<bool>("fs.stat('testfile').mode === '744'"));
+        test_expect( js.eval<bool>("fs.chmod('testfile', '755') === true") );
+        test_comment( js.eval<string>("fs.stat('testfile').mode") );
+        test_expect( js.eval<bool>("fs.isreadable('testfile') === true") );
+        test_expect( js.eval<bool>("fs.isexecutable('testfile') === true") );
+        test_expect( js.eval<bool>("fs.iswritable('testfile') === true") );
+        test_expect( js.eval<bool>("fs.chmod('testfile', '600') === true") );
+        test_comment( js.eval<string>("fs.stat('testfile').mode") );
+        test_expect( js.eval<bool>("fs.isreadable('testfile') === true") );
+        test_expect( js.eval<bool>("fs.isexecutable('testfile') === false") );
+        test_expect( js.eval<bool>("fs.iswritable('testfile') === true") );
+        test_expect( (js.eval<bool>("fs.stat('testfile').mode === '600'")) );
+        test_expect( js.eval<bool>("fs.chmod('testfile', '644') === true") );
+        test_comment( js.eval<string>("fs.stat('testfile').mode") );
+        test_expect( js.eval<bool>("fs.stat('testfile').mode === '644'"));
+        test_expect( js.eval<bool>("fs.symlink('testfile', 'testfile.ln') === true") );
+        test_expect( js.eval<bool>("fs.readlink('testfile.ln') === 'testfile'") );
+        test_expect( js.eval<bool>("fs.lstat('testfile').mode === '644'") );
+        test_expect( js.eval<bool>("fs.lstat('testfile.ln').mode !== undefined") ); // what it is exactly depends on umask.
+        test_expect( js.eval<bool>("fs.unlink('testfile.ln') === true") );
+        test_expect( js.eval<bool>("fs.utime() === false") ); // no file, no mtime
+        test_expect( js.eval<bool>("fs.utime('testfile') === false") ); // no mtime
+        test_expect( js.eval<bool>("fs.utime('testfile', new Date(100000000e3), new Date(100000000e3)) === true") ); // mtime and atime
+        test_expect( js.eval<bool>("fs.stat('testfile').mtime.valueOf() === 100000000e3") );
+        test_expect( js.eval<bool>("fs.stat('testfile').atime.valueOf() === 100000000e3") );
+        test_expect( js.eval<bool>("fs.utime('testfile', new Date(200000000e3)) === true") ); // mtime
+        test_expect( js.eval<bool>("fs.stat('testfile').mtime.valueOf() === 200000000e3") );
+        test_expect( js.eval<bool>("fs.rename() === false") );
+        test_expect( js.eval<bool>("fs.rename('testfile') === false") );
+        test_expect( js.eval<bool>("fs.rename('testfile','testfile1') === true") );
+        test_expect( js.eval<bool>("fs.rename('testfile1','testfile') === true") );
+        test_expect( js.eval<bool>("fs.hardlink('testfile') === false") );
+        test_expect( js.eval<bool>("fs.hardlink('testfile','testfile1') === true") );
+        test_expect( js.eval<bool>("fs.isfile('testfile1') === true") );
+        test_expect( js.eval<bool>("fs.read('testfile1') === fs.read('testfile')") );
+        test_expect( js.eval<bool>("fs.unlink('testfile1') === true") );
+      }
+      test_expect( js.eval<bool>("fs.unlink('testfile')") );
+    #else
+      (void)js;
+    #endif
+  }
+
+}
 
 void test(duktape::engine& js)
 {

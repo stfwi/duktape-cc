@@ -1947,14 +1947,11 @@ namespace duktape { namespace detail { namespace {
       stack.pop(2);
       if((!is_byref_api) && (stack.top() != sizeof...(Args))) {
         // Note: Duktape should have filled the args with undefined.
-        stack.throw_exception("Invalid number of arguments.");
-        return 0;
+        return stack.throw_exception("Invalid number of arguments.");
       } else if(!fn) {
-        stack.throw_exception("Invalid function definition (bug in JS subsystem!)");
-        return 0;
+        return stack.throw_exception("Invalid function definition (bug in JS subsystem!)");
       } else if((!is_byref_api) && stack.is_constructor_call()) {
-        stack.throw_exception("The called function cannot be a constructor.");
-        return 0;
+        return stack.throw_exception("The called function cannot be a constructor.");
       } else {
         if(!is_byref_api) {
           // For native c++ wrapped functions the conversion has to be
@@ -1962,8 +1959,7 @@ namespace duktape { namespace detail { namespace {
           // original arguments passed from JS.
           for(auto i = stack.top()-1; i >= 0; --i) {
             if(stack.is_undefined(i) || stack.is_null(i)) {
-              stack.throw_exception(std::string("Argument undefined/null passed to native function or missing arguments."));
-              return 0;
+              return stack.throw_exception(std::string("Argument undefined/null passed to native function or missing arguments."));
             }
           }
         }
@@ -1977,16 +1973,14 @@ namespace duktape { namespace detail { namespace {
         } catch(const script_error& e) {
           if(e.callstack().empty()) {
             // Script error was thrown from the c++ code itself
-            stack.throw_exception(e.what());
+            return stack.throw_exception(e.what());
           } else {
             // Script error was caught by call() or eval() invoked in the function,
             // and the forwarded Error object is still on stack top --> rethrow.
-            stack.throw_exception();
+            return stack.throw_exception();
           }
-          return 0;
         } catch(const std::exception& e) {
-          stack.throw_exception(e.what());
-          return 0;
+          return stack.throw_exception(e.what());
         }
       }
     }
@@ -2140,7 +2134,7 @@ namespace duktape {
       } catch(const engine_error&) {
         throw;
       } catch(const std::exception& e) {
-        stack.throw_exception(e.what());
+        return stack.throw_exception(e.what());
       }
       return 0;
     }
@@ -2227,7 +2221,7 @@ namespace duktape {
       } catch(const engine_error&) {
         throw;
       } catch(const std::exception& e) {
-        stack.throw_exception(e.what());
+        return stack.throw_exception(e.what());
       }
       return 0;
     }
@@ -2255,7 +2249,7 @@ namespace duktape {
       } catch(const engine_error&) {
         throw;
       } catch(const std::exception& e) {
-        stack.throw_exception(e.what());
+        return stack.throw_exception(e.what());
       }
       return 0;
     }
@@ -2315,7 +2309,7 @@ namespace duktape {
       } catch(const engine_error&) {
         throw;
       } catch(const script_error& e) {
-        stack.throw_exception(e.what());
+        return stack.throw_exception(e.what());
       } catch(const std::exception& e) {
         throw engine_error(std::string("Fatal error constructing native object:") + e.what());
       }
@@ -2348,7 +2342,7 @@ namespace duktape {
       } catch(const engine_error&) {
         throw;
       } catch(const std::exception& e) {
-        stack.throw_exception(e.what());
+        return stack.throw_exception(e.what());
       }
       return 0;
     }
@@ -2383,7 +2377,7 @@ namespace duktape {
       } catch(const engine_error&) {
         throw;
       } catch(const std::exception& e) {
-        stack.throw_exception(e.what());
+        return stack.throw_exception(e.what());
       }
       return 0;
     }

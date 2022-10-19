@@ -81,11 +81,11 @@ namespace duktape { namespace detail {
         if(stack.pcall_prop(0, 1)==0) return 1;
         if(!stack.is_error(-1)) {
           stack.top(0);
-          stack.throw_exception(std::string("JSON parse error in '") + path + "'.");
+          return stack.throw_exception(std::string("JSON parse error in '") + path + "'.");
         } else {
           const auto message = stack.to<std::string>(-1);
           stack.top(0);
-          stack.throw_exception(message + " (file '" + path + "')");
+          return stack.throw_exception(message + " (file '" + path + "')");
         }
         return 0;
       }

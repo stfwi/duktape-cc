@@ -455,8 +455,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
           if(stack.is_function(-1)) {
             filter_function = stack.top()-1;
           } else {
-            stack.throw_exception("The filter setting for reading a directory must be a function");
-            return 0;
+            return stack.throw_exception("The filter setting for reading a directory must be a function");
           }
         }
       } else {
@@ -503,8 +502,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
               // 4. Filter returns undefined: Means, don't add, the callback
             path.clear();
           } else {
-            stack.throw_exception("The 'find.filter' function must return a string, true/false or nothing (undefined)");
-            return false;
+            return bool(stack.throw_exception("The 'find.filter' function must return a string, true/false or nothing (undefined)"));
           }
           stack.pop();
         }
@@ -603,12 +601,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         if((s == "r") || (s == "-r")) {
           recursive = true;
         } else if(!s.empty()) {
-          stack.throw_exception("String options can be only 'r' for recursive copying");
-          return 0;
+          return stack.throw_exception("String options can be only 'r' for recursive copying");
         }
       } else {
-        stack.throw_exception("Invalid configuration for copy function (must be plain object or string)");
-        return 0;
+        return stack.throw_exception("Invalid configuration for copy function (must be plain object or string)");
       }
     }
 
@@ -751,12 +747,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         if((s == "r") || (s == "-r")) {
           recursive = true;
         } else if(!s.empty()) {
-          stack.throw_exception("String options can be only 'r' for recursive removing");
-          return 0;
+          return stack.throw_exception("String options can be only 'r' for recursive removing");
         }
       } else {
-        stack.throw_exception("Invalid configuration for remove function (must be plain object or string)");
-        return 0;
+        return stack.throw_exception("Invalid configuration for remove function (must be plain object or string)");
       }
     }
     if(dst.empty()) return stack.throw_exception("No file specified to remove");

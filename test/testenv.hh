@@ -490,6 +490,7 @@ void test_include_script(duktape::engine& js, const std::string source_file="tes
   // Redefine print and alert in case stdio was included in the test c++
   js.define("print", ecma_print); // may be overwritten by stdio
   js.define("alert", ecma_warn); // may be overwritten by stdio
+  js.define("sys.script", source_file);
 
   // Actual include
   {
@@ -550,18 +551,18 @@ int main(int argc, char *argv[])
     testenv_init(js);
     try {
       test(js);
-    } catch(duktape::exit_exception& e) {
+    } catch(const duktape::exit_exception& e) {
       test_note(std::string("Exit with code ") + std::to_string(e.exit_code()) + "'.");
-    } catch(duktape::script_error& e) {
-      test_fail("Unexpected script error: ", e.callstack());
-    } catch(duktape::engine_error& e) {
+    } catch(const duktape::script_error& e) {
+      test_fail("Unexpected script error: '", e.what(), "'", e.callstack());
+    } catch(const duktape::engine_error& e) {
       test_fail("Unexpected engine error: ", e.what());
-    } catch(std::exception& e) {
+    } catch(const std::exception& e) {
       test_fail("Unexpected exception: '", e.what(), "'.");
     } catch (...) {
       test_fail("Unexpected exception.");
     }
-  } catch(std::exception& e) {
+  } catch(const std::exception& e) {
     test_fail("Unexpected init exception: '", e.what(), "'.");
   } catch (...) {
     test_fail("Unexpected init exception.");

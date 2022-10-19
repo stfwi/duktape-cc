@@ -194,19 +194,16 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
           if(stack.is_function(2)) {
             filter_function = 2;
           } else {
-            stack.throw_exception("The filter setting for reading a file must be a function.");
-            return 0;
+            return stack.throw_exception("The filter setting for reading a file must be a function.");
           }
         }
       } else {
-        stack.throw_exception("Invalid configuration for file read function.");
-        return 0;
+        return stack.throw_exception("Invalid configuration for file read function.");
       }
     }
 
     if(binary && filter_function) {
-      stack.throw_exception("file read function: You can't use (text) filters when reading binary data.");
-      return 0;
+      return stack.throw_exception("file read function: You can't use (text) filters when reading binary data.");
     }
 
     std::string contents;
@@ -261,8 +258,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
               //    function output is ignored anyway after it returns.
               //
           } else {
-            stack.throw_exception("The file reading filter function must return a string, true/false or nothing (undefined)");
-            return 0;
+            return stack.throw_exception("The file reading filter function must return a string, true/false or nothing (undefined)");
           }
           stack.pop();
         }
@@ -284,11 +280,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
     if(Append) mode |= std::ios::app;
     std::string data;
     if(stack.is_undefined(1)) {
-      stack.throw_exception("The file write function needs a data argument (2nd argument)");
-      return 0;
+      return stack.throw_exception("The file write function needs a data argument (2nd argument)");
     } else if(stack.is_function(1)) {
-      stack.throw_exception("The file write function cannot use functions as data argument");
-      return 0;
+      return stack.throw_exception("The file write function cannot use functions as data argument");
     } else if(stack.is_buffer(1)) {
       data = stack.buffer<std::string>(1);
       mode |= std::ios::binary;
@@ -1042,8 +1036,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
       // "shortcuts" should not be available. Hence, here we throw to
       // clearify that actual symlinking is meant, not .lnk files.
       #if !defined(_WIN32_WINNT) || (_WIN32_WINNT < 0x0601)
-      stack.throw_exception("Your windows version does not support symlinks (this is not creating .lnk files)");
-      return 0;
+      return stack.throw_exception("Your windows version does not support symlinks (this is not creating .lnk files)");
       #else
       if(!stack.is<std::string>(0) || !stack.is<std::string>(1)) { stack.push(false); return 1; }
       std::string src = PathAccessor::to_sys(stack.to<std::string>(0)).c_str();

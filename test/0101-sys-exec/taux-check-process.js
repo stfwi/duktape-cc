@@ -118,4 +118,11 @@ for(var i=0; i<10 && proc.running; ++i) sys.sleep(5e-3);
 test_expect( !proc.running );
 test_expect( proc.timeout == 100 );
 
+try {
+  proc.timeout = -1; // invalid, must be >= 0
+  test_fail("proc.timeout = -1  <-- did not throw");
+} catch(ex) {
+  test_pass("proc.timeout = -1  <-- did not throw '"+ex.message+"'");
+}
+
 proc = null;

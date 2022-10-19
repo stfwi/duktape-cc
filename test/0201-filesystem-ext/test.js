@@ -111,3 +111,26 @@ var found_exception=false;
   test_comment( '|  files=fs.find(testdir, {name:"*", filter:function(){return 1}})');
   test_expect(found_exception===true);
 })();
+
+(function(){
+  found_exception=false;
+  test_comment( 'Find filter function no-directory exception check.');
+  try { fs.find(testdir+"-not-really-there", {name:"*.tmp"}); } catch(ignored) {found_exception=true}
+  test_expect(found_exception===true);
+})();
+
+(function(){
+  found_exception=false;
+  test_comment( 'Find filter function double spec if filter function.');
+  try { fs.find(testdir, {name:"*.tmp", filter:function(path){return false}}, function(path){return false}); } catch(ignored) {found_exception=true}
+  test_expect(found_exception===true);
+})();
+
+(function(){
+  test_comment( 'Find filter function double spec if filter function.');
+  try {
+    test_expect( fs.find(testdir, {name:"*"}, function(path){return true}).length > 0 );
+  } catch(ex) {
+    test_fail("Unexpected exception: " + ex.message)
+  }
+})();
