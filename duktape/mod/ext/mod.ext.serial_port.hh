@@ -1118,10 +1118,10 @@
         if(!matched_port.empty()) prt.swap(matched_port);
       }
       #ifdef _WINDOWS_
-        // Do some port name convention fixes: We
-        // Simply use the last digits and add
-        // "COM" before.
-        if(!prt.empty()) {
+        // Do some port name convention fixes: We simply use the last digits
+        // and add "COM" before, given that the matching port is any kind of port
+        // path like string. Basic character check likely suffixes here.
+        if(!prt.empty() && (prt.find_first_not_of("\\.comCOM0123456789") == prt.npos)) {
           int i = (int) prt.length() - 1;
           while((i >= 0) && ::isdigit(prt[i])) --i;
           if(i < 0) {

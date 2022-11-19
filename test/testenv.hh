@@ -19,6 +19,11 @@
   #endif
 #endif
 
+// Test debug macro used as temporary output to track problems.
+// All uses must be removed from the code (the normal binary will
+// intentionally not know the macro and won't compile).
+#define TEST_DEBUG(X) {std::cerr << "[TEMP] " << X << std::endl;}
+
 
 namespace testenv {
 
