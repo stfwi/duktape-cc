@@ -1083,8 +1083,8 @@
      * @param device_match strict
      * @return bool
      */
-    bool settings(const typename string_type::value_type *str, device_match strict=device_match::strict)
-    { return settings(string_type(str)); (void)strict; }
+    bool settings(const typename string_type::value_type *str, device_match strict=device_match::nonstrict)
+    { return settings(string_type(str), strict); }
 
     /**
      * Parses the setting from string. On error, it sets the
@@ -1093,7 +1093,7 @@
      * error state).
      *
      * @param string_type str
-     * @param device_match strict=device_match::strict
+     * @param device_match strict=device_match::nonstrict
      * @return bool
      */
     bool settings(string_type str, device_match strict=device_match::nonstrict)
@@ -1808,7 +1808,13 @@ namespace duktape { namespace mod { namespace ext { namespace serial_port {
         if(stack.top()==0) {
           return new native_tty();
         } else if((stack.top()==1) && (stack.is<string>(0))) {
-          return new native_tty(stack.get<string>(0));
+          auto tty = std::make_unique<native_tty>();
+          if(!tty->settings(stack.get<string>(0))) {
+            const auto msg = tty->error_message();
+            tty.reset(nullptr);
+            throw duktape::script_error(string("sys.serialport: ") + msg);
+          }
+          return tty.release();
         } else {
           throw duktape::script_error("sys.serialport constructor needs either a data string (e.g. '<port>,115200n81') or no arguments.");
         }
@@ -2076,15 +2082,15 @@ namespace duktape { namespace mod { namespace ext { namespace serial_port {
       })
       #if(0 && JSDOC)
       /**
-       * Reads a line from the received data. Optionally with a given
+       * Reads lines from the received data. Optionally with a given
        * timeout (else the default timeout), and supression of empty
-       * lines. Returns `undefined` if no line was received, the fetched
-       * line otherwise.
+       * lines. Returns `undefined` if nothing was received, the full
+       * lines received up to now as array otherwise.
        *
        * @throws {Error}
        * @param {number}  timeout_ms
        * @param {boolean} ignore_empty
-       * @return {string|undefined}
+       * @return {string[]|undefined}
        */
       sys.serialport.prototype.readln = function(timeout_ms, ignore_empty) {};
       #endif

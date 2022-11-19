@@ -46,6 +46,52 @@
   #define PROGRAM_VERSION "v1.0"
 #endif
 
+namespace {
+
+  /**
+   * Print text for `--help`
+   */
+  void print_help()
+  {
+    std::cerr
+      << "NAME\n\n"
+      << "  " << PROGRAM_NAME << "\n\n"
+      << "SYNOPSIS" << "\n\n"
+      << "  " << PROGRAM_NAME << " [ -h ] [ -e '<code>' | -s <script file> ] [--] [script arguments]\n\n"
+      << "DESCRIPTION" << "\n\n"
+      << "  Evaluate javascript code pass via -e argument, via script\n"
+      << "  file, or via piping into stdin.\n\n"
+      << "ARGUMENTS\n\n"
+      << "       --help         : Print help and exit.\n"
+      << "  -e | --eval <code>  : Evaluate code given as argument. Done after loading\n"
+      << "                        a file (or stdin).\n"
+      << "  -s | --script <file>: Optional explicit flag for <script file> shown below.\n"
+      << "  <script file>       : (First positional argument). A javascript file to\n"
+      << "                        load and run or - (dash) for piping in from stdin\n"
+      << "  --                  : Optional separator between program options and\n"
+      << "                        script options/arguments. Useful if e.g. '-e'\n"
+      << "                        shall be passed to the script instead of evaluating.\n"
+      << "  script arguments    : All arguments after '--' or the script file are passed\n"
+      << "                        to the script and are there available as the 'sys.args'\n"
+      << "                        array.\n\n"
+      << "EXIT CODE\n\n"
+      << "  0=success, other codes indicate an error, either from a script exception or\n"
+      << "                       from binary program error.\n"
+      << (PROGRAM_NAME) << " " << (PROGRAM_VERSION) << ", (CC) stfwi 2015-2020, lic: MIT\n"
+      ;;
+  }
+
+  /**
+   * Print text for `--version`
+   */
+  void print_version()
+  {
+    std::cout << "program: " << PROGRAM_NAME << "\nversion: " << PROGRAM_VERSION << "\n";
+  }
+
+}
+
+
 /**
  * Application main().
  */
@@ -56,7 +102,10 @@ int main(int argc, const char** argv, const char** envv)
 
   string script_path, script_code, eval_code, lib_code;
   vector<string> args;
-  bool has_verbose = false;
+  unsigned arg_flags = 0;
+  static constexpr unsigned arg_flag_verbose = 0x1;
+  static constexpr unsigned arg_flag_version = 0x2;
+  static constexpr unsigned arg_flag_help    = 0x4;
 
   // Application input processing
   try {
@@ -73,36 +122,10 @@ int main(int argc, const char** argv, const char** envv)
           args.push_back(move(arg));
         } else if(arg == "--") {
           was_last_opt = true;
-        } else if(arg == "--help") {
-          cerr << "NAME\n\n"
-               << "  " << PROGRAM_NAME << "\n\n"
-               << "SYNOPSIS" << "\n\n"
-               << "  " << PROGRAM_NAME << " [ -h ] [ -e '<code>' | -s <script file> ] [--] [script arguments]\n\n"
-               << "DESCRIPTION" << "\n\n"
-               << "  Evaluate javascript code pass via -e argument, via script\n"
-               << "  file, or via piping into stdin.\n\n"
-               << "ARGUMENTS\n\n"
-               << "       --help         : Print help and exit.\n"
-               << "  -e | --eval <code>  : Evaluate code given as argument. Done after loading\n"
-               << "                        a file (or stdin).\n"
-               << "  -s | --script <file>: Optional explicit flag for <script file> shown below.\n"
-               << "  <script file>       : (First positional argument). A javascript file to\n"
-               << "                        load and run or - (dash) for piping in from stdin\n"
-               << "  --                  : Optional separator between program options and\n"
-               << "                        script options/arguments. Useful if e.g. '-e'\n"
-               << "                        shall be passed to the script instead of evaluating.\n"
-               << "  script arguments    : All arguments after '--' or the script file are passed\n"
-               << "                        to the script and are there available as the 'sys.args'\n"
-               << "                        array.\n\n"
-               << "EXIT CODE\n\n"
-               << "  0=success, other codes indicate an error, either from a script exception or\n"
-               << "                       from binary program error.\n"
-               << (PROGRAM_NAME) << " " << (PROGRAM_VERSION) << ", (CC) stfwi 2015-2020, lic: MIT\n"
-               ;;
-          return 1;
+        } else if((argc == 2) && (arg == "--help")) {
+          arg_flags |= arg_flag_help;
         } else if((argc == 2) && ((arg == "--version") || (arg == "-v"))) {
-          cout << "program: " << PROGRAM_NAME << "\nversion: " << PROGRAM_VERSION << "\n";
-          return 0;
+          arg_flags |= arg_flag_version;
         } else if(arg == "-e" || arg == "--eval") {
           if((++i >= argc) || (!argv[i]) || ((arg=argv[i]) == "--")) {
             cerr << "No code after '-e/--eval'\n";
@@ -111,7 +134,7 @@ int main(int argc, const char** argv, const char** envv)
             eval_code = arg;
           }
         } else if(arg == "-v" || arg == "--verbose") {
-          has_verbose = true;
+          arg_flags |= arg_flag_verbose;
         } else if(arg == "-s" || arg == "--script") {
           if((++i >= argc) || (!argv[i]) || ((arg=argv[i]) == "--")) {
             cerr << "No script file after '-s/--script'\n";
@@ -121,8 +144,14 @@ int main(int argc, const char** argv, const char** envv)
             script_path = arg;
           }
         } else if((!has_file_arg) && (arg.length() > 0) && (arg[0] != '-')) {
-          has_file_arg = true;
-          script_path = arg;
+          #ifdef CONFIG_WITH_APP_ATTACHMENT
+            // Positional script arg conflicts with built-in library script,
+            // so specifying -s/--script is needed then.
+            args.push_back(move(arg));
+          #else
+            has_file_arg = true;
+            script_path = arg;
+          #endif
         } else {
           args.push_back(move(arg));
         }
@@ -185,13 +214,13 @@ int main(int argc, const char** argv, const char** envv)
       // Base application context constants.
       js.define("sys.app.name", PROGRAM_NAME);
       js.define("sys.app.version", PROGRAM_VERSION);
-      js.define("sys.app.path", js.call<string>("fs.dirname", js.call<string>("fs.realpath", string(argv[0]))));
+      js.define("sys.app.path", js.call<string>("fs.application"));
       js.define("sys.args", args);
       js.define("sys.script", script_path);
-      js.define("sys.scriptdir", js.eval<string>("sys.app.path"));
+      js.define("sys.scriptdir", js.eval<string>("fs.dirname(sys.app.path)"));
       // Overwritable values:
       js.define_flags(duktape::engine::defflags::configurable|duktape::engine::defflags::writable|duktape::engine::defflags::enumerable);
-      js.define("sys.app.verbose", has_verbose);
+      js.define("sys.app.verbose", bool(arg_flags & arg_flag_verbose));
       js.define("sys.env");
       if(envv) {
         #ifndef CONFIG_WITHOUT_ENVIRONMENT_VARIABLES
@@ -224,8 +253,24 @@ int main(int argc, const char** argv, const char** envv)
       #else
       constexpr bool has_lib = false;
       #endif
-      if((!has_lib) && eval_code.empty() && (script_code.empty())) {
-        throw std::runtime_error("No js file specified/piped in, and no code to evaluate passed. Nothing to do");
+      if((!has_lib) && (eval_code.empty()) && (script_code.empty())) {
+        if(arg_flags & arg_flag_help) {
+          print_help();
+          return 1;
+        } else if(arg_flags & arg_flag_version) {
+          print_version();
+          return 0;
+        } else {
+          throw std::runtime_error("No js file specified/piped in, and no code to evaluate passed. Nothing to do");
+        }
+      } else {
+        // Forward --help/--version to the built-in script. It is guaranteed
+        // above that these are the only argument if specified.
+        if(arg_flags & arg_flag_help) {
+          args.push_back("--help");
+        } else if(arg_flags & arg_flag_version) {
+          args.push_back("--version");
+        }
       }
       // -s/--script (or positional) script file executed 2nd.
       js.eval<void>(script_code, script_path);

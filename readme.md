@@ -1,4 +1,3 @@
-
 # `duktape-cc` - C++ wrapper templates for the Duktape JavaScript Engine
 
 ![CI test run](https://github.com/stfwi/duktape-cc/actions/workflows/ci-test.yml/badge.svg)
@@ -381,7 +380,7 @@ as needed.
   - sys.escapeshellarg(arg)
   - sys.process(program, arguments, options)
   - sys.process.prototype.kill(force)
-  - sys.mmap(path, flags)
+  - sys.mmap(path, flags, size)
   - sys.mmap.prototype.get(offset, size)
   - sys.mmap.prototype.set(data)
   - sys.resource.load(path)
@@ -404,3 +403,4 @@ as needed.
 ### Number object
 
   - Number.prototype.limit(min, max)
+  - Number.prototype.clamp(min, max)

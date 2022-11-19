@@ -206,8 +206,8 @@ examples:
 .PHONY: documentation
 
 documentation: $(BUILDDIR)/cli/$(BINARY) | doc/src/documentation.djs doc/src/readme.src.md
-	$(BUILDDIR)/cli/$(BINARY) doc/src/documentation.djs --stdmods -o doc/stdmods.js
-	$(BUILDDIR)/cli/$(BINARY) doc/src/documentation.djs --readme  -o readme.md
+	$(BUILDDIR)/cli/$(BINARY) -s doc/src/documentation.djs --stdmods -o doc/stdmods.js
+	$(BUILDDIR)/cli/$(BINARY) -s doc/src/documentation.djs --readme  -o readme.md
 
 #---------------------------------------------------------------------------------------------------
 # Tests

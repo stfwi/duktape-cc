@@ -316,7 +316,7 @@ fs.realpath = function(path) {};
  *
  * @return {string|undefined}
  */
-fs.app_path = function() {};
+fs.application = function() {};
 
 /**
  * Returns directory part of the given path (without tailing slash/backslash)
@@ -1347,6 +1347,9 @@ sys.escapeshellarg = function(arg) {};
  * @param {array} [arguments]
  * @param {object} [options]
  *
+ * @property {string}  program      - The program executed.
+ * @property {array}   arguments    - The program CLI arguments passed in.
+ * @property {object}  environment  - The program environment variables passed in or deduced.
  * @property {boolean} running      - True if the child process has not terminated yet. Updates stdout/stderr/stdin/exitcode.
  * @property {number}  exitcode     - The exit code of the child process, or -1.
  * @property {string}  stdout       - Current output received from the child process.
@@ -1370,7 +1373,24 @@ sys.process.prototype.kill = function(force) {};
 
 /** @file: mod.xlang.hh */
 
+/**
+ * Returns the limited ("clamped") value of the number.
+ * Minimum and maximum value have to be specified.
+ *
+ * @param {number} min
+ * @param {number} max
+ */
 Number.prototype.limit = function(min, max) {};
+
+/**
+ * Returns the limited ("clamped") value of the number.
+ * Minimum and maximum value have to be specified. Alias
+ * of `Number.prototype.limit`.
+ * @see Number.prototype.limit
+ * @param {number} min
+ * @param {number} max
+ */
+Number.prototype.clamp = function(min, max) {};
 
 /** @file: mod.ext.mmap.hh */
 
@@ -1397,7 +1417,7 @@ Number.prototype.limit = function(min, max) {};
  * @property {boolean} closed       - Holds true when the file is not opened/nothing mapped.
  * @property {string}  error        - Error string representation of the last method call.
  */
-sys.mmap = function(path, flags) {};
+sys.mmap = function(path, flags, size) {};
 
 /**
  * Closes and invalidates the memory map.
@@ -1526,15 +1546,15 @@ sys.serialport.prototype.read = function(timeout_ms) {};
 sys.serialport.prototype.write = function(data) {};
 
 /**
- * Reads a line from the received data. Optionally with a given
+ * Reads lines from the received data. Optionally with a given
  * timeout (else the default timeout), and supression of empty
- * lines. Returns `undefined` if no line was received, the fetched
- * line otherwise.
+ * lines. Returns `undefined` if nothing was received, the full
+ * lines received up to now as array otherwise.
  *
  * @throws {Error}
  * @param {number}  timeout_ms
  * @param {boolean} ignore_empty
- * @return {string|undefined}
+ * @return {string[]|undefined}
  */
 sys.serialport.prototype.readln = function(timeout_ms, ignore_empty) {};
 

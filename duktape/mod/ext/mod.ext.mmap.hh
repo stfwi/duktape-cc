@@ -441,7 +441,7 @@ namespace duktape { namespace mod { namespace ext { namespace mmap {
      * @property {boolean} closed       - Holds true when the file is not opened/nothing mapped.
      * @property {string}  error        - Error string representation of the last method call.
      */
-    sys.mmap = function(path, flags) {};
+    sys.mmap = function(path, flags, size) {};
     #endif
     js.define(
       // Wrapped class specification and type.
@@ -561,11 +561,11 @@ namespace duktape { namespace mod { namespace ext { namespace mmap {
       .method("set", [](duktape::api& stack, native_mmap& instance) {
         if((stack.top()!=2) || (!stack.is<int>(0)) || stack.is_undefined(1)) {
           throw duktape::script_error("sys.mmap.set: Need arguments offset (number) and value (buffer or number).");
-        } else if(stack.is_buffer(1)) {
+        } else if(stack.is_buffer(1) || stack.is_buffer_data(1)) {
           const auto offset = stack.get<int>(0);
           if((offset<0) || (size_t(offset)>=instance.size())) throw duktape::script_error(string("sys.mmap.set: Offset exceeds memory map range:  ") + to_string(offset));
           size_t buffer_size = 0;
-          const auto* buffer = reinterpret_cast<const native_mmap::value_type*>(stack.get_buffer(1, buffer_size));
+          const auto* buffer = reinterpret_cast<const native_mmap::value_type*>(stack.is_buffer(1) ? stack.get_buffer(1, buffer_size) : stack.get_buffer_data(1, buffer_size));
           if(size_t(buffer_size+offset) > instance.size()) {
             throw duktape::script_error("sys.mmap.set: Input buffer size (with offset) exceeds the memory map range.");
           } else if(!buffer) {
