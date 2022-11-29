@@ -129,7 +129,7 @@ int main(int argc, const char** argv)
     js.define("my.isPrime", is_prime);        // from above (native c++)
     js.define("my.readfile", readfile);       // from above (Duktape API C++ wrapper function)
     js.define("my.argumentCount", argument_count);  // from above (Duktape C function)
-    js.define("sys.exit", duktape::mod::stdlib::exit_js); // picked from a module
+    js.define("sys.exit", duktape::mod::stdlib::detail::exit_js); // picked from a module
 
     //
     // Evaluate code. The result of the last operation/statement is

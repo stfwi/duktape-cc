@@ -1959,7 +1959,7 @@ namespace duktape { namespace detail { namespace {
           // original arguments passed from JS.
           for(auto i = stack.top()-1; i >= 0; --i) {
             if(stack.is_undefined(i) || stack.is_null(i)) {
-              return stack.throw_exception(std::string("Argument undefined/null passed to native function or missing arguments."));
+              return stack.throw_exception(std::string("Argument undefined/null passed to native function or missing arguments (argument: ") + std::to_string(i+1) + ").");
             }
           }
         }
@@ -3096,7 +3096,6 @@ namespace duktape { namespace detail {
     api_type stack_;
     typename defflags::type define_flags_;
     MutexType mutex_;
-
   };
 }}
 

@@ -262,7 +262,7 @@ namespace {
     // Exit exception catching, using JS stdlib exit.
     const auto test_with = [&](int code) {
       auto js = duktape::engine();
-      js.define("exit", duktape::mod::stdlib::exit_js);
+      js.define("exit", duktape::mod::stdlib::detail::exit_js);
       const auto exit_str = string("exit(") + to_string(code) + ")";
       try {
         js.eval(exit_str);

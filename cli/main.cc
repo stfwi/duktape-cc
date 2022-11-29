@@ -222,22 +222,9 @@ int main(int argc, const char** argv, const char** envv)
       js.define_flags(duktape::engine::defflags::configurable|duktape::engine::defflags::writable|duktape::engine::defflags::enumerable);
       js.define("sys.app.verbose", bool(arg_flags & arg_flag_verbose));
       js.define("sys.env");
-      if(envv) {
-        #ifndef CONFIG_WITHOUT_ENVIRONMENT_VARIABLES
-        auto& stack = js.stack();
-        duktape::stack_guard sg(stack, true);
-        stack.select("sys.env");
-        for(int i=0; envv[i]; ++i) {
-          const auto e = string(envv[i]);
-          const auto pos = e.find('=');
-          if((pos != e.npos) && (pos > 0)) {
-            string key = e.substr(0, pos);
-            string val = e.substr(pos+1);
-            stack.set(move(key), move(val));
-          }
-        }
-        #endif
-      }
+      #ifndef CONFIG_WITHOUT_ENVIRONMENT_VARIABLES
+        duktape::mod::stdlib::define_env(js, envv);
+      #endif
     }
     // Externally specified modules (e.g. via `-include` compiler option)
     {
@@ -261,7 +248,8 @@ int main(int argc, const char** argv, const char** envv)
           print_version();
           return 0;
         } else {
-          throw std::runtime_error("No js file specified/piped in, and no code to evaluate passed. Nothing to do");
+          cerr << "Error: No js file specified/piped in (-s <script>), and no code to evaluate passed (-e \"code\").\n";
+          throw duktape::exit_exception(1);
         }
       } else {
         // Forward --help/--version to the built-in script. It is guaranteed

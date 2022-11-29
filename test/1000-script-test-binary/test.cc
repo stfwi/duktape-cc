@@ -26,6 +26,74 @@
 
 using namespace std;
 
+
+int ecma_eval_sandboxed(duktape::api& stack)
+{
+  const auto code_sequence   = stack.to<vector<string>>(0);
+  const auto options         = (stack.top()<2) ? (string()) : (stack.to<string>(1));
+  const auto without_eval    = options.find("no-eval")!=options.npos;
+  const auto without_builtin = options.find("no-builtin")!=options.npos;
+  const auto compile_strict  = options.find("strict")!=options.npos;
+  stack.clear();
+  stack.push_object();
+
+  duktape::engine js_box;
+  size_t code_index = 0;
+
+  if(!without_builtin) {
+    js_box.define("print", ecma_print);
+    js_box.define("alert", ecma_warn);
+    js_box.define("callstack", ecma_callstack);
+    js_box.define("sandboxed", true);
+  }
+  try {
+    if(code_sequence.empty()) {
+      throw runtime_error("TEST BUG: No code to evaluate or compile.");
+    }
+    // Dependencies:
+    for(code_index=0; code_index<code_sequence.size()-1; ++code_index) {
+      js_box.eval<void>(code_sequence[code_index]);
+    }
+    // Test:
+    js_box.stack().clear();
+    if(js_box.stack().pcompile_string(compile_strict ? duktape::api::compile_strict : duktape::api::compile_default, code_sequence.back()) != 0) {
+      stack.property("error", js_box.stack().to<string>(-1));
+      stack.property("type", "script_error");
+      stack.property("compile_error", true);
+    }
+    if(!without_eval) {
+      if(js_box.stack().pcall(0) == 0) {
+        stack.property("data", js_box.stack().to<string>(-1));
+      } else {
+        stack.property("error", js_box.stack().to<string>(-1));
+        stack.property("type", "script_error");
+      }
+    }
+  } catch(const duktape::exit_exception&) {
+    stack.property("exit", true);
+  } catch(const duktape::script_error& e) {
+    stack.property("error", e.what());
+    stack.property("type", "script_error");
+    if(code_index < code_sequence.size()-1) {
+      stack.property("dependency_index", code_index);
+    }
+  } catch(const duktape::engine_error& e) {
+    stack.property("error", e.what());
+    stack.property("type", "engine_error");
+    if(code_index < code_sequence.size()-1) {
+      stack.property("dependency_index", code_index);
+    }
+  } catch(const std::exception& e) {
+    stack.property("error", e.what());
+    stack.property("type", "exception");
+  } catch(...) {
+    stack.property("error", "!fatal");
+    stack.property("type", "uncaught_exception");
+  }
+  return 1;
+}
+
+
 void test(duktape::engine& js)
 {
   duktape::mod::stdlib::define_in(js);
@@ -48,8 +116,9 @@ void test(duktape::engine& js)
     duktape::mod::experimental::define_in(js);
   #endif
   // Re-route basic stdio to testenv
-  js.define("print", ecma_print); // may be overwritten by stdio
-  js.define("alert", ecma_warn); // may be overwritten by stdio
+  js.define("print", ecma_print);
+  js.define("alert", ecma_warn);
   js.define("callstack", ecma_callstack);
+  js.define("test_sandboxed", ecma_eval_sandboxed);
   test_include_script(js);
 }

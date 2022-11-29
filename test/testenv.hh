@@ -164,6 +164,8 @@ namespace testenv {
 void test(duktape::engine& js);
 std::string test_source_file;
 std::vector<std::string> test_source_lines;
+std::vector<std::string> test_cli_args;
+std::vector<std::string> test_cli_env;
 
 namespace {
 
@@ -378,6 +380,7 @@ namespace {
 }
 
 namespace {
+
   std::string trim(const std::string& s)
   {
     const auto sz = s.size();
@@ -388,9 +391,7 @@ namespace {
     while(ei>si && isspace(s[ei])) --ei;
     return s.substr(si, ei-si+1);
   }
-}
 
-namespace {
   // Note: The purpose of this function is to find the outer "test_expect()" locations and
   //       converting the arguments into a string to evaluate in the JS engine. The implementation
   //       is working but somewhat clumsy and will be replaced/optimised at a later date.
@@ -559,7 +560,6 @@ void test_include_script(duktape::engine& js, const std::string source_file="tes
   js.eval(std::move(code), test_source_file);
 }
 
-std::vector<std::string> test_cli_args;
 
 void testenv_init(duktape::engine& js)
 {
@@ -581,15 +581,17 @@ void testenv_init(duktape::engine& js)
   js.define("test_gc", ecma_garbage_collector, 0);
   js.define("callstack", ecma_callstack, 0);
   js.define("sys.args", test_cli_args);
+  js.define("sys.envv", test_cli_env); // intentionally not sys.env object as in the main cli.
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char *argv[], const char** envv)
 {
   try {
     std::locale::global(std::locale("C"));
     ::setlocale(LC_ALL, "C");
     test_initialize();
     for(int i=1; i<argc && argv[i]; ++i) test_cli_args.emplace_back(argv[i]);
+    for(int i=0;   envv && envv[i]; ++i) test_cli_env.emplace_back(envv[i]);
     duktape::engine js;
     testenv_init(js);
     try {

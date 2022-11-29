@@ -72,6 +72,7 @@ endif
 # Test selection
 #---------------------------------------------------------------------------------------------------
 TEST_SELECTION:=$(sort $(wildcard test/*$(TEST)*/))
+TEST_SCRIPT_ARGS=
 TEST_BINARIES_SOURCES:=$(foreach F, $(filter test/0%/ , $(TEST_SELECTION)), $Ftest.cc)
 TEST_BINARIES:=$(patsubst %.cc,$(BUILDDIR)/%$(BINARY_EXTENSION),$(TEST_BINARIES_SOURCES))
 TEST_BINARIES_RESULTS:=$(patsubst %.cc,$(BUILDDIR)/%.log,$(TEST_BINARIES_SOURCES))
@@ -272,7 +273,7 @@ $(BUILDDIR)/test/1%/test.log: test/1%/test.js $(TEST_SCRIPT_BINARY)
 	@mkdir -p $(dir $@)
 	@rm -f $@
 	@cp -f $(dir $<)/* $(dir $@)/
-	@cd $(dir $@); ../../../$(TEST_SCRIPT_BINARY) </dev/null >$(notdir $@) 2>&1 && echo "[pass] $@" || echo "[fail] $@"
+	@cd $(dir $@); ../../../$(TEST_SCRIPT_BINARY) $(TEST_SCRIPT_ARGS) </dev/null >$(notdir $@) 2>&1 && echo "[pass] $@" || echo "[fail] $@"
  ifneq ($(OS),Windows_NT)
 	@[ -f test.gcda ] && mv test.gcda $(dir $@) || /bin/true
 	@[ ! -f test.gcno ] && cp $(patsubst %$(BINARY_EXTENSION),%.gcno,$(TEST_SCRIPT_BINARY)) >/dev/null 2>&1 $(dir $@) || /bin/true
@@ -303,7 +304,7 @@ coverage:
 coverage-runs: $(TEST_BINARIES_AUXILIARY) $(TEST_BINARIES_RESULTS) $(TEST_SCRIPT_RESULTS)
 
 # All gcov files from the executed tests
-coverage-files: $(patsubst %/test.log,%/test.gcov,$(TEST_BINARIES_RESULTS))  $(patsubst %/test.log,%/test.gcov,$(TEST_SCRIPT_RESULTS))
+coverage-files: $(patsubst %/test.log,%/test.gcov,$(TEST_BINARIES_RESULTS)) $(patsubst %/test.log,%/test.gcov,$(TEST_SCRIPT_RESULTS))
 
 # Analysis of one test using gcov/lcov
 $(BUILDDIR)/test/%/test.gcov: $(BUILDDIR)/test/%/test.log
