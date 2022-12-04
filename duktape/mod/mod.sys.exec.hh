@@ -553,12 +553,29 @@
         string_type envv;
         {
           if(!dont_inherit_environment_) {
+
             struct envstrings
             {
-              envstrings() : cstr(::GetEnvironmentStringsA()) {}
+              envstrings() : cstr(getenv()) {}
               ~envstrings() { if(cstr) ::FreeEnvironmentStringsA(cstr); }
               char* cstr;
+
+              static char* getenv() noexcept
+              {
+                // Fixes mingw issue that `GetEnvironmentStringsA()` is not defined for `-DUNICODE`,
+                // and `GetEnvironmentStrings` is a macro override for `GetEnvironmentStringsW`.
+                // Whatever, fine, it surely makes sense in a greater context, but we need bytes.
+                #if defined(GetEnvironmentStrings) && !defined(GetEnvironmentStringsA)
+                  #define GetEnvironmentStrings_TMP GetEnvironmentStrings
+                  #undef GetEnvironmentStrings
+                  return GetEnvironmentStrings();
+                  #define GetEnvironmentStrings GetEnvironmentStrings_TMP
+                #else
+                  return GetEnvironmentStringsA();
+                #endif
+              }
             };
+
             envstrings userenv;
             if(userenv.cstr) {
               bool was0 = false;
