@@ -1,3 +1,6 @@
+#ifdef WITH_EXPERIMENTAL
+  #include <mod/exp/mod.experimental.hh>
+#endif
 #include "../testenv.hh"
 #include <mod/mod.stdio.hh>
 #include <mod/mod.stdlib.hh>
@@ -15,9 +18,6 @@
 #include <mod/mod.sys.os.hh>
 #ifdef WITH_EXTERNAL_DEPENDENCIES
   #include <mod/ext/mod.ext.srecord.hh>
-#endif
-#ifdef WITH_EXPERIMENTAL
-  #include <mod/exp/mod.experimental.hh>
 #endif
 #include <exception>
 #include <stdexcept>

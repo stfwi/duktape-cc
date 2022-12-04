@@ -9,10 +9,10 @@
  * @requires Duktape CFLAGS -DDUK_USE_CPP_EXCEPTIONS
  * @cxxflags -std=c++17 -W -Wall -Wextra -pedantic -fstrict-aliasing
  */
-#include <duktape/duktape.hh>
 #ifdef WITH_EXPERIMENTAL
   #include <duktape/mod/exp/mod.experimental.hh>
 #endif
+#include <duktape/duktape.hh>
 #include <duktape/mod/mod.stdio.hh>
 #include <duktape/mod/mod.stdlib.hh>
 #include <duktape/mod/mod.fs.hh>
