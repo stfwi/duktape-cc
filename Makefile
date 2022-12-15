@@ -125,6 +125,7 @@ dist: clean | binary
 	@mkdir -p dist/doc
 	@cp -f $(BUILDDIR)/cli/$(BINARY) dist/
 	@cp -f doc/stdmods.js dist/doc/
+	@cp -f doc/js-basics/overview.md dist/doc/
 
 all:
 	@$(MAKE) -j binary
