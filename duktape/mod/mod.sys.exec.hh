@@ -108,8 +108,8 @@
 
       explicit child_process() :
         program_(), arguments_(), environment_(), timeout_ms_(), ignore_stdout_(), ignore_stderr_(), redirect_stderr_to_stdout_(),
-        without_path_search_(), dont_inherit_environment_(), no_argument_escaping_(), exit_code_(-1), was_timeout_(false),
-        process_terminated_(true), start_time_(), proc_(), stdin_data_(), stdout_data_(), stderr_data_()
+        without_path_search_(), dont_inherit_environment_(), no_argument_escaping_(), no_pipe_auto_closing_(false), exit_code_(-1),
+        was_timeout_(false), process_terminated_(true), start_time_(), proc_(), stdin_data_(), stdout_data_(), stderr_data_()
       {}
 
       child_process(
@@ -123,14 +123,14 @@
         bool redirect_stderr_to_stdout = false,
         bool without_path_search = false,
         bool dont_inherit_environment = false,
-        bool no_argument_escaping = true
+        bool no_argument_escaping = true,
+        bool dont_auto_close_pipes = false
       ) :
         program_(), arguments_(), environment_(), timeout_ms_(timeout_ms),
         ignore_stdout_(ignore_stdout), ignore_stderr_(ignore_stderr), redirect_stderr_to_stdout_(redirect_stderr_to_stdout),
         without_path_search_(without_path_search), dont_inherit_environment_(dont_inherit_environment),
-        no_argument_escaping_(no_argument_escaping), exit_code_(-1), was_timeout_(false), process_terminated_(false),
-        start_time_(), proc_(), stdin_data_(std::move(stdin_data)),
-        stdout_data_(), stderr_data_()
+        no_argument_escaping_(no_argument_escaping), no_pipe_auto_closing_(dont_auto_close_pipes), exit_code_(-1), was_timeout_(false),
+        process_terminated_(false), start_time_(), proc_(), stdin_data_(std::move(stdin_data)), stdout_data_(), stderr_data_()
       {
         run(std::move(program), std::move(arguments), std::move(environment), timeout_ms);
       }
@@ -187,6 +187,12 @@
 
       child_process& no_arg_escaping(bool no_esc) noexcept
       { no_argument_escaping_ = no_esc; return *this; }
+
+      bool no_pipe_auto_closing() const noexcept
+      { return no_pipe_auto_closing_; }
+
+      child_process& no_pipe_auto_closing(bool no_close) noexcept
+      { no_pipe_auto_closing_ = no_close; return *this; }
 
       exitcode_type exit_code() const noexcept
       { return was_timeout_ ? exitcode_type(-1) : exitcode_type(exit_code_); }
@@ -350,7 +356,7 @@
           proc_.ofd = po[0]; unblock(proc_.ofd); close_pipe(po[1]);
           proc_.efd = pe[0]; unblock(proc_.efd); close_pipe(pe[1]);
           proc_.pid = pid;
-          if(stdin_data_.empty()) close_pipe(proc_.ifd);
+          if(stdin_data_.empty() && (!no_pipe_auto_closing())) close_pipe(proc_.ifd);
           if(ignore_stdout_) close_pipe(proc_.ofd);
           if(ignore_stderr_) close_pipe(proc_.efd);
         }
@@ -376,11 +382,13 @@
         }
         // Write to child stdin if bytes left
         if(proc_.ifd >= 0) {
-          const size_t size = stdin_data_.length();
+          const size_t size = stdin_data_.size();
           const void* data = stdin_data_.data();
-          int r;
+          int r = -1;
           if(size <= 0) {
-            close_pipe(proc_.ifd);
+            if(!no_pipe_auto_closing()) {
+              close_pipe(proc_.ifd);
+            }
           } else if((r=::write(proc_.ifd, data, size)) < 0) {
             switch(errno) {
               case EINTR:
@@ -389,12 +397,12 @@
               default:
                 string_type().swap(stdin_data_);
             }
-          } else if((!r) || (((size_t)r) == stdin_data_.length())) {
+          } else if((!r) || (((size_t)r) == stdin_data_.size())) {
             string_type().swap(stdin_data_);
           } else {
             stdin_data_ = stdin_data_.substr(r);
           }
-          if(stdin_data_.empty()) {
+          if(stdin_data_.empty() && (!no_pipe_auto_closing())) {
             close_pipe(proc_.ifd);
           }
         }
@@ -620,7 +628,7 @@
           }
         }
         if(stdin_data_.empty()) {
-          proc_.in.close();
+          if(!no_pipe_auto_closing()) proc_.in.close();
         } else {
           ::CloseHandle(proc_.in.r);
           proc_.in.r = nullptr;
@@ -696,7 +704,9 @@
                 if(n_written >= stdin_data_.size()) {
                   stdin_data_.clear();
                   keep_writing = false;
-                  proc_.in.close();
+                  if(!no_pipe_auto_closing()) {
+                    proc_.in.close();
+                  }
                 } else {
                   stdin_data_ = stdin_data_.substr(n_written);
                 }
@@ -853,10 +863,12 @@
       bool without_path_search_;
       bool dont_inherit_environment_;
       bool no_argument_escaping_;
+      bool no_pipe_auto_closing_;
 
       int exit_code_;
       bool was_timeout_;
       bool process_terminated_;
+      bool auto_close_stdin_;
       std::chrono::steady_clock::time_point start_time_;
       process_handles proc_;
       string_type stdin_data_;
@@ -932,6 +944,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       bool& ignore_stderr,
       bool& redirect_stderr_to_stdout,
       bool& no_exception,
+      bool& keep_stdin_open,
       duktape::api::index_type& stdout_callback,
       duktape::api::index_type& stderr_callback
     )
@@ -975,6 +988,9 @@ namespace duktape { namespace detail { namespace system { namespace exec {
         without_path_search = stack.get_prop_string<bool>(optindex, "nopath", false);
         noenv = stack.get_prop_string<bool>(optindex, "noenv", false);
         timeout_ms = stack.get_prop_string<int>(optindex, "timeout", -1);
+        if(stack.has_prop_string(optindex, "noclose")) {
+          keep_stdin_open = stack.get_prop_string<int>(optindex, "noclose", -1);
+        }
         // program path/name (in $PATH)
         if(stack.get_prop_string(optindex, "program")) {
           if(!stack.is<std::string>(-1)) {
@@ -1095,13 +1111,14 @@ namespace duktape { namespace detail { namespace system { namespace exec {
     bool ignore_stderr = true;
     bool redirect_stderr_to_stdout = false;
     bool no_exception = false;
+    bool keep_stdin_open = false;
     index_type stdout_callback = -1;
     index_type stderr_callback = -1;
     {
       const std::string error = arguments_import(
         stack, timeout_ms, program, arguments, environment, stdin_data, without_path_search,
-        noenv, ignore_stdout, ignore_stderr, redirect_stderr_to_stdout, no_exception, stdout_callback,
-        stderr_callback
+        noenv, ignore_stdout, ignore_stderr, redirect_stderr_to_stdout, no_exception, keep_stdin_open,
+        stdout_callback, stderr_callback
       );
       if(!error.empty()) {
         if(!no_exception) stack.throw_exception(error); // else just return undefined.
@@ -1112,7 +1129,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       auto proc = child_process(
         std::move(program), std::move(arguments), std::move(environment), std::move(stdin_data),
         timeout_ms, ignore_stdout, ignore_stderr, redirect_stderr_to_stdout, without_path_search,
-        noenv, false
+        noenv, false, keep_stdin_open
       );
       std::string stdout_buffer, stderr_buffer;
       do {
@@ -1189,7 +1206,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       try {
         auto proc = child_process(
           std::move(sh), std::move(args), std::vector<std::string>(), std::string(), timeout_ms,
-          false, true, false, true, false, no_arg_escape
+          false, true, false, true, false, no_arg_escape, false
         );
         while(proc.running()) {
           proc.update(10);
@@ -1233,8 +1250,21 @@ namespace duktape { namespace mod { namespace system { namespace exec {
      *   All these options are optional and have sensible default values:
      *
      *    {
+     *      // The function can be called like `fs.exec( {options} )` (options 1st argument). In this
+     *      // case the program to execute can be specified using the `program` property.
+     *      program : {string},
+     *
+     *      // The function can also be called with the options as first or second argument. In both
+     *      // cases the command line arguments to pass on to the execution can be passed as the `args`
+     *      // property.
+     *      args    : {array},
+     *
      *      // Plain object for environment variables to set.
      *      env     : {object}={},
+     *
+     *      // Process run timeout in ms, the process will be terminated (and SIGKILL killed later if
+     *      // not terminating itself) if it runs longer than this timeout.
+     *      timeout : {number}
      *
      *      // Optional text that is passed to the program via stdin piping.
      *      stdin   : {String}="",
@@ -1268,19 +1298,10 @@ namespace duktape { namespace mod { namespace system { namespace exec {
      *      // engine errors still throw.
      *      noexcept: {boolean}=false,
      *
-     *      // The function can be called like `fs.exec( {options} )` (options 1st argument). In this
-     *      // case the program to execute can be specified using the `program` property.
-     *      program : {string},
-     *
-     *      // The function can also be called with the options as first or second argument. In both
-     *      // cases the command line arguments to pass on to the execution can be passed as the `args`
-     *      // property.
-     *      args    : {array},
-     *
-     *      // Process run timeout in ms, the process will be terminated (and SIGKILL killed later if
-     *      // not terminating itself) if it runs longer than this timeout.
-     *      timeout : {number}
-     *
+     *      // Normally pipes to the process are automatically closed (such as STDIN if all data
+     *      // are sent to the child process). To explicitly say that these pipes should be kept
+     *      // open if not closed by the child, specify `noclose=true`.
+     *      noclose: {boolean}=false
      *    }
      *
      * - The return value is:
@@ -1386,12 +1407,13 @@ namespace duktape { namespace mod { namespace system { namespace exec {
         bool ignore_stderr = true;
         bool redirect_stderr_to_stdout = false;
         bool no_exception = false;
+        bool keep_stdin_open = true;
         index_type stdout_callback = -1;
         index_type stderr_callback = -1;
         const std::string error = arguments_import(
           stack, timeout_ms, program, arguments, environment, stdin_data, without_path_search,
-          noenv, ignore_stdout, ignore_stderr, redirect_stderr_to_stdout, no_exception, stdout_callback,
-          stderr_callback
+          noenv, ignore_stdout, ignore_stderr, redirect_stderr_to_stdout, no_exception, keep_stdin_open,
+          stdout_callback, stderr_callback
         );
         if(!error.empty()) throw std::runtime_error(error);
         return new native_process(

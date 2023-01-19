@@ -26,6 +26,16 @@ exit = function(status_code) {};
  */
 include = function(path) {};
 
+/**
+ * Contains the environment variables of the application
+ * as key-value (string->string) plain object. If env is
+ * not explicitly enabled in the binary application, the
+ * object is undefined.
+ *
+ * @var {object} sys.env
+ */
+sys.env = {};
+
 /** @file: mod.stdio.hh */
 
 /**
@@ -1232,8 +1242,21 @@ sys.beep = function() {};
  *   All these options are optional and have sensible default values:
  *
  *    {
+ *      // The function can be called like `fs.exec( {options} )` (options 1st argument). In this
+ *      // case the program to execute can be specified using the `program` property.
+ *      program : {string},
+ *
+ *      // The function can also be called with the options as first or second argument. In both
+ *      // cases the command line arguments to pass on to the execution can be passed as the `args`
+ *      // property.
+ *      args    : {array},
+ *
  *      // Plain object for environment variables to set.
  *      env     : {object}={},
+ *
+ *      // Process run timeout in ms, the process will be terminated (and SIGKILL killed later if
+ *      // not terminating itself) if it runs longer than this timeout.
+ *      timeout : {number}
  *
  *      // Optional text that is passed to the program via stdin piping.
  *      stdin   : {String}="",
@@ -1267,19 +1290,10 @@ sys.beep = function() {};
  *      // engine errors still throw.
  *      noexcept: {boolean}=false,
  *
- *      // The function can be called like `fs.exec( {options} )` (options 1st argument). In this
- *      // case the program to execute can be specified using the `program` property.
- *      program : {string},
- *
- *      // The function can also be called with the options as first or second argument. In both
- *      // cases the command line arguments to pass on to the execution can be passed as the `args`
- *      // property.
- *      args    : {array},
- *
- *      // Process run timeout in ms, the process will be terminated (and SIGKILL killed later if
- *      // not terminating itself) if it runs longer than this timeout.
- *      timeout : {number}
- *
+ *      // Normally pipes to the process are automatically closed (such as STDIN if all data
+ *      // are sent to the child process). To explicitly say that these pipes should be kept
+ *      // open if not closed by the child, specify `noclose=true`.
+ *      noclose: {boolean}=false
  *    }
  *
  * - The return value is:
@@ -1370,27 +1384,6 @@ sys.process = function(program, arguments, options) {};
  * @param {boolean} force
  */
 sys.process.prototype.kill = function(force) {};
-
-/** @file: mod.xlang.hh */
-
-/**
- * Returns the limited ("clamped") value of the number.
- * Minimum and maximum value have to be specified.
- *
- * @param {number} min
- * @param {number} max
- */
-Number.prototype.limit = function(min, max) {};
-
-/**
- * Returns the limited ("clamped") value of the number.
- * Minimum and maximum value have to be specified. Alias
- * of `Number.prototype.limit`.
- * @see Number.prototype.limit
- * @param {number} min
- * @param {number} max
- */
-Number.prototype.clamp = function(min, max) {};
 
 /** @file: mod.ext.mmap.hh */
 
@@ -1637,3 +1630,24 @@ sys.hash.sha1 = function(data, isfile) {};
  * @return {string}
  */
 sys.hash.sha512 = function(data, isfile) {};
+
+/** @file: mod.xlang.hh */
+
+/**
+ * Returns the limited ("clamped") value of the number.
+ * Minimum and maximum value have to be specified.
+ *
+ * @param {number} min
+ * @param {number} max
+ */
+Number.prototype.limit = function(min, max) {};
+
+/**
+ * Returns the limited ("clamped") value of the number.
+ * Minimum and maximum value have to be specified. Alias
+ * of `Number.prototype.limit`.
+ * @see Number.prototype.limit
+ * @param {number} min
+ * @param {number} max
+ */
+Number.prototype.clamp = function(min, max) {};
