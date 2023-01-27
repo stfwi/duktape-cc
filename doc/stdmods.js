@@ -1375,15 +1375,47 @@ sys.escapeshellarg = function(arg) {};
 sys.process = function(program, arguments, options) {};
 
 /**
+ * Updates run status and pipes. Identical to
+ * querying the `sys.process.running` property,
+ * except that a default polling timeout of 5ms
+ * applies (means the program blocks for 5ms if
+ * no data have arrived, otherwise the method
+ * returns earlier).
+ *
+ * @return {sys.process}
+ */
+sys.process.prototype.update = function() {};
+
+/**
  * Sends a termination signal to the child process, normally
  * a graceful termination request (SIGTERM/SIGQUIT), when
  * `force` is `true`, the `SIGKILL` event is used.
  * On Windows this it applies a process termination, `force`
- * is ignored.
+ * is ignored. Returns a reference to itself.
  *
  * @param {boolean} force
+ * @return {sys.process}
  */
 sys.process.prototype.kill = function(force) {};
+
+/**
+ * Reads data from the STDOUT of the child process.
+ * Returns an empty string if no data are available,
+ * throws STDOUT is ignored.
+ *
+ * @param {number} timeout_ms
+ */
+sys.process.prototype.read = function(timeout_ms) {};
+
+/**
+ * Writes data to the STDIN of the child process.
+ * Returns a reference to itself. Silently ignores
+ * the input if the child process has terminated.
+ *
+ * @param {string} data
+ * @return {sys.process}
+ */
+sys.process.prototype.write = function(data) {};
 
 /** @file: mod.ext.mmap.hh */
 

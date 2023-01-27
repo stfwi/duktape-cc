@@ -210,10 +210,10 @@
       { return stdin_data_; }
 
       child_process& stdin_data(const string_type& stdin_data) noexcept
-      { stdin_data_ = stdin_data; }
+      { stdin_data_ = stdin_data; return *this; }
 
       child_process& stdin_data(string_type&& stdin_data) noexcept
-      { stdin_data_ = stdin_data; }
+      { stdin_data_ = stdin_data; return *this; }
 
       const string_type& stdout_data() const noexcept
       { return stdout_data_; }
@@ -646,6 +646,8 @@
 
       bool update(milliseconds_type poll_wait)
       {
+        bool keep_writing = true;
+        bool had_poll_match = false;
         int n_loops_left = 2;
         while(--n_loops_left > 0) {
           if(!process_terminated_) {
@@ -661,7 +663,10 @@
             switch(::WaitForMultipleObjects(handles.size(), &handles[0], false, DWORD(poll_wait))) {
               case WAIT_OBJECT_0+1: // out or err
               case WAIT_OBJECT_0+2: // err
-                n_loops_left = 2;
+                if(!had_poll_match) {
+                  had_poll_match = true;
+                  n_loops_left = 2;
+                }
                 break;
               case WAIT_OBJECT_0:
                 process_terminated_ = true;
@@ -675,23 +680,22 @@
               default:
                 n_loops_left = 0;
             }
-          }
-          if(proc_.in.w && !stdin_data_.empty()) {
-            bool keep_writing = true;
-            while(proc_.in.w && !stdin_data_.empty() && keep_writing) {
+            // Push pending data to STDIN of the child process
+            while(keep_writing && proc_.in.w && !stdin_data_.empty()) {
               DWORD n_written = 0;
               DWORD n_towrite = stdin_data_.size() > 4096 ? 4096 : stdin_data_.size();
               if(!::WriteFile(proc_.in.w, stdin_data_.data(), n_towrite, &n_written, nullptr)) {
                 switch(::GetLastError()) {
                   case ERROR_PIPE_BUSY:
                     keep_writing = false;
+                    n_loops_left = 2;
                     break;
                   case ERROR_BROKEN_PIPE:
                   case ERROR_NO_DATA:
                   case ERROR_PIPE_NOT_CONNECTED:
                     keep_writing = false;
                     proc_.in.close();
-                    // break: intentionally no break.
+                    // break: intentionally no break to throw.
                   case ERROR_INVALID_HANDLE:
                     keep_writing = false;
                     proc_.in.w = nullptr;
@@ -716,13 +720,18 @@
               }
             }
           }
+          // Read child process STDOUT (optionally ignore, but consume the pipe data).
           {
             string_type data = readpipe(proc_.out.r, ignore_stdout_);
             if(!data.empty()) { n_loops_left = 0; stdout_data_.append(std::move(data)); }
           }
+          // Read child process STDERR (optionally ignore, but consume the pipe data).
           {
             string_type data = readpipe(proc_.err.r, ignore_stderr_);
             if(!data.empty()) { n_loops_left = 0; stderr_data_.append(std::move(data)); }
+          }
+          if(ignore_stdout_ && ignore_stderr_) {
+            n_loops_left = 0;
           }
         }
         if(process_terminated_) {
@@ -989,7 +998,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
         noenv = stack.get_prop_string<bool>(optindex, "noenv", false);
         timeout_ms = stack.get_prop_string<int>(optindex, "timeout", -1);
         if(stack.has_prop_string(optindex, "noclose")) {
-          keep_stdin_open = stack.get_prop_string<int>(optindex, "noclose", -1);
+          keep_stdin_open = stack.get_prop_string<bool>(optindex, "noclose", keep_stdin_open);
         }
         // program path/name (in $PATH)
         if(stack.get_prop_string(optindex, "program")) {
@@ -1407,19 +1416,19 @@ namespace duktape { namespace mod { namespace system { namespace exec {
         bool ignore_stderr = true;
         bool redirect_stderr_to_stdout = false;
         bool no_exception = false;
-        bool keep_stdin_open = true;
+        bool no_close = true;
         index_type stdout_callback = -1;
         index_type stderr_callback = -1;
         const std::string error = arguments_import(
           stack, timeout_ms, program, arguments, environment, stdin_data, without_path_search,
-          noenv, ignore_stdout, ignore_stderr, redirect_stderr_to_stdout, no_exception, keep_stdin_open,
+          noenv, ignore_stdout, ignore_stderr, redirect_stderr_to_stdout, no_exception, no_close,
           stdout_callback, stderr_callback
         );
         if(!error.empty()) throw std::runtime_error(error);
         return new native_process(
           std::move(program), std::move(arguments), std::move(environment), std::move(stdin_data),
           timeout_ms, ignore_stdout, ignore_stderr, redirect_stderr_to_stdout, without_path_search,
-          noenv, false
+          noenv, false, no_close
         );
       })
       .getter("program", [](duktape::api& stack, native_process& instance) {
@@ -1442,6 +1451,11 @@ namespace duktape { namespace mod { namespace system { namespace exec {
       })
       .getter("stdin", [](duktape::api& stack, native_process& instance) {
         stack.push(instance.stdin_data());
+      })
+      .setter("stdin", [](duktape::api& stack, native_process& instance) {
+        if(!instance.running()) return;
+        instance.stdin_data(instance.stdin_data() + stack.get<std::string>(0));
+        instance.update(0);
       })
       .getter("stderr", [](duktape::api& stack, native_process& instance) {
         stack.push(instance.stderr_data());
@@ -1466,6 +1480,19 @@ namespace duktape { namespace mod { namespace system { namespace exec {
           instance.timeout(stack.get<int>(-1));
         }
       })
+      #if(0 && JSDOC)
+      /**
+       * Updates run status and pipes. Identical to
+       * querying the `sys.process.running` property,
+       * except that a default polling timeout of 5ms
+       * applies (means the program blocks for 5ms if
+       * no data have arrived, otherwise the method
+       * returns earlier).
+       *
+       * @return {sys.process}
+       */
+      sys.process.prototype.update = function() {};
+      #endif
       .method("update", [](duktape::api& stack, native_process& instance) {
         instance.update(5);
         stack.push_this();
@@ -1477,14 +1504,56 @@ namespace duktape { namespace mod { namespace system { namespace exec {
        * a graceful termination request (SIGTERM/SIGQUIT), when
        * `force` is `true`, the `SIGKILL` event is used.
        * On Windows this it applies a process termination, `force`
-       * is ignored.
+       * is ignored. Returns a reference to itself.
        *
        * @param {boolean} force
+       * @return {sys.process}
        */
       sys.process.prototype.kill = function(force) {};
       #endif
       .method("kill", [](duktape::api& stack, native_process& instance) {
         instance.kill(stack.is<bool>(0) && stack.get<bool>(0));
+        stack.top(0);
+        stack.push_this();
+        return 1;
+      })
+      #if(0 && JSDOC)
+      /**
+       * Reads data from the STDOUT of the child process.
+       * Returns an empty string if no data are available,
+       * throws STDOUT is ignored.
+       *
+       * @param {number} timeout_ms
+       */
+      sys.process.prototype.read = function(timeout_ms) {};
+      #endif
+      .method("read", [](duktape::api& stack, native_process& instance) {
+        const auto timeout = std::min(std::max(stack.get<int>(0), 0), 10000);
+        stack.top(0);
+        if(instance.ignore_stdout()) return stack.throw_exception("Cannot read from stdout, as it is ignored (execute with {stdout:true}).");
+        instance.update(timeout);
+        auto data = std::string();
+        instance.stdout_data().swap(data);
+        stack.push(std::move(data));
+        return 1;
+      })
+      #if(0 && JSDOC)
+      /**
+       * Writes data to the STDIN of the child process.
+       * Returns a reference to itself. Silently ignores
+       * the input if the child process has terminated.
+       *
+       * @param {string} data
+       * @return {sys.process}
+       */
+      sys.process.prototype.write = function(data) {};
+      #endif
+      .method("write", [](duktape::api& stack, native_process& instance) {
+        if(stack.is_undefined(0)) return stack.throw_exception("Missing data to write to the child process STDIN.");
+        if(instance.running()) {
+          instance.stdin_data(instance.stdin_data() + stack.to<std::string>(0));
+          instance.update(0);
+        }
         stack.top(0);
         stack.push_this();
         return 1;

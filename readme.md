@@ -380,6 +380,8 @@ as needed.
   - sys.escapeshellarg(arg)
   - sys.process(program, arguments, options)
   - sys.process.prototype.kill(force)
+  - sys.process.prototype.read(timeout_ms)
+  - sys.process.prototype.write(data)
   - sys.mmap(path, flags, size)
   - sys.mmap.prototype.get(offset, size)
   - sys.mmap.prototype.set(data)
