@@ -294,7 +294,7 @@ ifneq (,$(WITH_COVERAGE))
  TESTOPTS+=--coverage -ftest-coverage -fprofile-arcs -fprofile-abs-path -O0 -fprofile-filter-files='main\.cc;duktape/.*\.hh'
 endif
 
-# Coverate main target (the one we invoke)
+# Coverage main target (the one we invoke)
 coverage:
 	@$(MAKE) clean
 	@$(MAKE) --jobs=1 coverage-runs WITH_COVERAGE=1
