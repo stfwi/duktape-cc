@@ -400,6 +400,10 @@ as needed.
   - sys.hash.md5(data, isfile)
   - sys.hash.sha1(data, isfile)
   - sys.hash.sha512(data, isfile)
+  - sys.socket.prototype.option(level, optname, setvalue)
+  - sys.socket.prototype.listen(address_port, max_pending, options)
+  - sys.socket.prototype.send(data)
+  - sys.socket.prototype.recv(timeout)
 
 
 ### Number object

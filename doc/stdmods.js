@@ -1663,6 +1663,105 @@ sys.hash.sha1 = function(data, isfile) {};
  */
 sys.hash.sha512 = function(data, isfile) {};
 
+/** @file: mod.sys.socket.hh */
+
+/**
+ * Socket handling object constructor. No actual socket
+ * is created until `connect()` or `listen()` is invoked.
+ * After closing, the system socket will be closed and
+ * cleaned up.
+ *
+ * @constructor
+ * @throws {Error}
+ *
+ * @property {boolean} closed - Holds true if the socket is uninitialized.
+ * @property {boolean} connected - Holds true if the socket connected to a server.
+ * @property {number}  socket_id - OS specific socket handle/descriptor.
+ * @property {string}  address - Address and port (format "<address>:<port>").
+ * @property {number}  errno - OS specific error code of the last occurred error.
+ * @property {string}  error - Error text/message of the last occurred error.
+ * @property {number} timeout - Default poll timeout for reception in milliseconds.
+ * @property {number} sendbuffer_size - OS specific underlying transmission buffer size in bytes.
+ * @property {number} recvbuffer_size - OS specific underlying reception buffer size in bytes.
+ * @property {boolean} nodelay - Holds true if the "nodelay" socket option is set (transmit immediately, no stream data collection).
+ * @property {boolean} keepalive - Holds true if the "keepalive" socket option is set (TCP connection keep-alive).
+ * @property {boolean} reuseaddress - Holds true if the "reuseaddress" socket option is set (for listening/bound sockets).
+ * @property {boolean} nonblocking - Holds true if the "nonblocking" socket option is set (return immediately from recv/send, even if not everything is sent/nothing to receive).
+ * @property {boolean} listening - Holds true if the socket is currently listening for incoming connections (server socket).
+ */
+sys.socket = function() {};
+
+/**
+ * Low level socket option getting/setting. Refer to the
+ * socket API manuals of the applicable operating system.
+ * IF the `setvalue` is undefined (only 2 args used), the
+ * method acts as a getter.
+ * @param {number} level
+ * @param {number} optname
+ * @param {number} [setvalue]
+ * @return {number}
+ */
+sys.socket.prototype.option = function(level, optname, setvalue) {};
+
+/**
+ * Closes the connection/server, cleans up the underlying
+ * system socket.
+ */
+sys.socket.prototype.close = function() {};
+
+/**
+ * Initiate a connection to a server, returns after the connection
+ * is established, throws on error. The address string defines the
+ * type of socket. For TCP connection, the port has to be attached
+ * using with the pattern "<address>:<port>". IPv6 addresses are to
+ * be escaped as known from browsers, e.g."[fe80::0001]:<port>".
+ * Additional options may be specified as plain object, these are
+ * applied after creating the socket and before connecting. They
+ * correspond to the readable option related properties of the
+ * socket object:
+ *    options = {
+ *      timeout: <number>,
+ *      nodelay: <boolean>,
+ *      keepalive: <boolean>,
+ *      reuseaddress: <boolean>,
+ *      nonblocking: <boolean>
+ *    }
+ *
+ * @param {string} address
+ * @param {object} options
+ */
+sys.socket.prototype.connect = function() {};
+
+/**
+ * Bind the socket to the specified port and start listening. The address
+ * may be specified as "0.0.0.0:<port>" or "[::]:<port>" accordingly.
+ * The value `max_pending` specifies how many incoming connections are
+ * kept in the pipeline until they are rejected.
+ *
+ * @param {string} address_port
+ * @param {number} max_pending
+ * @param {object} options
+ */
+sys.socket.prototype.listen = function(address_port, max_pending, options) {};
+
+/**
+ * Send data via the open socket.
+ *
+ * @param {string} data
+ */
+sys.socket.prototype.send = function(data) {};
+
+/**
+ * Receive text via the open socket connection.
+ * Returns an empty string if no data are received
+ * withing the specified timeout (milliseconds), or
+ * the defined default timeout accordingly.
+ *
+ * @param {number} [timeout]
+ * @return {string}
+ */
+sys.socket.prototype.recv = function(timeout) {};
+
 /** @file: mod.xlang.hh */
 
 /**

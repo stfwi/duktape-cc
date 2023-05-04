@@ -9,8 +9,10 @@
  * @requires Duktape CFLAGS -DDUK_USE_CPP_EXCEPTIONS
  * @cxxflags -std=c++17 -W -Wall -Wextra -pedantic -fstrict-aliasing
  */
-#ifdef WITH_EXPERIMENTAL
-  #include <duktape/mod/exp/mod.experimental.hh>
+#ifdef WITH_SOCKET
+  // Special case socket: Normally opt'ed out, needs to be included
+  // first under win32 (WSA header complains otherwise).
+  #include <duktape/mod/mod.sys.socket.hh>
 #endif
 #include <duktape/duktape.hh>
 #include <duktape/mod/mod.stdio.hh>
@@ -30,6 +32,9 @@
 #endif
 #ifdef WITH_RESOURCE_IMPORT
   #include <duktape/mod/ext/mod.ext.resource_blob.hh>
+#endif
+#ifdef WITH_EXPERIMENTAL
+  #include <duktape/mod/exp/mod.experimental.hh>
 #endif
 #include <exception>
 #include <stdexcept>
@@ -207,6 +212,9 @@ int main(int argc, const char** argv, const char** envv)
       #endif
       #ifdef WITH_EXPERIMENTAL
         duktape::mod::experimental::define_in(js);
+      #endif
+      #ifdef WITH_SOCKET
+        duktape::mod::system::socket::define_in(js);
       #endif
     }
     // Built-in constant definitions.

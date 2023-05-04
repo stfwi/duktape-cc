@@ -1,5 +1,5 @@
-#ifdef WITH_EXPERIMENTAL
-  #include <mod/exp/mod.experimental.hh>
+#ifdef WITH_SOCKET
+  #include <mod/mod.sys.socket.hh>
 #endif
 #include "../testenv.hh"
 #include <mod/mod.stdio.hh>
@@ -18,6 +18,9 @@
 #include <mod/mod.sys.os.hh>
 #ifdef WITH_EXTERNAL_DEPENDENCIES
   #include <mod/ext/mod.ext.srecord.hh>
+#endif
+#ifdef WITH_EXPERIMENTAL
+  #include <mod/exp/mod.experimental.hh>
 #endif
 #include <exception>
 #include <stdexcept>
@@ -114,6 +117,9 @@ void test(duktape::engine& js)
   #endif
   #ifdef WITH_EXPERIMENTAL
     duktape::mod::experimental::define_in(js);
+  #endif
+  #ifdef WITH_SOCKET
+    duktape::mod::system::socket::define_in(js);
   #endif
   // Re-route basic stdio to testenv
   js.define("print", ecma_print);
