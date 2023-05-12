@@ -240,8 +240,10 @@ namespace {
     if(nargs > 0) {
       msg = stack.to<std::string>(0);
       for(int i=1; i<nargs; i++) msg += std::string(" ") + stack.to<std::string>(i);
+      ::sw::utest::test::pass(test_source_file, callerline(stack), msg);
+    } else {
+      ::sw::utest::test::pass(); // silent PASS.
     }
-    ::sw::utest::test::pass(test_source_file, callerline(stack), msg);
     stack.push(true);
     return 1;
   }

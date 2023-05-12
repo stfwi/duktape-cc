@@ -599,7 +599,7 @@ namespace duktape { namespace detail {
     { return ::duk_pnew(ctx_, nargs) == 0; }
 
     bool next(index_type enum_index, bool get_value) const
-    { return ::duk_next(ctx_, enum_index, (::duk_bool_t) get_value) != 0; }
+    { return ::duk_next(ctx_, enum_index, ::duk_bool_t(get_value)) != 0; }
 
     void compact(index_type obj_index) const
     { ::duk_compact(ctx_, obj_index); }
