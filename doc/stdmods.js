@@ -255,37 +255,6 @@ fs.write = function(path, data) {};
 fs.append = function(path, data) {};
 
 /**
- * Alias of `fs.read()`. Reads a file, returns the contents or undefined
- * on error. See `fs.read()` for full options.
- *
- * @see fs.read
- * @param {string} path
- * @param {string|function} [conf]
- * @return {string|buffer}
- */
-fs.readfile = function(path, conf) {};
-
-/**
- * Writes data into a file. Alias of `fs.write()`.
- *
- * @see fs.write
- * @param {string} path
- * @param {string|buffer|number|boolean|object} data
- * @return {boolean}
- */
-fs.writefile = function(path, data) {};
-
-/**
- * Appends data at the end of a file. Alias of `fs.append()`.
- *
- * @see fs.append
- * @param {string} path
- * @param {string|buffer|number|boolean|object} data
- * @return {boolean}
- */
-fs.appendfile = function(path, data) {};
-
-/**
  * Returns the current working directory or `undefined` on error.
  * Does strictly not accept arguments.
  *
@@ -889,28 +858,28 @@ fs.file = function(path, openmode) {};
  * @param {string} [openmode]
  * @return {fs.file}
  */
-fs.file.open = function(path, openmode) {};
+fs.file.prototype.open = function(path, openmode) {};
 
 /**
  * Closes a file. Returns `this` reference.
  *
  * @return {fs.file}
  */
-fs.file.close = function() {};
+fs.file.prototype.close = function() {};
 
 /**
  * Returns true if a file is closed.
  *
  * @return {boolean}
  */
-fs.file.closed = function() {};
+fs.file.prototype.closed = function() {};
 
 /**
  * Returns true if a file is opened.
  *
  * @return {boolean}
  */
-fs.file.opened = function() {};
+fs.file.prototype.opened = function() {};
 
 /**
  * Returns true if the end of the file is reached. This
@@ -922,7 +891,7 @@ fs.file.opened = function() {};
  *
  * @return {boolean}
  */
-fs.file.eof = function() {};
+fs.file.prototype.eof = function() {};
 
 /**
  * Reads data from a file, where the maximum number of bytes
@@ -938,7 +907,7 @@ fs.file.eof = function() {};
  * @param {number} [max_bytes]
  * @return {string|buffer}
  */
-fs.file.read = function(max_size) {};
+fs.file.prototype.read = function(max_size) {};
 
 /**
  * Read string data from the opened file and return when
@@ -964,7 +933,7 @@ fs.file.read = function(max_size) {};
  * @throws {Error}
  * @return {string}
  */
-fs.file.readln = function() {};
+fs.file.prototype.readln = function() {};
 
 /**
  * Write data to a file, returns the number of bytes written.
@@ -975,7 +944,7 @@ fs.file.readln = function() {};
  * @param {string|buffer} data
  * @return {number}
  */
-fs.file.write = function(data) {};
+fs.file.prototype.write = function(data) {};
 
 /**
  * Write string data to a file and implicitly append
@@ -991,7 +960,7 @@ fs.file.write = function(data) {};
  * @throws {Error}
  * @param {string} data
  */
-fs.file.writeln = function(data) {};
+fs.file.prototype.writeln = function(data) {};
 
 /**
  * C style formatted output to the opened file.
@@ -1005,7 +974,7 @@ fs.file.writeln = function(data) {};
  * @param {string} format
  * @param {...*} args
  */
-fs.file.printf = function(format, args) {};
+fs.file.prototype.printf = function(format, args) {};
 
 /**
  * Flushes the file write buffer. Ignored on platforms where this
@@ -1014,7 +983,7 @@ fs.file.printf = function(format, args) {};
  * @throws {Error}
  * @return {fs.file}
  */
-fs.file.flush = function() {};
+fs.file.prototype.flush = function() {};
 
 /**
  * Returns the current file position.
@@ -1022,7 +991,7 @@ fs.file.flush = function() {};
  * @throws {Error}
  * @return {number}
  */
-fs.file.tell = function() {};
+fs.file.prototype.tell = function() {};
 
 /**
  * Sets the new file position (read and write). Returns the
@@ -1039,7 +1008,7 @@ fs.file.tell = function() {};
  * @param {string} [whence=begin]
  * @return {number}
  */
-fs.file.seek = function(position, whence) {};
+fs.file.prototype.seek = function(position, whence) {};
 
 /**
  * Returns the current file size in bytes.
@@ -1047,7 +1016,7 @@ fs.file.seek = function(position, whence) {};
  * @throws {Error}
  * @return {number}
  */
-fs.file.size = function() {};
+fs.file.prototype.size = function() {};
 
 /**
  * Returns details about the file including path, size, mode
@@ -1056,7 +1025,7 @@ fs.file.size = function() {};
  * @throws {Error}
  * @return {object}
  */
-fs.file.stat = function() {};
+fs.file.prototype.stat = function() {};
 
 /**
  * Forces the operating system to write the file to a remote device
@@ -1073,7 +1042,7 @@ fs.file.stat = function() {};
  * @param {boolean} [no_metadata]
  * @return {fs.file}
  */
-fs.file.sync = function() {};
+fs.file.prototype.sync = function() {};
 
 /**
  * Locks the file. By default exclusively, means no other process
@@ -1087,7 +1056,7 @@ fs.file.sync = function() {};
  * @param {string} access
  * @return {fs.file}
  */
-fs.file.lock = function(access) {};
+fs.file.prototype.lock = function(access) {};
 
 /**
  * Unlocks a previously locked file. Ignored if the platform does not
@@ -1096,7 +1065,7 @@ fs.file.lock = function(access) {};
  * @throws {Error}
  * @return {fs.file}
  */
-fs.file.unlock = function() {};
+fs.file.prototype.unlock = function() {};
 
 /** @file: mod.sys.hh */
 
@@ -1782,3 +1751,104 @@ Number.prototype.limit = function(min, max) {};
  * @param {number} max
  */
 Number.prototype.clamp = function(min, max) {};
+
+/**
+ * Iterates over an array (ascending indices) or object
+ * (own properties only) using a given function. Arguments
+ * passed into that function are the value, the key/index,
+ * and the referred object.
+ * The `forEach()` method does not return a value.
+ * Example:
+ *
+ *    obj.forEach(function(value, key, this_ref){...});
+ *    arr.forEach(function(value, index, this_ref){...});
+ *
+ * @param {function} func
+ * @return {undefined}
+ */
+Object.prototype.forEach = function(func) {};
+
+/**
+ * Iterates over an array (ascending indices) or object
+ * (own properties only) using a given processing function.
+ * Arguments passed into that function are the value, the
+ * key/index, and the referred object. The `each()` method
+ * does not return a value. Example:
+ *
+ *    obj.each(function(value, key, this_ref){...});
+ *    arr.each(function(value, index, this_ref){...});
+ *
+ * @param {function} func
+ * @return {undefined}
+ */
+Object.prototype.each = function(func) {};
+
+/**
+ * Returns true if all elements of the referred (`this`) object or array
+ * matches the given predicate function. That is, if the given function
+ * returns `true` when being invoked with all of the object/array elements.
+ *
+ * Example:
+ *
+ *    if(obj.every(function(value, key  , this_ref){...})) { ... }
+ *    if(arr.every(function(value, index, this_ref){...})) { ... }
+ *
+ * @param {function} predicate
+ * @return {boolean}
+ */
+Object.prototype.every = function(predicate) {};
+
+/**
+ * Alias of `Object.prototype.every()`.
+ *
+ * @param {function} predicate
+ * @return {boolean}
+ */
+Object.prototype.all = function(predicate) {};
+
+/**
+ * Returns true if at least one element of the referred (`this`)
+ * object or array matches the given predicate function. That is,
+ * if the given function returns `true` when being invoked with
+ * the object/array elements.
+ *
+ * Example:
+ *
+ *    if(obj.some(function(value, key  , this_ref){...})) { ... }
+ *    if(arr.some(function(value, index, this_ref){...})) { ... }
+ *
+ * @param {function} predicate
+ * @return {boolean}
+ */
+Object.prototype.some = function(predicate) {};
+
+/**
+ * Alias of `Object.prototype.some(predicate)`.
+ *
+ * @param {function} predicate
+ * @return {boolean}
+ */
+Object.prototype.any = function(predicate) {};
+
+/**
+ * Returns true if not one single element of the referred (`this`)
+ * object or array matches the given predicate function. That is,
+ * if the given function does **not** return `true` when being invoked
+ * with any of the object/array elements.
+ *
+ * Example:
+ *
+ *    if(obj.none(function(value, key  , this_ref){...})) { ... }
+ *    if(arr.none(function(value, index, this_ref){...})) { ... }
+ *
+ * @param {function} predicate
+ * @return {boolean}
+ */
+Object.prototype.none = function(predicate) {};
+
+/**
+ * Returns a string with whitespaces stripped off at
+ * the begin and end.
+ * @return {string}
+ */
+String.prototype.trim = function() {};

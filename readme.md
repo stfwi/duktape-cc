@@ -318,9 +318,6 @@ as needed.
   - fs.read(path, conf)
   - fs.write(path, data)
   - fs.append(path, data)
-  - fs.readfile(path, conf)
-  - fs.writefile(path, data)
-  - fs.appendfile(path, data)
   - fs.realpath(path)
   - fs.dirname(path)
   - fs.basename(path)
@@ -359,13 +356,13 @@ as needed.
   - fs.move(source_path, target_path)
   - fs.remove(target_path, options)
   - fs.file(path, openmode)
-  - fs.file.open(path, openmode)
-  - fs.file.read(max_size)
-  - fs.file.write(data)
-  - fs.file.writeln(data)
-  - fs.file.printf(format, args)
-  - fs.file.seek(position, whence)
-  - fs.file.lock(access)
+  - fs.file.prototype.open(path, openmode)
+  - fs.file.prototype.read(max_size)
+  - fs.file.prototype.write(data)
+  - fs.file.prototype.writeln(data)
+  - fs.file.prototype.printf(format, args)
+  - fs.file.prototype.seek(position, whence)
+  - fs.file.prototype.lock(access)
 
 
 ### System object
@@ -410,3 +407,14 @@ as needed.
 
   - Number.prototype.limit(min, max)
   - Number.prototype.clamp(min, max)
+
+
+### Object object
+
+  - Object.prototype.forEach(func)
+  - Object.prototype.each(func)
+  - Object.prototype.every(predicate)
+  - Object.prototype.all(predicate)
+  - Object.prototype.some(predicate)
+  - Object.prototype.any(predicate)
+  - Object.prototype.none(predicate)

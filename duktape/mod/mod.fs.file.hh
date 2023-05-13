@@ -1173,7 +1173,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @param {string} [openmode]
        * @return {fs.file}
        */
-      fs.file.open = function(path, openmode) {};
+      fs.file.prototype.open = function(path, openmode) {};
       #endif
       js.define("fs.file.prototype.open", file_open<PathAccessor>, 2);
 
@@ -1183,7 +1183,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        *
        * @return {fs.file}
        */
-      fs.file.close = function() {};
+      fs.file.prototype.close = function() {};
       #endif
       js.define("fs.file.prototype.close", file_close<PathAccessor>,0);
 
@@ -1193,7 +1193,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        *
        * @return {boolean}
        */
-      fs.file.closed = function() {};
+      fs.file.prototype.closed = function() {};
       #endif
       js.define("fs.file.prototype.closed", file_closed<PathAccessor>,0);
 
@@ -1203,7 +1203,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        *
        * @return {boolean}
        */
-      fs.file.opened = function() {};
+      fs.file.prototype.opened = function() {};
       #endif
       js.define("fs.file.prototype.opened", file_opened<PathAccessor>,0);
 
@@ -1218,7 +1218,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        *
        * @return {boolean}
        */
-      fs.file.eof = function() {};
+      fs.file.prototype.eof = function() {};
       #endif
       js.define("fs.file.prototype.eof", file_eof<PathAccessor>,0);
 
@@ -1237,7 +1237,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @param {number} [max_bytes]
        * @return {string|buffer}
        */
-      fs.file.read = function(max_size) {};
+      fs.file.prototype.read = function(max_size) {};
       #endif
       js.define("fs.file.prototype.read", file_read<PathAccessor>, 1);
 
@@ -1266,7 +1266,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @throws {Error}
        * @return {string}
        */
-      fs.file.readln = function() {};
+      fs.file.prototype.readln = function() {};
       #endif
       js.define("fs.file.prototype.readln", file_readln<PathAccessor>, 1);
 
@@ -1280,7 +1280,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @param {string|buffer} data
        * @return {number}
        */
-      fs.file.write = function(data) {};
+      fs.file.prototype.write = function(data) {};
       #endif
       js.define("fs.file.prototype.write", file_write<PathAccessor>, 1);
 
@@ -1299,7 +1299,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @throws {Error}
        * @param {string} data
        */
-      fs.file.writeln = function(data) {};
+      fs.file.prototype.writeln = function(data) {};
       #endif
       js.define("fs.file.prototype.writeln", file_writeln<PathAccessor>, 1);
 
@@ -1316,7 +1316,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @param {string} format
        * @param {...*} args
        */
-      fs.file.printf = function(format, args) {};
+      fs.file.prototype.printf = function(format, args) {};
       #endif
       js.define("fs.file.prototype.printf", file_printf<PathAccessor>);
 
@@ -1328,7 +1328,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @throws {Error}
        * @return {fs.file}
        */
-      fs.file.flush = function() {};
+      fs.file.prototype.flush = function() {};
       #endif
       js.define("fs.file.prototype.flush", file_flush<PathAccessor>, 0);
 
@@ -1339,7 +1339,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @throws {Error}
        * @return {number}
        */
-      fs.file.tell = function() {};
+      fs.file.prototype.tell = function() {};
       #endif
       js.define("fs.file.prototype.tell", file_tell<PathAccessor>, 0);
 
@@ -1359,7 +1359,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @param {string} [whence=begin]
        * @return {number}
        */
-      fs.file.seek = function(position, whence) {};
+      fs.file.prototype.seek = function(position, whence) {};
       #endif
       js.define("fs.file.prototype.seek", file_seek<PathAccessor>, 2);
 
@@ -1370,7 +1370,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @throws {Error}
        * @return {number}
        */
-      fs.file.size = function() {};
+      fs.file.prototype.size = function() {};
       #endif
       js.define("fs.file.prototype.size", file_size<PathAccessor>, 0);
 
@@ -1382,7 +1382,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @throws {Error}
        * @return {object}
        */
-      fs.file.stat = function() {};
+      fs.file.prototype.stat = function() {};
       #endif
       js.define("fs.file.prototype.stat", file_stat<PathAccessor>, 0);
 
@@ -1402,7 +1402,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @param {boolean} [no_metadata]
        * @return {fs.file}
        */
-      fs.file.sync = function() {};
+      fs.file.prototype.sync = function() {};
       #endif
       js.define("fs.file.prototype.sync", file_sync<PathAccessor>, 1);
 
@@ -1419,7 +1419,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @param {string} access
        * @return {fs.file}
        */
-      fs.file.lock = function(access) {};
+      fs.file.prototype.lock = function(access) {};
       #endif
       js.define("fs.file.prototype.lock", file_lock<PathAccessor>, 1);
 
@@ -1431,10 +1431,9 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @throws {Error}
        * @return {fs.file}
        */
-      fs.file.unlock = function() {};
+      fs.file.prototype.unlock = function() {};
       #endif
       js.define("fs.file.prototype.unlock", file_unlock<PathAccessor>, 0);
-
 
       js.define_flags(flags);
     }

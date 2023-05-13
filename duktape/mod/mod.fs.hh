@@ -1334,47 +1334,9 @@ namespace duktape { namespace mod { namespace filesystem { namespace generic {
       js.define("fs.append", filewrite<PathAccessor, true>, 2);
     }
 
-    #if(0 && JSDOC)
-    /**
-     * Alias of `fs.read()`. Reads a file, returns the contents or undefined
-     * on error. See `fs.read()` for full options.
-     *
-     * @see fs.read
-     * @param {string} path
-     * @param {string|function} [conf]
-     * @return {string|buffer}
-     */
-    fs.readfile = function(path, conf) {};
-    #endif
     js.define("fs.readfile", fileread<PathAccessor>, 2);
-
-    #if(0 && JSDOC)
-    /**
-     * Writes data into a file. Alias of `fs.write()`.
-     *
-     * @see fs.write
-     * @param {string} path
-     * @param {string|buffer|number|boolean|object} data
-     * @return {boolean}
-     */
-    fs.writefile = function(path, data) {};
-    #endif
     if(!readonly) {
       js.define("fs.writefile", filewrite<PathAccessor, false>, 2);
-    }
-
-    #if(0 && JSDOC)
-    /**
-     * Appends data at the end of a file. Alias of `fs.append()`.
-     *
-     * @see fs.append
-     * @param {string} path
-     * @param {string|buffer|number|boolean|object} data
-     * @return {boolean}
-     */
-    fs.appendfile = function(path, data) {};
-    #endif
-    if(!readonly) {
       js.define("fs.appendfile", filewrite<PathAccessor, true>, 2);
     }
   }
