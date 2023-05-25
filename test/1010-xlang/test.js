@@ -1,4 +1,5 @@
 // (@todo: Extend container op tests, fuzz types).
+// (@todo: Extend linfit tests).
 
 /**
  * Number.prototype.limit()
@@ -220,6 +221,28 @@ function test_string_trim()
   test_expect("äöü".trim() == "äöü" );
 }
 
+function test_math_linear_regression()
+{
+  // Against known values.
+  const check_data = function(x, y, so) {
+    const coeffs = Math.linfit(x, y);
+    const slope  = Math.round(coeffs.slope*1000)/1000;
+    const offset = Math.round(coeffs.offset*1000)/1000;
+    test_note("Coeffs = " + JSON.stringify(coeffs));
+    test_note("Slope = " + slope);
+    test_note("Offset = " + offset);
+    test_expect(offset==so.offset);
+    test_expect(slope==so.slope);
+  }
+
+  check_data(
+    [  0, 2,  5,  7 ],
+    [ -1, 5, 12, 20 ],
+    {offset:-1.138, slope:2.897}
+  );
+}
+
 test_number_limit();
 test_container_operations();
 test_string_trim();
+test_math_linear_regression();

@@ -127,6 +127,74 @@ namespace duktape { namespace detail { namespace xlang {
     return 0;
   }
 
+  namespace {
+    /**
+     * @from swlib-cc:alg
+     *
+     * Returns linear regression (poly-fit 1st order) coefficients
+     * by fitting the given vectors/forward iterable numeric containers
+     * using least error squares. The returned array holds the coefficients
+     * in ascending order, so that the fit function evaluates to:
+     *
+     *  y = coeffs[1] * x + coeffs[0];
+     *
+     * Input containers are `x` (independent) and `y` (dependent). The
+     * function throws a `std::runtime_error` if the containers do not
+     * have the same size or are empty. For integral coeff types beware
+     * arithmetic size and sign-ness.
+     *
+     * @tparam CoeffType
+     * @tparam ValueContainerType
+     * @param const ValueContainerType& x
+     * @param const ValueContainerType& y
+     * @return std::array<CoeffType, 2u>
+     */
+    template <
+      typename CoeffType,           // Returned fit coefficient type.
+      typename ValueContainerType   // Random access container with numeric values, deduced from arguments.
+    >
+    std::array<CoeffType, 2u> linear_fit(const ValueContainerType& x, const ValueContainerType& y)
+    {
+      using coeff_type = std::decay_t<CoeffType>;
+      using vect_type  = ValueContainerType;
+      using value_type = typename std::decay_t<typename vect_type::value_type>;
+      static_assert(std::is_arithmetic_v<coeff_type> && !std::is_pointer_v<coeff_type>, "Arithmetic coefficient type is no number.");
+      static_assert(std::is_arithmetic_v<value_type> && !std::is_pointer_v<value_type>, "Arithmetic value type is no number.");
+      const auto size = x.size();
+      if(size != y.size()) throw std::runtime_error("Cannot fit, x and y data do not have the same size.");
+      if(size == 0) throw std::runtime_error("Cannot fit, x and y data are empty.");
+      // Sums for x, y, square sum for x.
+      const auto sx  = std::accumulate(x.begin(), x.end(), coeff_type(0));
+      const auto sy  = std::accumulate(y.begin(), y.end(), coeff_type(0));
+      const auto sxx = std::accumulate(x.begin(), x.end(), coeff_type(0), [](auto acc, auto x){ return acc + x*x; });
+      // Cross element sum xy.
+      auto y_it = y.cbegin();
+      auto sxy = coeff_type(0);
+      for(auto vx: x) { sxy += vx * (*y_it++); }
+      // Linear coeffs, see Numerical Algorithms in C.
+      const auto n = coeff_type(size);
+      const auto c1 = (n * sxy - sx * sy) / (n * sxx - sx * sx);
+      const auto c0 = (sy - c1 * sx) / n;
+      // Polynomial format coefficient return, ascending order.
+      return std::array<coeff_type, 2u>{ c0, c1 };
+    }
+
+  }
+
+  template<typename=void>
+  int math_linear_fit(duktape::api& stack)
+  {
+    if((stack.top()!=2) || (!stack.is_array(0)) || (!stack.is_array(1))) return stack.throw_exception("Math.linfit requires numeric arrays x and y.");
+    const auto x = stack.get<std::vector<double>>(0);
+    const auto y = stack.get<std::vector<double>>(1);
+    stack.top(0);
+    const auto coeffs = linear_fit<double>(x, y);
+    stack.push_object();
+    stack.set("offset", coeffs[0]);
+    stack.set("slope", coeffs[1]);
+    return 1;
+  }
+
 }}}
 
 namespace duktape { namespace mod { namespace xlang {
@@ -166,6 +234,23 @@ namespace duktape { namespace mod { namespace xlang {
     Number.prototype.clamp = function(min, max) {};
     #endif
     js.define("Number.prototype.clamp", number_limit<>, 2);
+
+    #if(0 && JSDOC)
+    /**
+     * Linear regression fitting of two value arrays (x and y)
+     * using least error square 1st order polynomial fitting.
+     * Returns an object containing `slope` and `offset` of
+     * the best fitting line. The function throws if the arrays
+     * do not have numeric values, or do not have the same size,
+     * or are empty.
+     *
+     * @param {array} x_values
+     * @param {array} y_values
+     * @return {object}
+     */
+    Math.linfit = function(x_values, y_values) {};
+    #endif
+    js.define("Math.linfit", math_linear_fit<>, 2);
 
     #if(0 && JSDOC)
     /**

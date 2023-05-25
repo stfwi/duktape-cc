@@ -1753,6 +1753,20 @@ Number.prototype.limit = function(min, max) {};
 Number.prototype.clamp = function(min, max) {};
 
 /**
+ * Linear regression fitting of two value arrays (x and y)
+ * using least error square 1st order polynomial fitting.
+ * Returns an object containing `slope` and `offset` of
+ * the best fitting line. The function throws if the arrays
+ * do not have numeric values, or do not have the same size,
+ * or are empty.
+ *
+ * @param {array} x_values
+ * @param {array} y_values
+ * @return {object}
+ */
+Math.linfit = function(x_values, y_values) {};
+
+/**
  * Iterates over an array (ascending indices) or object
  * (own properties only) using a given function. Arguments
  * passed into that function are the value, the key/index,

@@ -409,6 +409,11 @@ as needed.
   - Number.prototype.clamp(min, max)
 
 
+### Math object
+
+  - Math.linfit(x_values, y_values)
+
+
 ### Object object
 
   - Object.prototype.forEach(func)
