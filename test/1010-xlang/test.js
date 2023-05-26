@@ -1,5 +1,4 @@
 // (@todo: Extend container op tests, fuzz types).
-// (@todo: Extend linfit tests).
 
 /**
  * Number.prototype.limit()
@@ -224,22 +223,44 @@ function test_string_trim()
 function test_math_linear_regression()
 {
   // Against known values.
-  const check_data = function(x, y, so) {
-    const coeffs = Math.linfit(x, y);
-    const slope  = Math.round(coeffs.slope*1000)/1000;
-    const offset = Math.round(coeffs.offset*1000)/1000;
+  const check_data = function(xyso) {
+    const round3 = function(x) { return Math.round(x*1e3) * 1e-3 };
+    const coeffs = Math.linfit(xyso.x, xyso.y);
+    const slope  = round3(coeffs.slope);
+    const offset = round3(coeffs.offset);
     test_note("Coeffs = " + JSON.stringify(coeffs));
     test_note("Slope = " + slope);
     test_note("Offset = " + offset);
-    test_expect(offset==so.offset);
-    test_expect(slope==so.slope);
+    test_expect( Math.abs(offset-round3(xyso.offset)) < 1e-9 );
+    test_expect( Math.abs(slope-round3(xyso.slope)) < 1e-9 );
   }
 
-  check_data(
-    [  0, 2,  5,  7 ],
-    [ -1, 5, 12, 20 ],
-    {offset:-1.138, slope:2.897}
-  );
+  check_data({
+    x: [  0, 2,  5,  7 ],
+    y: [ -1, 5, 12, 20 ],
+    offset:-1.138, slope:2.897
+  });
+  check_data({
+    "offset":-0.10934782608695647,
+    "slope":0.13102766798418967,
+    "x":[0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2,2.1,2.2],
+    "y":[0.26,-0.83,2.08,-0.01,-1.58,-1.1,0.53,0.96,-0.53,-0.58,1.07,-0.99,-0.34,-1.51,0.6,1.53,0.16,0.45,-0.31,0.99,-0.47,0.59,-0.17]
+  });
+  check_data({
+    "slope":0.21161764705882364,
+    "offset":-0.4055882352941179,
+    "x":[0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1,1.1,1.2,1.3,1.4,1.5],
+    "y":[0.32,0.03,0.17,-1.44,-1.32,-0.61,0.47,1.35,-1.14,-0.89,-0.45,-1.14,-1.03,0.43,0.98,0.32]
+  });
+
+  // Check against octave
+  for(var i=0; i<10; ++i) {
+    var data = sys.shell("octave-cl --norc --no-gui --silent linfit.m");
+    if(!data) { test_note("Skipping linfit checks against octave (not installed or not in the PATH, or not executable)."); break; }
+    data = data.replace(/[\n\r\s]+$/,"");
+    test_note("Octave data:" + data);
+    check_data(JSON.parse(data));
+  }
 }
 
 test_number_limit();
