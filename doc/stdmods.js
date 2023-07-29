@@ -26,6 +26,16 @@ exit = function(status_code) {};
  */
 include = function(path) {};
 
+/**
+ * Contains the environment variables of the application
+ * as key-value (string->string) plain object. If env is
+ * not explicitly enabled in the binary application, the
+ * object is undefined.
+ *
+ * @var {object} sys.env
+ */
+sys.env = {};
+
 /** @file: mod.stdio.hh */
 
 /**
@@ -245,37 +255,6 @@ fs.write = function(path, data) {};
 fs.append = function(path, data) {};
 
 /**
- * Alias of `fs.read()`. Reads a file, returns the contents or undefined
- * on error. See `fs.read()` for full options.
- *
- * @see fs.read
- * @param {string} path
- * @param {string|function} [conf]
- * @return {string|buffer}
- */
-fs.readfile = function(path, conf) {};
-
-/**
- * Writes data into a file. Alias of `fs.write()`.
- *
- * @see fs.write
- * @param {string} path
- * @param {string|buffer|number|boolean|object} data
- * @return {boolean}
- */
-fs.writefile = function(path, data) {};
-
-/**
- * Appends data at the end of a file. Alias of `fs.append()`.
- *
- * @see fs.append
- * @param {string} path
- * @param {string|buffer|number|boolean|object} data
- * @return {boolean}
- */
-fs.appendfile = function(path, data) {};
-
-/**
  * Returns the current working directory or `undefined` on error.
  * Does strictly not accept arguments.
  *
@@ -316,7 +295,7 @@ fs.realpath = function(path) {};
  *
  * @return {string|undefined}
  */
-fs.app_path = function() {};
+fs.application = function() {};
 
 /**
  * Returns directory part of the given path (without tailing slash/backslash)
@@ -879,28 +858,28 @@ fs.file = function(path, openmode) {};
  * @param {string} [openmode]
  * @return {fs.file}
  */
-fs.file.open = function(path, openmode) {};
+fs.file.prototype.open = function(path, openmode) {};
 
 /**
  * Closes a file. Returns `this` reference.
  *
  * @return {fs.file}
  */
-fs.file.close = function() {};
+fs.file.prototype.close = function() {};
 
 /**
  * Returns true if a file is closed.
  *
  * @return {boolean}
  */
-fs.file.closed = function() {};
+fs.file.prototype.closed = function() {};
 
 /**
  * Returns true if a file is opened.
  *
  * @return {boolean}
  */
-fs.file.opened = function() {};
+fs.file.prototype.opened = function() {};
 
 /**
  * Returns true if the end of the file is reached. This
@@ -912,7 +891,7 @@ fs.file.opened = function() {};
  *
  * @return {boolean}
  */
-fs.file.eof = function() {};
+fs.file.prototype.eof = function() {};
 
 /**
  * Reads data from a file, where the maximum number of bytes
@@ -928,7 +907,7 @@ fs.file.eof = function() {};
  * @param {number} [max_bytes]
  * @return {string|buffer}
  */
-fs.file.read = function(max_size) {};
+fs.file.prototype.read = function(max_size) {};
 
 /**
  * Read string data from the opened file and return when
@@ -954,7 +933,7 @@ fs.file.read = function(max_size) {};
  * @throws {Error}
  * @return {string}
  */
-fs.file.readln = function() {};
+fs.file.prototype.readln = function() {};
 
 /**
  * Write data to a file, returns the number of bytes written.
@@ -965,7 +944,7 @@ fs.file.readln = function() {};
  * @param {string|buffer} data
  * @return {number}
  */
-fs.file.write = function(data) {};
+fs.file.prototype.write = function(data) {};
 
 /**
  * Write string data to a file and implicitly append
@@ -981,7 +960,7 @@ fs.file.write = function(data) {};
  * @throws {Error}
  * @param {string} data
  */
-fs.file.writeln = function(data) {};
+fs.file.prototype.writeln = function(data) {};
 
 /**
  * C style formatted output to the opened file.
@@ -995,7 +974,7 @@ fs.file.writeln = function(data) {};
  * @param {string} format
  * @param {...*} args
  */
-fs.file.printf = function(format, args) {};
+fs.file.prototype.printf = function(format, args) {};
 
 /**
  * Flushes the file write buffer. Ignored on platforms where this
@@ -1004,7 +983,7 @@ fs.file.printf = function(format, args) {};
  * @throws {Error}
  * @return {fs.file}
  */
-fs.file.flush = function() {};
+fs.file.prototype.flush = function() {};
 
 /**
  * Returns the current file position.
@@ -1012,7 +991,7 @@ fs.file.flush = function() {};
  * @throws {Error}
  * @return {number}
  */
-fs.file.tell = function() {};
+fs.file.prototype.tell = function() {};
 
 /**
  * Sets the new file position (read and write). Returns the
@@ -1029,7 +1008,7 @@ fs.file.tell = function() {};
  * @param {string} [whence=begin]
  * @return {number}
  */
-fs.file.seek = function(position, whence) {};
+fs.file.prototype.seek = function(position, whence) {};
 
 /**
  * Returns the current file size in bytes.
@@ -1037,7 +1016,7 @@ fs.file.seek = function(position, whence) {};
  * @throws {Error}
  * @return {number}
  */
-fs.file.size = function() {};
+fs.file.prototype.size = function() {};
 
 /**
  * Returns details about the file including path, size, mode
@@ -1046,7 +1025,7 @@ fs.file.size = function() {};
  * @throws {Error}
  * @return {object}
  */
-fs.file.stat = function() {};
+fs.file.prototype.stat = function() {};
 
 /**
  * Forces the operating system to write the file to a remote device
@@ -1063,7 +1042,7 @@ fs.file.stat = function() {};
  * @param {boolean} [no_metadata]
  * @return {fs.file}
  */
-fs.file.sync = function() {};
+fs.file.prototype.sync = function() {};
 
 /**
  * Locks the file. By default exclusively, means no other process
@@ -1077,7 +1056,7 @@ fs.file.sync = function() {};
  * @param {string} access
  * @return {fs.file}
  */
-fs.file.lock = function(access) {};
+fs.file.prototype.lock = function(access) {};
 
 /**
  * Unlocks a previously locked file. Ignored if the platform does not
@@ -1086,7 +1065,7 @@ fs.file.lock = function(access) {};
  * @throws {Error}
  * @return {fs.file}
  */
-fs.file.unlock = function() {};
+fs.file.prototype.unlock = function() {};
 
 /** @file: mod.sys.hh */
 
@@ -1232,8 +1211,21 @@ sys.beep = function() {};
  *   All these options are optional and have sensible default values:
  *
  *    {
+ *      // The function can be called like `fs.exec( {options} )` (options 1st argument). In this
+ *      // case the program to execute can be specified using the `program` property.
+ *      program : {string},
+ *
+ *      // The function can also be called with the options as first or second argument. In both
+ *      // cases the command line arguments to pass on to the execution can be passed as the `args`
+ *      // property.
+ *      args    : {array},
+ *
  *      // Plain object for environment variables to set.
  *      env     : {object}={},
+ *
+ *      // Process run timeout in ms, the process will be terminated (and SIGKILL killed later if
+ *      // not terminating itself) if it runs longer than this timeout.
+ *      timeout : {number}
  *
  *      // Optional text that is passed to the program via stdin piping.
  *      stdin   : {String}="",
@@ -1267,19 +1259,10 @@ sys.beep = function() {};
  *      // engine errors still throw.
  *      noexcept: {boolean}=false,
  *
- *      // The function can be called like `fs.exec( {options} )` (options 1st argument). In this
- *      // case the program to execute can be specified using the `program` property.
- *      program : {string},
- *
- *      // The function can also be called with the options as first or second argument. In both
- *      // cases the command line arguments to pass on to the execution can be passed as the `args`
- *      // property.
- *      args    : {array},
- *
- *      // Process run timeout in ms, the process will be terminated (and SIGKILL killed later if
- *      // not terminating itself) if it runs longer than this timeout.
- *      timeout : {number}
- *
+ *      // Normally pipes to the process are automatically closed (such as STDIN if all data
+ *      // are sent to the child process). To explicitly say that these pipes should be kept
+ *      // open if not closed by the child, specify `noclose=true`.
+ *      noclose: {boolean}=false
  *    }
  *
  * - The return value is:
@@ -1347,6 +1330,9 @@ sys.escapeshellarg = function(arg) {};
  * @param {array} [arguments]
  * @param {object} [options]
  *
+ * @property {string}  program      - The program executed.
+ * @property {array}   arguments    - The program CLI arguments passed in.
+ * @property {object}  environment  - The program environment variables passed in or deduced.
  * @property {boolean} running      - True if the child process has not terminated yet. Updates stdout/stderr/stdin/exitcode.
  * @property {number}  exitcode     - The exit code of the child process, or -1.
  * @property {string}  stdout       - Current output received from the child process.
@@ -1358,19 +1344,47 @@ sys.escapeshellarg = function(arg) {};
 sys.process = function(program, arguments, options) {};
 
 /**
+ * Updates run status and pipes. Identical to
+ * querying the `sys.process.running` property,
+ * except that a default polling timeout of 5ms
+ * applies (means the program blocks for 5ms if
+ * no data have arrived, otherwise the method
+ * returns earlier).
+ *
+ * @return {sys.process}
+ */
+sys.process.prototype.update = function() {};
+
+/**
  * Sends a termination signal to the child process, normally
  * a graceful termination request (SIGTERM/SIGQUIT), when
  * `force` is `true`, the `SIGKILL` event is used.
  * On Windows this it applies a process termination, `force`
- * is ignored.
+ * is ignored. Returns a reference to itself.
  *
  * @param {boolean} force
+ * @return {sys.process}
  */
 sys.process.prototype.kill = function(force) {};
 
-/** @file: mod.xlang.hh */
+/**
+ * Reads data from the STDOUT of the child process.
+ * Returns an empty string if no data are available,
+ * throws STDOUT is ignored.
+ *
+ * @param {number} timeout_ms
+ */
+sys.process.prototype.read = function(timeout_ms) {};
 
-Number.prototype.limit = function(min, max) {};
+/**
+ * Writes data to the STDIN of the child process.
+ * Returns a reference to itself. Silently ignores
+ * the input if the child process has terminated.
+ *
+ * @param {string} data
+ * @return {sys.process}
+ */
+sys.process.prototype.write = function(data) {};
 
 /** @file: mod.ext.mmap.hh */
 
@@ -1397,7 +1411,7 @@ Number.prototype.limit = function(min, max) {};
  * @property {boolean} closed       - Holds true when the file is not opened/nothing mapped.
  * @property {string}  error        - Error string representation of the last method call.
  */
-sys.mmap = function(path, flags) {};
+sys.mmap = function(path, flags, size) {};
 
 /**
  * Closes and invalidates the memory map.
@@ -1526,15 +1540,15 @@ sys.serialport.prototype.read = function(timeout_ms) {};
 sys.serialport.prototype.write = function(data) {};
 
 /**
- * Reads a line from the received data. Optionally with a given
+ * Reads lines from the received data. Optionally with a given
  * timeout (else the default timeout), and supression of empty
- * lines. Returns `undefined` if no line was received, the fetched
- * line otherwise.
+ * lines. Returns `undefined` if nothing was received, the full
+ * lines received up to now as array otherwise.
  *
  * @throws {Error}
  * @param {number}  timeout_ms
  * @param {boolean} ignore_empty
- * @return {string|undefined}
+ * @return {string[]|undefined}
  */
 sys.serialport.prototype.readln = function(timeout_ms, ignore_empty) {};
 
@@ -1617,3 +1631,238 @@ sys.hash.sha1 = function(data, isfile) {};
  * @return {string}
  */
 sys.hash.sha512 = function(data, isfile) {};
+
+/** @file: mod.sys.socket.hh */
+
+/**
+ * Socket handling object constructor. No actual socket
+ * is created until `connect()` or `listen()` is invoked.
+ * After closing, the system socket will be closed and
+ * cleaned up.
+ *
+ * @constructor
+ * @throws {Error}
+ *
+ * @property {boolean} closed - Holds true if the socket is uninitialized.
+ * @property {boolean} connected - Holds true if the socket connected to a server.
+ * @property {number}  socket_id - OS specific socket handle/descriptor.
+ * @property {string}  address - Address and port (format "<address>:<port>").
+ * @property {number}  errno - OS specific error code of the last occurred error.
+ * @property {string}  error - Error text/message of the last occurred error.
+ * @property {number} timeout - Default poll timeout for reception in milliseconds.
+ * @property {number} sendbuffer_size - OS specific underlying transmission buffer size in bytes.
+ * @property {number} recvbuffer_size - OS specific underlying reception buffer size in bytes.
+ * @property {boolean} nodelay - Holds true if the "nodelay" socket option is set (transmit immediately, no stream data collection).
+ * @property {boolean} keepalive - Holds true if the "keepalive" socket option is set (TCP connection keep-alive).
+ * @property {boolean} reuseaddress - Holds true if the "reuseaddress" socket option is set (for listening/bound sockets).
+ * @property {boolean} nonblocking - Holds true if the "nonblocking" socket option is set (return immediately from recv/send, even if not everything is sent/nothing to receive).
+ * @property {boolean} listening - Holds true if the socket is currently listening for incoming connections (server socket).
+ */
+sys.socket = function() {};
+
+/**
+ * Low level socket option getting/setting. Refer to the
+ * socket API manuals of the applicable operating system.
+ * IF the `setvalue` is undefined (only 2 args used), the
+ * method acts as a getter.
+ * @param {number} level
+ * @param {number} optname
+ * @param {number} [setvalue]
+ * @return {number}
+ */
+sys.socket.prototype.option = function(level, optname, setvalue) {};
+
+/**
+ * Closes the connection/server, cleans up the underlying
+ * system socket.
+ */
+sys.socket.prototype.close = function() {};
+
+/**
+ * Initiate a connection to a server, returns after the connection
+ * is established, throws on error. The address string defines the
+ * type of socket. For TCP connection, the port has to be attached
+ * using with the pattern "<address>:<port>". IPv6 addresses are to
+ * be escaped as known from browsers, e.g."[fe80::0001]:<port>".
+ * Additional options may be specified as plain object, these are
+ * applied after creating the socket and before connecting. They
+ * correspond to the readable option related properties of the
+ * socket object:
+ *    options = {
+ *      timeout: <number>,
+ *      nodelay: <boolean>,
+ *      keepalive: <boolean>,
+ *      reuseaddress: <boolean>,
+ *      nonblocking: <boolean>
+ *    }
+ *
+ * @param {string} address
+ * @param {object} options
+ */
+sys.socket.prototype.connect = function() {};
+
+/**
+ * Bind the socket to the specified port and start listening. The address
+ * may be specified as "0.0.0.0:<port>" or "[::]:<port>" accordingly.
+ * The value `max_pending` specifies how many incoming connections are
+ * kept in the pipeline until they are rejected.
+ *
+ * @param {string} address_port
+ * @param {number} max_pending
+ * @param {object} options
+ */
+sys.socket.prototype.listen = function(address_port, max_pending, options) {};
+
+/**
+ * Send data via the open socket.
+ *
+ * @param {string} data
+ */
+sys.socket.prototype.send = function(data) {};
+
+/**
+ * Receive text via the open socket connection.
+ * Returns an empty string if no data are received
+ * withing the specified timeout (milliseconds), or
+ * the defined default timeout accordingly.
+ *
+ * @param {number} [timeout]
+ * @return {string}
+ */
+sys.socket.prototype.recv = function(timeout) {};
+
+/** @file: mod.xlang.hh */
+
+/**
+ * Returns the limited ("clamped") value of the number.
+ * Minimum and maximum value have to be specified.
+ *
+ * @param {number} min
+ * @param {number} max
+ */
+Number.prototype.limit = function(min, max) {};
+
+/**
+ * Returns the limited ("clamped") value of the number.
+ * Minimum and maximum value have to be specified. Alias
+ * of `Number.prototype.limit`.
+ * @see Number.prototype.limit
+ * @param {number} min
+ * @param {number} max
+ */
+Number.prototype.clamp = function(min, max) {};
+
+/**
+ * Linear regression fitting of two value arrays (x and y)
+ * using least error square 1st order polynomial fitting.
+ * Returns an object containing `slope` and `offset` of
+ * the best fitting line. The function throws if the arrays
+ * do not have numeric values, or do not have the same size,
+ * or are empty.
+ *
+ * @param {array} x_values
+ * @param {array} y_values
+ * @return {object}
+ */
+Math.linfit = function(x_values, y_values) {};
+
+/**
+ * Iterates over an array (ascending indices) or object
+ * (own properties only) using a given function. Arguments
+ * passed into that function are the value, the key/index,
+ * and the referred object.
+ * The `forEach()` method does not return a value.
+ * Example:
+ *
+ *    obj.forEach(function(value, key, this_ref){...});
+ *    arr.forEach(function(value, index, this_ref){...});
+ *
+ * @param {function} func
+ * @return {undefined}
+ */
+Object.prototype.forEach = function(func) {};
+
+/**
+ * Iterates over an array (ascending indices) or object
+ * (own properties only) using a given processing function.
+ * Arguments passed into that function are the value, the
+ * key/index, and the referred object. The `each()` method
+ * does not return a value. Example:
+ *
+ *    obj.each(function(value, key, this_ref){...});
+ *    arr.each(function(value, index, this_ref){...});
+ *
+ * @param {function} func
+ * @return {undefined}
+ */
+Object.prototype.each = function(func) {};
+
+/**
+ * Returns true if all elements of the referred (`this`) object or array
+ * matches the given predicate function. That is, if the given function
+ * returns `true` when being invoked with all of the object/array elements.
+ *
+ * Example:
+ *
+ *    if(obj.every(function(value, key  , this_ref){...})) { ... }
+ *    if(arr.every(function(value, index, this_ref){...})) { ... }
+ *
+ * @param {function} predicate
+ * @return {boolean}
+ */
+Object.prototype.every = function(predicate) {};
+
+/**
+ * Alias of `Object.prototype.every()`.
+ *
+ * @param {function} predicate
+ * @return {boolean}
+ */
+Object.prototype.all = function(predicate) {};
+
+/**
+ * Returns true if at least one element of the referred (`this`)
+ * object or array matches the given predicate function. That is,
+ * if the given function returns `true` when being invoked with
+ * the object/array elements.
+ *
+ * Example:
+ *
+ *    if(obj.some(function(value, key  , this_ref){...})) { ... }
+ *    if(arr.some(function(value, index, this_ref){...})) { ... }
+ *
+ * @param {function} predicate
+ * @return {boolean}
+ */
+Object.prototype.some = function(predicate) {};
+
+/**
+ * Alias of `Object.prototype.some(predicate)`.
+ *
+ * @param {function} predicate
+ * @return {boolean}
+ */
+Object.prototype.any = function(predicate) {};
+
+/**
+ * Returns true if not one single element of the referred (`this`)
+ * object or array matches the given predicate function. That is,
+ * if the given function does **not** return `true` when being invoked
+ * with any of the object/array elements.
+ *
+ * Example:
+ *
+ *    if(obj.none(function(value, key  , this_ref){...})) { ... }
+ *    if(arr.none(function(value, index, this_ref){...})) { ... }
+ *
+ * @param {function} predicate
+ * @return {boolean}
+ */
+Object.prototype.none = function(predicate) {};
+
+/**
+ * Returns a string with whitespaces stripped off at
+ * the begin and end.
+ * @return {string}
+ */
+String.prototype.trim = function() {};

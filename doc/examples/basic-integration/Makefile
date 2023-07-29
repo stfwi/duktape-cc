@@ -5,8 +5,8 @@
 TOOLCHAIN=
 CXX=$(TOOLCHAIN)g++
 LD=$(CXX)
-FLAGSCXX=-std=c++17 -W -Wall -Wextra -pedantic -I../../../ -Os -fno-omit-frame-pointer -fdata-sections -ffunction-sections
-DUKOPTS+=-std=c++17 -fstrict-aliasing -fdata-sections -ffunction-sections -Os -DDUK_USE_CPP_EXCEPTIONS
+FLAGSCXX=-std=c++17 -W -Wall -Wextra -pedantic -Werror -I../../../ -Os -fno-omit-frame-pointer -fdata-sections -ffunction-sections
+DUKOPTS+=-std=c++17 -fstrict-aliasing -fdata-sections -ffunction-sections -Os
 FLAGSLD+=-Os -fno-omit-frame-pointer -Wl,--gc-sections
 
 ifeq ($(OS),Windows_NT)

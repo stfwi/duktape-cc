@@ -17,7 +17,7 @@
  *
  * -----------------------------------------------------------------------------
  * License: http://opensource.org/licenses/MIT
- * Copyright (c) 2014-2017, the authors (see the @authors tag in this file).
+ * Copyright (c) 2014-2022, the authors (see the @authors tag in this file).
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -53,7 +53,6 @@
  * @authors Stefan Wilhelm (stfwi, <cerbero s@atwillys.de>)
  * @platform linux, bsd, windows
  * @standard >= c++14
-
  */
 #ifndef SW_SYS_PROCESS_SNIP
 #define SW_SYS_PROCESS_SNIP
@@ -109,8 +108,8 @@
 
       explicit child_process() :
         program_(), arguments_(), environment_(), timeout_ms_(), ignore_stdout_(), ignore_stderr_(), redirect_stderr_to_stdout_(),
-        without_path_search_(), dont_inherit_environment_(), no_argument_escaping_(), exit_code_(-1), was_timeout_(false),
-        process_terminated_(true), start_time_(), proc_(), stdin_data_(), stdout_data_(), stderr_data_()
+        without_path_search_(), dont_inherit_environment_(), no_argument_escaping_(), no_pipe_auto_closing_(false), exit_code_(-1),
+        was_timeout_(false), process_terminated_(true), start_time_(), proc_(), stdin_data_(), stdout_data_(), stderr_data_()
       {}
 
       child_process(
@@ -124,14 +123,14 @@
         bool redirect_stderr_to_stdout = false,
         bool without_path_search = false,
         bool dont_inherit_environment = false,
-        bool no_argument_escaping = true
+        bool no_argument_escaping = true,
+        bool dont_auto_close_pipes = false
       ) :
         program_(), arguments_(), environment_(), timeout_ms_(timeout_ms),
         ignore_stdout_(ignore_stdout), ignore_stderr_(ignore_stderr), redirect_stderr_to_stdout_(redirect_stderr_to_stdout),
         without_path_search_(without_path_search), dont_inherit_environment_(dont_inherit_environment),
-        no_argument_escaping_(no_argument_escaping), exit_code_(-1), was_timeout_(false), process_terminated_(false),
-        start_time_(), proc_(), stdin_data_(std::move(stdin_data)),
-        stdout_data_(), stderr_data_()
+        no_argument_escaping_(no_argument_escaping), no_pipe_auto_closing_(dont_auto_close_pipes), exit_code_(-1), was_timeout_(false),
+        process_terminated_(false), start_time_(), proc_(), stdin_data_(std::move(stdin_data)), stdout_data_(), stderr_data_()
       {
         run(std::move(program), std::move(arguments), std::move(environment), timeout_ms);
       }
@@ -160,7 +159,7 @@
       { ignore_stdout_ = ignore; return *this; }
 
       bool ignore_stderr() const noexcept
-      { return ignore_stderr_; return *this; }
+      { return ignore_stderr_; }
 
       child_process& ignore_stderr(bool ignore) noexcept
       { ignore_stderr_ = ignore; return *this; }
@@ -172,7 +171,7 @@
       { redirect_stderr_to_stdout_ = redirect; return *this; }
 
       bool no_path_search() const noexcept
-      { return without_path_search_; return *this; }
+      { return without_path_search_; }
 
       child_process& no_path_search(bool no_path) noexcept
       { without_path_search_ = no_path; return *this; }
@@ -189,8 +188,14 @@
       child_process& no_arg_escaping(bool no_esc) noexcept
       { no_argument_escaping_ = no_esc; return *this; }
 
+      bool no_pipe_auto_closing() const noexcept
+      { return no_pipe_auto_closing_; }
+
+      child_process& no_pipe_auto_closing(bool no_close) noexcept
+      { no_pipe_auto_closing_ = no_close; return *this; }
+
       exitcode_type exit_code() const noexcept
-      { return exit_code_; }
+      { return was_timeout_ ? exitcode_type(-1) : exitcode_type(exit_code_); }
 
       bool running() const noexcept
       { return !process_terminated_; }
@@ -205,10 +210,10 @@
       { return stdin_data_; }
 
       child_process& stdin_data(const string_type& stdin_data) noexcept
-      { stdin_data_ = stdin_data; }
+      { stdin_data_ = stdin_data; return *this; }
 
       child_process& stdin_data(string_type&& stdin_data) noexcept
-      { stdin_data_ = stdin_data; }
+      { stdin_data_ = stdin_data; return *this; }
 
       const string_type& stdout_data() const noexcept
       { return stdout_data_; }
@@ -296,6 +301,9 @@
           }
           envv.push_back(nullptr);
         }
+        program_ = program;
+        arguments_.swap(arguments);
+        environment_.swap(environment);
         int err = 0;
         fd_t pi[2] = {-1,-1}, po[2] = {-1,-1}, pe[2] = {-1,-1};
         if(::pipe(pi)) {
@@ -348,7 +356,7 @@
           proc_.ofd = po[0]; unblock(proc_.ofd); close_pipe(po[1]);
           proc_.efd = pe[0]; unblock(proc_.efd); close_pipe(pe[1]);
           proc_.pid = pid;
-          if(stdin_data_.empty()) close_pipe(proc_.ifd);
+          if(stdin_data_.empty() && (!no_pipe_auto_closing())) close_pipe(proc_.ifd);
           if(ignore_stdout_) close_pipe(proc_.ofd);
           if(ignore_stderr_) close_pipe(proc_.efd);
         }
@@ -374,11 +382,13 @@
         }
         // Write to child stdin if bytes left
         if(proc_.ifd >= 0) {
-          const size_t size = stdin_data_.length();
+          const size_t size = stdin_data_.size();
           const void* data = stdin_data_.data();
-          int r;
+          int r = -1;
           if(size <= 0) {
-            close_pipe(proc_.ifd);
+            if(!no_pipe_auto_closing()) {
+              close_pipe(proc_.ifd);
+            }
           } else if((r=::write(proc_.ifd, data, size)) < 0) {
             switch(errno) {
               case EINTR:
@@ -387,12 +397,12 @@
               default:
                 string_type().swap(stdin_data_);
             }
-          } else if((!r) || (((size_t)r) == stdin_data_.length())) {
+          } else if((!r) || (((size_t)r) == stdin_data_.size())) {
             string_type().swap(stdin_data_);
           } else {
             stdin_data_ = stdin_data_.substr(r);
           }
-          if(stdin_data_.empty()) {
+          if(stdin_data_.empty() && (!no_pipe_auto_closing())) {
             close_pipe(proc_.ifd);
           }
         }
@@ -464,6 +474,7 @@
         }
         proc_.close();
         update(0);
+        exit_code_ = -1;
       }
 
     private:
@@ -531,10 +542,11 @@
         ) {
           throw std::runtime_error("Creating pipes failed.");
         }
-        // argv
-        //@todo: utf8 to wstring when mingw codecvt working.
+        // argv  ; @todo: utf8 to wstring when mingw codecvt working.
         string_type argv;
-        const string_type program_file = escape(program_);
+        string_type program_file = program_;
+        std::replace(program_file.begin(), program_file.end(), '/', '\\');
+        program_file = escape(program_file);
         argv.append(program_file);
         for(auto& e:arguments_) {
           argv.append(" ");
@@ -549,16 +561,29 @@
         string_type envv;
         {
           if(!dont_inherit_environment_) {
+
             struct envstrings
             {
-              envstrings() : cstr(nullptr) { cstr = ::GetEnvironmentStrings(); }
-              ~envstrings() { if(cstr) ::FreeEnvironmentStrings(cstr); }
-              #ifdef UNICODE
-              wchar_t* cstr;
-              #else
+              envstrings() : cstr(getenv()) {}
+              ~envstrings() { if(cstr) ::FreeEnvironmentStringsA(cstr); }
               char* cstr;
-              #endif
+
+              static char* getenv() noexcept
+              {
+                // Fixes mingw issue that `GetEnvironmentStringsA()` is not defined for `-DUNICODE`,
+                // and `GetEnvironmentStrings` is a macro override for `GetEnvironmentStringsW`.
+                // Whatever, fine, it surely makes sense in a greater context, but we need bytes.
+                #if defined(GetEnvironmentStrings) && !defined(GetEnvironmentStringsA)
+                  #define GetEnvironmentStrings_TMP GetEnvironmentStrings
+                  #undef GetEnvironmentStrings
+                  return GetEnvironmentStrings();
+                  #define GetEnvironmentStrings GetEnvironmentStrings_TMP
+                #else
+                  return GetEnvironmentStringsA();
+                #endif
+              }
             };
+
             envstrings userenv;
             if(userenv.cstr) {
               bool was0 = false;
@@ -569,7 +594,7 @@
             }
           }
           if(!environment_.empty()) {
-            for(size_t i=0; i<environment_.size()-2; i+=2) {
+            for(size_t i=0; i<environment_.size()-1; i+=2) {
               envv += environment_[i] + "=" + environment_[i+1];
               envv.push_back('\0');
             }
@@ -578,7 +603,7 @@
         }
         {
           STARTUPINFOA si = STARTUPINFOA();
-          si.cb = sizeof(STARTUPINFO);
+          si.cb = sizeof(STARTUPINFOA);
           si.dwFlags = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES;
           si.hStdOutput = proc_.out.w;
           si.hStdError = redirect_stderr_to_stdout_ ? proc_.out.w : proc_.err.w;
@@ -590,16 +615,20 @@
           ) {
             switch(::GetLastError()) {
               case ERROR_FILE_NOT_FOUND:
-              case ERROR_PATH_NOT_FOUND:
-                exit_code_ = 1;
-                throw std::runtime_error(string_type("Failed to start process: Program file not found."));
+              case ERROR_PATH_NOT_FOUND: {
+                proc_.in.close();
+                proc_.err.close();
+                proc_.out.close();
+                exit_code_ = -1;
+                return;
+              }
               default:
                 throw std::runtime_error(string_type("Running program failed: ") + errstr());
             }
           }
         }
         if(stdin_data_.empty()) {
-          proc_.in.close();
+          if(!no_pipe_auto_closing()) proc_.in.close();
         } else {
           ::CloseHandle(proc_.in.r);
           proc_.in.r = nullptr;
@@ -617,6 +646,8 @@
 
       bool update(milliseconds_type poll_wait)
       {
+        bool keep_writing = true;
+        bool had_poll_match = false;
         int n_loops_left = 2;
         while(--n_loops_left > 0) {
           if(!process_terminated_) {
@@ -632,7 +663,10 @@
             switch(::WaitForMultipleObjects(handles.size(), &handles[0], false, DWORD(poll_wait))) {
               case WAIT_OBJECT_0+1: // out or err
               case WAIT_OBJECT_0+2: // err
-                n_loops_left = 2;
+                if(!had_poll_match) {
+                  had_poll_match = true;
+                  n_loops_left = 2;
+                }
                 break;
               case WAIT_OBJECT_0:
                 process_terminated_ = true;
@@ -646,23 +680,22 @@
               default:
                 n_loops_left = 0;
             }
-          }
-          if(proc_.in.w && !stdin_data_.empty()) {
-            bool keep_writing = true;
-            while(proc_.in.w && !stdin_data_.empty() && keep_writing) {
+            // Push pending data to STDIN of the child process
+            while(keep_writing && proc_.in.w && !stdin_data_.empty()) {
               DWORD n_written = 0;
               DWORD n_towrite = stdin_data_.size() > 4096 ? 4096 : stdin_data_.size();
               if(!::WriteFile(proc_.in.w, stdin_data_.data(), n_towrite, &n_written, nullptr)) {
                 switch(::GetLastError()) {
                   case ERROR_PIPE_BUSY:
                     keep_writing = false;
+                    n_loops_left = 2;
                     break;
                   case ERROR_BROKEN_PIPE:
                   case ERROR_NO_DATA:
                   case ERROR_PIPE_NOT_CONNECTED:
                     keep_writing = false;
                     proc_.in.close();
-                    // break: intentionally no break.
+                    // break: intentionally no break to throw.
                   case ERROR_INVALID_HANDLE:
                     keep_writing = false;
                     proc_.in.w = nullptr;
@@ -675,7 +708,9 @@
                 if(n_written >= stdin_data_.size()) {
                   stdin_data_.clear();
                   keep_writing = false;
-                  proc_.in.close();
+                  if(!no_pipe_auto_closing()) {
+                    proc_.in.close();
+                  }
                 } else {
                   stdin_data_ = stdin_data_.substr(n_written);
                 }
@@ -685,13 +720,18 @@
               }
             }
           }
+          // Read child process STDOUT (optionally ignore, but consume the pipe data).
           {
             string_type data = readpipe(proc_.out.r, ignore_stdout_);
             if(!data.empty()) { n_loops_left = 0; stdout_data_.append(std::move(data)); }
           }
+          // Read child process STDERR (optionally ignore, but consume the pipe data).
           {
             string_type data = readpipe(proc_.err.r, ignore_stderr_);
             if(!data.empty()) { n_loops_left = 0; stderr_data_.append(std::move(data)); }
+          }
+          if(ignore_stdout_ && ignore_stderr_) {
+            n_loops_left = 0;
           }
         }
         if(process_terminated_) {
@@ -832,10 +872,12 @@
       bool without_path_search_;
       bool dont_inherit_environment_;
       bool no_argument_escaping_;
+      bool no_pipe_auto_closing_;
 
       int exit_code_;
       bool was_timeout_;
       bool process_terminated_;
+      bool auto_close_stdin_;
       std::chrono::steady_clock::time_point start_time_;
       process_handles proc_;
       string_type stdin_data_;
@@ -853,7 +895,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
   namespace {
 
     template <typename=void>
-    static void read_callback(duktape::api& stack, const duktape::api::index_t funct, std::string& buf, std::string& out, const char* data, const size_t size)
+    static void read_callback(duktape::api& stack, const duktape::api::index_type funct, std::string& buf, std::string& out, const char* data, const size_t size)
     {
       using namespace std;
       if(size) { // data not checked because reference known
@@ -911,12 +953,13 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       bool& ignore_stderr,
       bool& redirect_stderr_to_stdout,
       bool& no_exception,
-      duktape::api::index_t& stdout_callback,
-      duktape::api::index_t& stderr_callback
+      bool& keep_stdin_open,
+      duktape::api::index_type& stdout_callback,
+      duktape::api::index_type& stderr_callback
     )
     {
-      using index_t = duktape::api::index_t;
-      index_t optindex = -1;
+      using index_type = duktape::api::index_type;
+      index_type optindex = -1;
       if(stack.is_object(0)) {
         optindex = 0;
         no_exception = stack.get_prop_string<bool>(optindex, "noexcept", false);
@@ -930,7 +973,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       }
       if(stack.top() > 1) {
         if(stack.is_array(1)) {
-          arguments = stack.req<std::vector<std::string>>(1);
+          arguments = stack.get<std::vector<std::string>>(1);
         } else if(stack.is_object(1)) {
           optindex = 1;
           no_exception = stack.get_prop_string<bool>(optindex, "noexcept", false);
@@ -954,6 +997,9 @@ namespace duktape { namespace detail { namespace system { namespace exec {
         without_path_search = stack.get_prop_string<bool>(optindex, "nopath", false);
         noenv = stack.get_prop_string<bool>(optindex, "noenv", false);
         timeout_ms = stack.get_prop_string<int>(optindex, "timeout", -1);
+        if(stack.has_prop_string(optindex, "noclose")) {
+          keep_stdin_open = stack.get_prop_string<bool>(optindex, "noclose", keep_stdin_open);
+        }
         // program path/name (in $PATH)
         if(stack.get_prop_string(optindex, "program")) {
           if(!stack.is<std::string>(-1)) {
@@ -970,7 +1016,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
           if(optindex > 1) {
             return "exec(): Program arguments already defined as 2nd argument.";
           } else {
-            arguments = stack.req<std::vector<std::string>>(-1);
+            arguments = stack.get<std::vector<std::string>>(-1);
             int i=0;
             for(auto e:arguments) {
               for(auto c:e) {
@@ -1018,7 +1064,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
             stdin_data = stack.get<std::string>(-1);
           } else if(stack.is_false(-1) || stack.is_null(-1) || stack.is_undefined(-1)) {
             stdin_data.clear();
-          } else if(stack.is_buffer(-1)) {
+          } else if(stack.is_buffer(-1) || stack.is_buffer_data(-1)) {
             stdin_data = stack.buffer<std::string>(-1);
           } else {
             return "Invalid value for the 'stdin' exec option.";
@@ -1032,7 +1078,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
           } else {
             stack.enumerator(-1, duktape::api::enum_own_properties_only);
             while(stack.next(-1, true)) {
-              environment.push_back(stack.req<std::string>(-2));
+              environment.push_back(stack.get<std::string>(-2));
               environment.push_back(stack.to<std::string>(-1));
               stack.pop(2);
             }
@@ -1049,7 +1095,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
         stack.pop();
       }
       if(program.empty()) {
-        return "exec(): Empty string passed as program to execute.";
+        return "exec(): Empty argument passed as program to execute.";
       }
       return std::string();
     }
@@ -1062,7 +1108,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
   template <typename=void>
   int execute(duktape::api& stack)
   {
-    using index_t = duktape::api::index_t;
+    using index_type = duktape::api::index_type;
     int exit_code = 0;
     int timeout_ms = -1;
     std::string program;
@@ -1074,13 +1120,14 @@ namespace duktape { namespace detail { namespace system { namespace exec {
     bool ignore_stderr = true;
     bool redirect_stderr_to_stdout = false;
     bool no_exception = false;
-    index_t stdout_callback = -1;
-    index_t stderr_callback = -1;
+    bool keep_stdin_open = false;
+    index_type stdout_callback = -1;
+    index_type stderr_callback = -1;
     {
       const std::string error = arguments_import(
         stack, timeout_ms, program, arguments, environment, stdin_data, without_path_search,
-        noenv, ignore_stdout, ignore_stderr, redirect_stderr_to_stdout, no_exception, stdout_callback,
-        stderr_callback
+        noenv, ignore_stdout, ignore_stderr, redirect_stderr_to_stdout, no_exception, keep_stdin_open,
+        stdout_callback, stderr_callback
       );
       if(!error.empty()) {
         if(!no_exception) stack.throw_exception(error); // else just return undefined.
@@ -1091,7 +1138,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       auto proc = child_process(
         std::move(program), std::move(arguments), std::move(environment), std::move(stdin_data),
         timeout_ms, ignore_stdout, ignore_stderr, redirect_stderr_to_stdout, without_path_search,
-        noenv, false
+        noenv, false, keep_stdin_open
       );
       std::string stdout_buffer, stderr_buffer;
       do {
@@ -1142,7 +1189,6 @@ namespace duktape { namespace detail { namespace system { namespace exec {
     }
   }
 
-
   template <typename=void>
   int execute_shell(duktape::api& stack)
   {
@@ -1162,12 +1208,14 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       constexpr bool no_arg_escape = true;
       const char* p = getenv("ComSpec");
       const std::string sh = (!p) ? std::string("c:\\Windows\\system32\\cmd.exe") : std::string(p);
-      args.push_back(std::string("/c \"") + command + "\"");
+      args.push_back(sh);
+      args.push_back("/C");
+      args.push_back(escape_shell_arg(command));
       #endif
       try {
         auto proc = child_process(
           std::move(sh), std::move(args), std::vector<std::string>(), std::string(), timeout_ms,
-          false, true, false, true, false, no_arg_escape
+          false, true, false, true, false, no_arg_escape, false
         );
         while(proc.running()) {
           proc.update(10);
@@ -1211,8 +1259,21 @@ namespace duktape { namespace mod { namespace system { namespace exec {
      *   All these options are optional and have sensible default values:
      *
      *    {
+     *      // The function can be called like `fs.exec( {options} )` (options 1st argument). In this
+     *      // case the program to execute can be specified using the `program` property.
+     *      program : {string},
+     *
+     *      // The function can also be called with the options as first or second argument. In both
+     *      // cases the command line arguments to pass on to the execution can be passed as the `args`
+     *      // property.
+     *      args    : {array},
+     *
      *      // Plain object for environment variables to set.
      *      env     : {object}={},
+     *
+     *      // Process run timeout in ms, the process will be terminated (and SIGKILL killed later if
+     *      // not terminating itself) if it runs longer than this timeout.
+     *      timeout : {number}
      *
      *      // Optional text that is passed to the program via stdin piping.
      *      stdin   : {String}="",
@@ -1246,19 +1307,10 @@ namespace duktape { namespace mod { namespace system { namespace exec {
      *      // engine errors still throw.
      *      noexcept: {boolean}=false,
      *
-     *      // The function can be called like `fs.exec( {options} )` (options 1st argument). In this
-     *      // case the program to execute can be specified using the `program` property.
-     *      program : {string},
-     *
-     *      // The function can also be called with the options as first or second argument. In both
-     *      // cases the command line arguments to pass on to the execution can be passed as the `args`
-     *      // property.
-     *      args    : {array},
-     *
-     *      // Process run timeout in ms, the process will be terminated (and SIGKILL killed later if
-     *      // not terminating itself) if it runs longer than this timeout.
-     *      timeout : {number}
-     *
+     *      // Normally pipes to the process are automatically closed (such as STDIN if all data
+     *      // are sent to the child process). To explicitly say that these pipes should be kept
+     *      // open if not closed by the child, specify `noclose=true`.
+     *      noclose: {boolean}=false
      *    }
      *
      * - The return value is:
@@ -1335,6 +1387,9 @@ namespace duktape { namespace mod { namespace system { namespace exec {
      * @param {array} [arguments]
      * @param {object} [options]
      *
+     * @property {string}  program      - The program executed.
+     * @property {array}   arguments    - The program CLI arguments passed in.
+     * @property {object}  environment  - The program environment variables passed in or deduced.
      * @property {boolean} running      - True if the child process has not terminated yet. Updates stdout/stderr/stdin/exitcode.
      * @property {number}  exitcode     - The exit code of the child process, or -1.
      * @property {string}  stdout       - Current output received from the child process.
@@ -1350,7 +1405,7 @@ namespace duktape { namespace mod { namespace system { namespace exec {
       ::duktape::native_object<native_process>("sys.process")
       // Native constructor from script arguments.
       .constructor([](duktape::api& stack) {
-        using index_t = duktape::api::index_t;
+        using index_type = duktape::api::index_type;
         int timeout_ms = -1;
         std::string program;
         std::vector<std::string> arguments, environment;
@@ -1361,19 +1416,29 @@ namespace duktape { namespace mod { namespace system { namespace exec {
         bool ignore_stderr = true;
         bool redirect_stderr_to_stdout = false;
         bool no_exception = false;
-        index_t stdout_callback = -1;
-        index_t stderr_callback = -1;
+        bool no_close = true;
+        index_type stdout_callback = -1;
+        index_type stderr_callback = -1;
         const std::string error = arguments_import(
           stack, timeout_ms, program, arguments, environment, stdin_data, without_path_search,
-          noenv, ignore_stdout, ignore_stderr, redirect_stderr_to_stdout, no_exception, stdout_callback,
-          stderr_callback
+          noenv, ignore_stdout, ignore_stderr, redirect_stderr_to_stdout, no_exception, no_close,
+          stdout_callback, stderr_callback
         );
         if(!error.empty()) throw std::runtime_error(error);
         return new native_process(
           std::move(program), std::move(arguments), std::move(environment), std::move(stdin_data),
           timeout_ms, ignore_stdout, ignore_stderr, redirect_stderr_to_stdout, without_path_search,
-          noenv, false
+          noenv, false, no_close
         );
+      })
+      .getter("program", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.program());
+      })
+      .getter("arguments", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.arguments());
+      })
+      .getter("environment", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.environment());
       })
       .getter("exitcode", [](duktape::api& stack, native_process& instance) {
         stack.push(int(instance.exit_code()));
@@ -1383,6 +1448,14 @@ namespace duktape { namespace mod { namespace system { namespace exec {
       })
       .setter("stdout", [](duktape::api& stack, native_process& instance) {
         instance.stdout_data(stack.to<std::string>(0));
+      })
+      .getter("stdin", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.stdin_data());
+      })
+      .setter("stdin", [](duktape::api& stack, native_process& instance) {
+        if(!instance.running()) return;
+        instance.stdin_data(instance.stdin_data() + stack.get<std::string>(0));
+        instance.update(0);
       })
       .getter("stderr", [](duktape::api& stack, native_process& instance) {
         stack.push(instance.stderr_data());
@@ -1400,6 +1473,26 @@ namespace duktape { namespace mod { namespace system { namespace exec {
       .getter("timeout", [](duktape::api& stack, native_process& instance) {
         stack.push(int(instance.timeout()));
       })
+      .setter("timeout", [](duktape::api& stack, native_process& instance) {
+        if((!stack.is<int>(-1)) || (stack.get<int>(-1)<0)) {
+          stack.throw_exception("sys.process.timeout must be set to an number in milliseconds >0.");
+        } else {
+          instance.timeout(stack.get<int>(-1));
+        }
+      })
+      #if(0 && JSDOC)
+      /**
+       * Updates run status and pipes. Identical to
+       * querying the `sys.process.running` property,
+       * except that a default polling timeout of 5ms
+       * applies (means the program blocks for 5ms if
+       * no data have arrived, otherwise the method
+       * returns earlier).
+       *
+       * @return {sys.process}
+       */
+      sys.process.prototype.update = function() {};
+      #endif
       .method("update", [](duktape::api& stack, native_process& instance) {
         instance.update(5);
         stack.push_this();
@@ -1411,9 +1504,10 @@ namespace duktape { namespace mod { namespace system { namespace exec {
        * a graceful termination request (SIGTERM/SIGQUIT), when
        * `force` is `true`, the `SIGKILL` event is used.
        * On Windows this it applies a process termination, `force`
-       * is ignored.
+       * is ignored. Returns a reference to itself.
        *
        * @param {boolean} force
+       * @return {sys.process}
        */
       sys.process.prototype.kill = function(force) {};
       #endif
@@ -1422,6 +1516,66 @@ namespace duktape { namespace mod { namespace system { namespace exec {
         stack.top(0);
         stack.push_this();
         return 1;
+      })
+      #if(0 && JSDOC)
+      /**
+       * Reads data from the STDOUT of the child process.
+       * Returns an empty string if no data are available,
+       * throws STDOUT is ignored.
+       *
+       * @param {number} timeout_ms
+       */
+      sys.process.prototype.read = function(timeout_ms) {};
+      #endif
+      .method("read", [](duktape::api& stack, native_process& instance) {
+        const auto timeout = std::min(std::max(stack.get<int>(0), 0), 10000);
+        stack.top(0);
+        if(instance.ignore_stdout()) return stack.throw_exception("Cannot read from stdout, as it is ignored (execute with {stdout:true}).");
+        instance.update(timeout);
+        auto data = std::string();
+        instance.stdout_data().swap(data);
+        stack.push(std::move(data));
+        return 1;
+      })
+      #if(0 && JSDOC)
+      /**
+       * Writes data to the STDIN of the child process.
+       * Returns a reference to itself. Silently ignores
+       * the input if the child process has terminated.
+       *
+       * @param {string} data
+       * @return {sys.process}
+       */
+      sys.process.prototype.write = function(data) {};
+      #endif
+      .method("write", [](duktape::api& stack, native_process& instance) {
+        if(stack.is_undefined(0)) return stack.throw_exception("Missing data to write to the child process STDIN.");
+        if(instance.running()) {
+          instance.stdin_data(instance.stdin_data() + stack.to<std::string>(0));
+          instance.update(0);
+        }
+        stack.top(0);
+        stack.push_this();
+        return 1;
+      })
+      // undocumented testing properties.
+      .getter("ignore_stdout", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.ignore_stdout());
+      })
+      .getter("ignore_stderr", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.ignore_stderr());
+      })
+      .getter("redirect_stderr_to_stdout", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.redirect_stderr_to_stdout());
+      })
+      .getter("no_path_search", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.no_path_search());
+      })
+      .getter("no_inherited_environment", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.no_inherited_environment());
+      })
+      .getter("no_arg_escaping", [](duktape::api& stack, native_process& instance) {
+        stack.push(instance.no_arg_escaping());
       })
     );
   }

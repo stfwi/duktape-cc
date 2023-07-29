@@ -102,16 +102,18 @@
     }
 
     template <endian FromEndianess, endian ToEndianess, typename Integer>
-    constexpr Integer convert_endianess(Integer value) noexcept
+    constexpr Integer convert_endianess(const Integer value) noexcept
     {
       static_assert((FromEndianess!=endian::middle) && (ToEndianess!=endian::middle), "Tell me when that is still needed.");
-      if(FromEndianess==ToEndianess) return value;
+      if/*constexpr*/(FromEndianess==ToEndianess) return value;
+      if/*constexpr*/(sizeof(Integer)==1) return value;
       // No byte swaps etc, the compiler inline and unroll that:
       auto i = sizeof(Integer);
       auto swapped = Integer(0);
+      auto val = value;
       while(i--) {
-        swapped = (swapped<<8) | (value & 0xff);
-        value >>= 8;
+        swapped = (swapped<<8) | (val & Integer(0xff));
+        val >>= 8;
       }
       return swapped;
     }
@@ -183,11 +185,18 @@ namespace duktape { namespace ext { namespace detail { namespace conv { namespac
     if(stack.top()!=1) throw duktape::script_error("toHex: Needs one Number argument.");
     if(!stack.is<double>(0)) throw duktape::script_error("toHex: Argument is no number.");
     const auto dec = stack.get<double>(0);
-    if((dec < std::numeric_limits<T>::min()) || (dec > std::numeric_limits<T>::max())) throw duktape::script_error(string("toHex: Number exceeds the numeric value range of the conversion: ") + std::to_string(dec));
+    if((dec < numeric_limits<T>::min()) || (dec > numeric_limits<T>::max())) throw duktape::script_error(string("toHex: Number exceeds the numeric value range of the conversion: ") + to_string(dec));
     stack.top(0);
-    T val = convert_endianess<machine_endianness(), E>(T(dec));
-    ostringstream os; os << hex << setfill('0') << setw(sizeof(T)*2) << val;
-    stack.push(os.str());
+    auto val = convert_endianess<machine_endianness(), E>(typename make_unsigned<T>::type(dec));
+    auto s = string(sizeof(T)*2, '0');
+    auto i = s.size();
+    while(val) {
+      const auto digit = (val & 0xfu);
+      s[--i] = (digit<0xa) ? ('0'+char(digit)) : (('a'-10)+char(digit));
+      if(!i) break;
+      val >>= 4u;
+    }
+    stack.push(s);
     return 1;
   }
 
@@ -206,7 +215,7 @@ namespace duktape { namespace mod { namespace ext { namespace conv {
     using namespace std;
     using namespace sw;
     // Note: U8 big/little endian are nonsense but registered for completeness.
-    js.define("Number.machineEndianess", get_machine_endianess);
+    js.define("Number.machineEndianess", get_machine_endianess<>);
     js.define("Number.fromHexS32", from_hex<int32_t, machine_endianness()>);
     js.define("Number.fromHexS16", from_hex<int16_t, machine_endianness()>);
     js.define("Number.fromHexS8",  from_hex<int8_t, machine_endianness()>);

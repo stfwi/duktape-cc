@@ -18,7 +18,7 @@
  *
  * -----------------------------------------------------------------------------
  * License: http://opensource.org/licenses/MIT
- * Copyright (c) 2014-2017, the authors (see the @authors tag in this file).
+ * Copyright (c) 2014-2022, the authors (see the @authors tag in this file).
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -121,6 +121,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
       static size_t write(descriptor_type fd, std::string& s)
       {
+        if(fd == invalid_descriptor) throw std::runtime_error("Cannot write file: File not open.");
         if(!s.size()) return 0;
         size_t n_written = 0;
         while(s.size() > 0) {
@@ -138,8 +139,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
               case EAGAIN:
                 return n_written;
               default: {
-                const char* msg = ::strerror(errno);
-                throw std::runtime_error(std::string("Failed to read file (") + std::string(msg?msg:"Unspecified error") + ")");
+                const char* rmsg = ::strerror(errno);
+                const std::string msg = (rmsg) ? (std::string(rmsg)) : (std::string("File I/O error ")+std::to_string(int(errno)));
+                throw std::runtime_error(std::string("Failed to write file (") + msg + ")");
               }
             }
           }
@@ -171,7 +173,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
       static void flush(descriptor_type fd)
       {
-        (void)fd; // syscall based file i/o does not need flushing, @see sync
+        // syscall based file i/o does not need flushing, @see sync
+        if(fd == invalid_descriptor) throw std::runtime_error("Cannot flush file: File not open.");
       }
 
       static size_t size(descriptor_type fd)
@@ -302,10 +305,11 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
       static std::string read(descriptor_type fd, size_t max_size, bool& iseof)
       {
+        if(fd == invalid_descriptor) { iseof=true; throw std::runtime_error("Failed to read file: Not opened."); }
         iseof = false;
         std::string data;
-        if((fd == invalid_descriptor) || (!max_size)) { iseof=true; return data; }
         constexpr auto size_limit = size_t(std::numeric_limits<ssize_t>::max()-4096);
+        if(!max_size) max_size = size_limit;
         if(max_size > size_limit) max_size = size_limit; // as many as possible / limit
         for(;;) {
           char buffer[4096+1];
@@ -320,6 +324,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
               case ERROR_BROKEN_PIPE:
               case ERROR_PIPE_NOT_CONNECTED:
                 iseof = true;
+                return data;
               case ERROR_PIPE_BUSY:
               case ERROR_NO_DATA:
                 return data;
@@ -340,6 +345,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
       static size_t write(descriptor_type fd, std::string& data)
       {
+        if(fd == invalid_descriptor) { throw std::runtime_error("Failed to write file: Not opened."); }
         bool keep_writing = true;
         size_t n_written = 0;
         while(!data.empty() && keep_writing) {
@@ -377,6 +383,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
       static bool is_eof(descriptor_type fd)
       {
+        if(fd == invalid_descriptor) return true;
         // unfortunately no way to use readfile without actually reading
         LARGE_INTEGER pos, size;
         size.QuadPart = 0;
@@ -408,6 +415,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
       static void flush(descriptor_type fd)
       {
+        if(fd == invalid_descriptor) { throw std::runtime_error("Failed to flush: Not opened."); }
         ::FlushFileBuffers(fd2handle(fd));
       }
 
@@ -423,6 +431,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
       static struct ::stat stat(descriptor_type fd)
       {
+        if(fd == invalid_descriptor) { throw std::runtime_error("Failed to get file stat: Not opened."); }
         std::string path;
         {
           char cpath[MAX_PATH+1];
@@ -449,6 +458,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
       static bool lock(descriptor_type fd, char access)
       {
+        if(fd == invalid_descriptor) { throw std::runtime_error("Failed to lock file: Not opened."); }
         return ::LockFile(fd2handle(fd), 0u,0u, DWORD(0xffffffffu),DWORD(0x7fffffffu));
         (void)access; // LockFileEx could lock exclusively, but no OVERLAPPED hazzle for now.
       }
@@ -466,13 +476,13 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
    * on success. On fail an exception is placed on the stack.
    *
    * @param duktape::api& stack
-   * @param api::index_t obj_index
+   * @param api::index_type obj_index
    * @param nfh::descriptor_type& fd
    * @param std::string& opts
    * @return bool
    */
   template <typename=void>
-  bool get_file_object_data(duktape::api& stack, api::index_t obj_index, nfh::descriptor_type& fd, std::string& opts)
+  bool get_file_object_data(duktape::api& stack, api::index_type obj_index, nfh::descriptor_type& fd, std::string& opts)
   {
     int top = stack.top();
     if(  (!stack.is_object(obj_index))
@@ -498,12 +508,12 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
    * on success. On fail an exception is placed on the stack.
    *
    * @param duktape::api& stack
-   * @param api::index_t obj_index
+   * @param api::index_type obj_index
    * @param nfh::descriptor_type& fd
    * @return bool
    */
   template <typename=void>
-  bool get_file_object_data(duktape::api& stack, api::index_t obj_index, nfh::descriptor_type& fd)
+  bool get_file_object_data(duktape::api& stack, api::index_type obj_index, nfh::descriptor_type& fd)
   { std::string o; return get_file_object_data(stack, obj_index, fd, o); }
 
   /**
@@ -804,9 +814,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     nfh::descriptor_type fd = nfh::invalid_descriptor;
     if(!get_file_object_data(stack, 0, fd, openopts)) return 0;
     if(openopts.find('n') != openopts.npos) {
-      return stack.throw_exception("You cannot use the file printf() method in combination with nonblocking "
-              "I/O because it is not guaranteed entirely written, and you do not have the buffered formatted "
-              "output.");
+      return stack.throw_exception("You cannot use the file readln() method in combination with nonblocking.");
     }
     std::string nl;
     stack.get_prop_string(0, "newline");
@@ -874,20 +882,12 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     nfh::descriptor_type fd = nfh::invalid_descriptor;
     if(!get_file_object_data(stack, 0, fd, openopts)) return 0;
     if(openopts.find('n') != openopts.npos) {
-      return stack.throw_exception("You cannot use the file printf() method in combination with nonblocking "
-              "I/O because it is not guaranteed entirely written, and you do not have the buffered formatted "
-              "output.");
+      return stack.throw_exception("You cannot use the file writeln() method in combination with nonblocking.");
     }
     std::string nl;
     stack.get_prop_string(0, "newline");
     if(stack.is_string(-1)) nl = stack.get<std::string>(-1);
-    if(nl.empty()) {
-      #ifdef OS_WINDOWS
-      nl = "\r\n";
-      #else
-      nl = "\n";
-      #endif
-    }
+    if(nl.empty()) nl = "\n";
     data += nl;
     stack.top(0);
     nfh::write(fd, data);
@@ -991,7 +991,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     std::string path = stack.to<std::string>(-1);
     stack.top(1);
     struct ::stat st = nfh::stat(fd);
-    stack.require_stack_top(5);
+    if(!stack.check_stack_top(5)) return stack.throw_exception("Out of JS stack.");
     return filesystem::basic::push_filestat<PathAccessor>(stack, st, path);
   }
 
@@ -1029,7 +1029,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
     nfh::descriptor_type fd = nfh::invalid_descriptor;
     if(!get_file_object_data(stack, 0, fd)) return 0;
     if(!nfh::lock(fd, access)) {
-      stack.throw_exception("Failed to lock file.");
+      return stack.throw_exception("Failed to lock file.");
     }
     stack.top(1);
     return 1;
@@ -1173,7 +1173,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @param {string} [openmode]
        * @return {fs.file}
        */
-      fs.file.open = function(path, openmode) {};
+      fs.file.prototype.open = function(path, openmode) {};
       #endif
       js.define("fs.file.prototype.open", file_open<PathAccessor>, 2);
 
@@ -1183,7 +1183,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        *
        * @return {fs.file}
        */
-      fs.file.close = function() {};
+      fs.file.prototype.close = function() {};
       #endif
       js.define("fs.file.prototype.close", file_close<PathAccessor>,0);
 
@@ -1193,7 +1193,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        *
        * @return {boolean}
        */
-      fs.file.closed = function() {};
+      fs.file.prototype.closed = function() {};
       #endif
       js.define("fs.file.prototype.closed", file_closed<PathAccessor>,0);
 
@@ -1203,7 +1203,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        *
        * @return {boolean}
        */
-      fs.file.opened = function() {};
+      fs.file.prototype.opened = function() {};
       #endif
       js.define("fs.file.prototype.opened", file_opened<PathAccessor>,0);
 
@@ -1218,7 +1218,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        *
        * @return {boolean}
        */
-      fs.file.eof = function() {};
+      fs.file.prototype.eof = function() {};
       #endif
       js.define("fs.file.prototype.eof", file_eof<PathAccessor>,0);
 
@@ -1237,7 +1237,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @param {number} [max_bytes]
        * @return {string|buffer}
        */
-      fs.file.read = function(max_size) {};
+      fs.file.prototype.read = function(max_size) {};
       #endif
       js.define("fs.file.prototype.read", file_read<PathAccessor>, 1);
 
@@ -1266,7 +1266,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @throws {Error}
        * @return {string}
        */
-      fs.file.readln = function() {};
+      fs.file.prototype.readln = function() {};
       #endif
       js.define("fs.file.prototype.readln", file_readln<PathAccessor>, 1);
 
@@ -1280,7 +1280,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @param {string|buffer} data
        * @return {number}
        */
-      fs.file.write = function(data) {};
+      fs.file.prototype.write = function(data) {};
       #endif
       js.define("fs.file.prototype.write", file_write<PathAccessor>, 1);
 
@@ -1299,7 +1299,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @throws {Error}
        * @param {string} data
        */
-      fs.file.writeln = function(data) {};
+      fs.file.prototype.writeln = function(data) {};
       #endif
       js.define("fs.file.prototype.writeln", file_writeln<PathAccessor>, 1);
 
@@ -1316,7 +1316,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @param {string} format
        * @param {...*} args
        */
-      fs.file.printf = function(format, args) {};
+      fs.file.prototype.printf = function(format, args) {};
       #endif
       js.define("fs.file.prototype.printf", file_printf<PathAccessor>);
 
@@ -1328,7 +1328,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @throws {Error}
        * @return {fs.file}
        */
-      fs.file.flush = function() {};
+      fs.file.prototype.flush = function() {};
       #endif
       js.define("fs.file.prototype.flush", file_flush<PathAccessor>, 0);
 
@@ -1339,7 +1339,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @throws {Error}
        * @return {number}
        */
-      fs.file.tell = function() {};
+      fs.file.prototype.tell = function() {};
       #endif
       js.define("fs.file.prototype.tell", file_tell<PathAccessor>, 0);
 
@@ -1359,7 +1359,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @param {string} [whence=begin]
        * @return {number}
        */
-      fs.file.seek = function(position, whence) {};
+      fs.file.prototype.seek = function(position, whence) {};
       #endif
       js.define("fs.file.prototype.seek", file_seek<PathAccessor>, 2);
 
@@ -1370,7 +1370,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @throws {Error}
        * @return {number}
        */
-      fs.file.size = function() {};
+      fs.file.prototype.size = function() {};
       #endif
       js.define("fs.file.prototype.size", file_size<PathAccessor>, 0);
 
@@ -1382,7 +1382,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @throws {Error}
        * @return {object}
        */
-      fs.file.stat = function() {};
+      fs.file.prototype.stat = function() {};
       #endif
       js.define("fs.file.prototype.stat", file_stat<PathAccessor>, 0);
 
@@ -1402,7 +1402,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @param {boolean} [no_metadata]
        * @return {fs.file}
        */
-      fs.file.sync = function() {};
+      fs.file.prototype.sync = function() {};
       #endif
       js.define("fs.file.prototype.sync", file_sync<PathAccessor>, 1);
 
@@ -1419,7 +1419,7 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @param {string} access
        * @return {fs.file}
        */
-      fs.file.lock = function(access) {};
+      fs.file.prototype.lock = function(access) {};
       #endif
       js.define("fs.file.prototype.lock", file_lock<PathAccessor>, 1);
 
@@ -1431,10 +1431,9 @@ namespace duktape { namespace mod { namespace filesystem { namespace fileobject 
        * @throws {Error}
        * @return {fs.file}
        */
-      fs.file.unlock = function() {};
+      fs.file.prototype.unlock = function() {};
       #endif
       js.define("fs.file.prototype.unlock", file_unlock<PathAccessor>, 0);
-
 
       js.define_flags(flags);
     }

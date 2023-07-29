@@ -1,4 +1,3 @@
-
 # `duktape-cc` - C++ wrapper templates for the Duktape JavaScript Engine
 
 ![CI test run](https://github.com/stfwi/duktape-cc/actions/workflows/ci-test.yml/badge.svg)
@@ -319,9 +318,6 @@ as needed.
   - fs.read(path, conf)
   - fs.write(path, data)
   - fs.append(path, data)
-  - fs.readfile(path, conf)
-  - fs.writefile(path, data)
-  - fs.appendfile(path, data)
   - fs.realpath(path)
   - fs.dirname(path)
   - fs.basename(path)
@@ -360,13 +356,13 @@ as needed.
   - fs.move(source_path, target_path)
   - fs.remove(target_path, options)
   - fs.file(path, openmode)
-  - fs.file.open(path, openmode)
-  - fs.file.read(max_size)
-  - fs.file.write(data)
-  - fs.file.writeln(data)
-  - fs.file.printf(format, args)
-  - fs.file.seek(position, whence)
-  - fs.file.lock(access)
+  - fs.file.prototype.open(path, openmode)
+  - fs.file.prototype.read(max_size)
+  - fs.file.prototype.write(data)
+  - fs.file.prototype.writeln(data)
+  - fs.file.prototype.printf(format, args)
+  - fs.file.prototype.seek(position, whence)
+  - fs.file.prototype.lock(access)
 
 
 ### System object
@@ -381,7 +377,9 @@ as needed.
   - sys.escapeshellarg(arg)
   - sys.process(program, arguments, options)
   - sys.process.prototype.kill(force)
-  - sys.mmap(path, flags)
+  - sys.process.prototype.read(timeout_ms)
+  - sys.process.prototype.write(data)
+  - sys.mmap(path, flags, size)
   - sys.mmap.prototype.get(offset, size)
   - sys.mmap.prototype.set(data)
   - sys.resource.load(path)
@@ -399,8 +397,29 @@ as needed.
   - sys.hash.md5(data, isfile)
   - sys.hash.sha1(data, isfile)
   - sys.hash.sha512(data, isfile)
+  - sys.socket.prototype.option(level, optname, setvalue)
+  - sys.socket.prototype.listen(address_port, max_pending, options)
+  - sys.socket.prototype.send(data)
+  - sys.socket.prototype.recv(timeout)
 
 
 ### Number object
 
   - Number.prototype.limit(min, max)
+  - Number.prototype.clamp(min, max)
+
+
+### Math object
+
+  - Math.linfit(x_values, y_values)
+
+
+### Object object
+
+  - Object.prototype.forEach(func)
+  - Object.prototype.each(func)
+  - Object.prototype.every(predicate)
+  - Object.prototype.all(predicate)
+  - Object.prototype.some(predicate)
+  - Object.prototype.any(predicate)
+  - Object.prototype.none(predicate)

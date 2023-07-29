@@ -140,12 +140,12 @@ int main(int, const char**)
         throw script_error("Circle.move() Move where? Say move(x,y) or move([x,y]).");
       } else if(stack.top()==1 && stack.is_array(0)) {
         // Given as circle.move([x,y]);
-        auto coords = stack.req<vector<double>>(0); // req throws if a value is not double
+        auto coords = stack.get<vector<double>>(0); // throws if a value is not double
         if(coords.size()!=2) throw script_error("Circle.move(array) coordinate arrays must have two elements [x,y].");
         instance.move(coords[0],coords[1]);
       } else if(stack.top()==2) {
         // Given as "circle.move(x,y);"
-        instance.move(stack.req<double>(0),stack.req<double>(1));
+        instance.move(stack.get<double>(0),stack.get<double>(1));
       } else {
         // Enough for now, you have the gist of it ;)
         throw script_error("Circle.move(): invalid arguments.");

@@ -18,7 +18,7 @@
  *
  * -----------------------------------------------------------------------------
  * License: http://opensource.org/licenses/MIT
- * Copyright (c) 2014-2017, the authors (see the @authors tag in this file).
+ * Copyright (c) 2014-2022, the authors (see the @authors tag in this file).
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -452,9 +452,9 @@ namespace duktape { namespace detail { namespace system {
   int mundane_beep(duktape::api& stack)
   {
     using namespace std;
-    const auto frequency = std::min(std::max(stack.get<int>(0), 80), 12000);
-    const auto duration  = std::min(int(stack.get<double>(1) * 1000), 1000);
-    if(duration < 10) return 0;
+    const auto frequency = stack.is_undefined(0) ? (880) : std::min(std::max(stack.get<int>(0), 80), 12000);
+    const auto duration  = stack.is_undefined(1) ? (250) : std::min(int(stack.get<double>(1) * 1000), 1000);
+    if(duration < 10) { stack.push(false); return 1; }
     #if defined(OS_WINDOWS)
       ::Beep(DWORD(frequency), DWORD(duration));
       stack.top(0);

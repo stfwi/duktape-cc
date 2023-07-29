@@ -30,7 +30,7 @@
  *
  * -----------------------------------------------------------------------------
  * License: http://opensource.org/licenses/MIT
- * Copyright (c) 2014-2017, the authors (see the @authors tag in this file).
+ * Copyright (c) 2014-2022, the authors (see the @authors tag in this file).
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -69,7 +69,7 @@
  *
  * -------------------------------------------------------------------------------------
  * +++ MIT license +++
- * Copyright (c) 2008-2017, Stefan Wilhelm <cerbero s@atwilly s.de>
+ * Copyright (c) 2008-2022, Stefan Wilhelm <cerbero s@atwilly s.de>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -763,7 +763,7 @@ namespace sw {
  * SHA512 calculation class template.
  * -------------------------------------------------------------------------------------
  * +++ MIT license +++
- * Copyright (c) 2008-2017, Stefan Wilhelm <cerberos@atwillys.de>
+ * Copyright (c) 2008-2022, Stefan Wilhelm <cerberos@atwillys.de>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights

@@ -18,7 +18,7 @@
  *
  * -----------------------------------------------------------------------------
  * License: http://opensource.org/licenses/MIT
- * Copyright (c) 2014-2021, the authors (see the @authors tag in this file).
+ * Copyright (c) 2014-2022, the authors (see the @authors tag in this file).
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -402,7 +402,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
             if(p < 0) {
               switch(errno) {
                 case EAGAIN:
+                  break;
                 case EINTR:
+                  ::kill(pid, SIGINT);
                   break;
                 case ECHILD:
                 default:
@@ -435,7 +437,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     #else
     bool case_sensitive = true;
     #endif
-    duktape::api::index_t filter_function = 0;
+    duktape::api::index_type filter_function = 0;
     if(path.empty()) {
       return stack.throw_exception("No directory given to search");
     } else if(!stack.is_undefined(1)) {
@@ -453,8 +455,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
           if(stack.is_function(-1)) {
             filter_function = stack.top()-1;
           } else {
-            stack.throw_exception("The filter setting for reading a directory must be a function");
-            return 0;
+            return stack.throw_exception("The filter setting for reading a directory must be a function");
           }
         }
       } else {
@@ -478,7 +479,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     const auto unexpand_home = [&home_expansion](std::string path) {
       return (home_expansion.empty() || (path.find(home_expansion) != 0)) ? (path) : (std::string("~") + path.substr(home_expansion.size()));
     };
-    duktape::api::array_index_t array_item_index=0;
+    duktape::api::array_index_type array_item_index=0;
     auto array_stack_index = stack.push_array();
     if(recurse_directory(
       expand_home(path), pattern, ftype, depth, no_outside, case_sensitive, xdev,
@@ -501,8 +502,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
               // 4. Filter returns undefined: Means, don't add, the callback
             path.clear();
           } else {
-            stack.throw_exception("The 'find.filter' function must return a string, true/false or nothing (undefined)");
-            return false;
+            return bool(stack.throw_exception("The 'find.filter' function must return a string, true/false or nothing (undefined)"));
           }
           stack.pop();
         }
@@ -601,12 +601,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         if((s == "r") || (s == "-r")) {
           recursive = true;
         } else if(!s.empty()) {
-          stack.throw_exception("String options can be only 'r' for recursive copying");
-          return 0;
+          return stack.throw_exception("String options can be only 'r' for recursive copying");
         }
       } else {
-        stack.throw_exception("Invalid configuration for copy function (must be plain object or string)");
-        return 0;
+        return stack.throw_exception("Invalid configuration for copy function (must be plain object or string)");
       }
     }
 
@@ -749,12 +747,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         if((s == "r") || (s == "-r")) {
           recursive = true;
         } else if(!s.empty()) {
-          stack.throw_exception("String options can be only 'r' for recursive removing");
-          return 0;
+          return stack.throw_exception("String options can be only 'r' for recursive removing");
         }
       } else {
-        stack.throw_exception("Invalid configuration for remove function (must be plain object or string)");
-        return 0;
+        return stack.throw_exception("Invalid configuration for remove function (must be plain object or string)");
       }
     }
     if(dst.empty()) return stack.throw_exception("No file specified to remove");

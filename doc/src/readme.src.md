@@ -1,5 +1,7 @@
 # `duktape-cc` - C++ wrapper templates for the Duktape JavaScript Engine
 
+![CI test run](https://github.com/stfwi/duktape-cc/actions/workflows/ci-test.yml/badge.svg)
+
 Duktape is, similar to LUA and TCL, a programming language implementation
 optimized for resource restricted platforms, as well as for embedding scripting
 capabilities into native applications (for details please refer to

@@ -162,27 +162,31 @@ namespace sw { namespace util { namespace detail {
      */
     template<typename OutContainer, typename InContainer>
     static inline OutContainer serialize(const InContainer& in_data)
+    { return serialize<OutContainer, InContainer>(in_data, boundary_marker); }
+
+    template<typename OutContainer, typename InContainer>
+    static inline OutContainer serialize(const InContainer& in_data, const char* boundary_mark) // @sw todo: container instead of raw pointer.
     {
-      static_assert(std::is_integral<typename InContainer::value_type>::value && std::is_integral<typename OutContainer::value_type>::value);
-      static_assert(sizeof(typename InContainer::value_type) == sizeof(typename OutContainer::value_type));
+      static_assert(std::is_integral<typename InContainer::value_type>::value && std::is_integral<typename OutContainer::value_type>::value, "Container elements have to be integral.");
+      static_assert(sizeof(typename InContainer::value_type) == sizeof(typename OutContainer::value_type),"Container elements have to have identical sizes.");
       auto xo = typename OutContainer::value_type(0);
       auto out_data = OutContainer();
       out_data.reserve(in_data.size());
       for(size_t i=0; i<in_data.size(); ++i) {
-        xo = (xo<<8) | boundary_marker[i & 0xff];
+        xo = (xo<<8) | boundary_mark[i & 0xff];
         out_data.push_back(in_data[i] ^ xo); // @see serialize()
       }
       return out_data;
     }
 
     /**
-     * Unserialized
+     * Unserializer
      */
     template<typename OutContainer, typename InContainer>
     static inline OutContainer unserialize(const InContainer& in_data)
     {
-      static_assert(std::is_integral<typename InContainer::value_type>::value && std::is_integral<typename OutContainer::value_type>::value);
-      static_assert(sizeof(typename InContainer::value_type) == sizeof(typename OutContainer::value_type));
+      static_assert(std::is_integral<typename InContainer::value_type>::value && std::is_integral<typename OutContainer::value_type>::value,"Container elements have to be integral.");
+      static_assert(sizeof(typename InContainer::value_type) == sizeof(typename OutContainer::value_type),"Container elements have to have identical sizes.");
       auto xo = typename OutContainer::value_type(0);
       auto out_data = OutContainer();
       out_data.reserve(in_data.size());
@@ -201,32 +205,16 @@ namespace sw { namespace util { namespace detail {
      * code can be:
      *
      *  #include <sw/util/executable_attachment.hh>
-     *  int main(int argc, const char** argv) {
-     *   return sw::util::detail::executable_attachment_application_patch(argc, argv);
+     *  int main(int argc, const char* argv[]) {
+     *   [...] // Parse args
+     *   return sw::util::detail::executable_attachment_application_patch(path, verbose, attachment_contents);
      *  }
      */
     #ifdef APP_ATTACHMENT_PATCHING_BINARY
     template <typename=void>
-    static inline int patch_application(int argc, const char** argv)
+    static inline int patch_application(std::string path, bool verbose=false, std::string attachment_contents="")
     {
       using namespace std;
-      string path, opts;
-      bool verbose = false;
-      {
-        if(argc < 2 || !argv[argc-1]) {
-          cerr << "No input file.\n";
-          return 1;
-        }
-        path = argv[argc-1];
-        for(int i=argc-2; i>0; --i) {
-          if(argv[i][0] != '-') {
-            cerr << "Argument " << (i+1) << " is not an option (-xxx).\n";
-            return 1;
-          }
-          opts += argv[i];
-        }
-        verbose = (opts.find("-v") != opts.npos);
-      }
 
       // hexdump
       auto hexdump = [](const vector<char>& data, std::ostream& os) {
@@ -344,9 +332,15 @@ namespace sw { namespace util { namespace detail {
       std::ofstream fos(path.c_str(), ofstream::out|ofstream::binary);
       if(!fos.write(contents.data(), contents.size())) { cerr << "failed to write file\n" ; return 1; }
       if(verbose) {
-        std::ofstream fos((path+".patched.tmp").c_str(), std::ios::out|std::ios::binary);
-        hexdump(contents, fos);
-        fos.close();
+        std::ofstream dump_fos((path+".patched.tmp").c_str(), std::ios::out|std::ios::binary);
+        hexdump(contents, dump_fos);
+        dump_fos.close();
+      }
+      if(!attachment_contents.empty()) {
+        if(verbose) cerr << "[verb] Attaching " << long(attachment_contents.size()>>10) << "kb data ...\n";
+        reverse(patch_key.begin(), patch_key.end());
+        const auto wdata = basic_executable_attachment<void>::serialize<vector<char>, string>(attachment_contents, patch_key.data());
+        copy(wdata.begin(), wdata.end(), ostreambuf_iterator<char>(fos));
       }
       return 0;
     }
@@ -455,7 +449,7 @@ namespace sw { namespace util {
   {
     using namespace std;
     using attachment = detail::basic_executable_attachment<>;
-    static_assert(sizeof(typename Container::value_type)==1);
+    static_assert(sizeof(typename Container::value_type)==1,"string liertal is necessary in c++14");
     const auto exec_size = read_executable_attachment<string, std::streamsize>().second;
     if(exec_size == 0) {
       return -1;
@@ -473,7 +467,7 @@ namespace sw { namespace util {
     os.flush();
     const auto wpos_executable = os.tellp();
     if(wpos_executable != exec_size) return -5;
-    auto wdata = attachment::serialize<Container, string>(data);
+    const auto wdata = attachment::serialize<Container, string>(data);
     copy(wdata.begin(), wdata.end(), ostreambuf_iterator<char>(os));
     const auto wpos_data = os.tellp();
     if(size_t(wpos_data) != (size_t(wpos_executable) + wdata.size())) return -5;
