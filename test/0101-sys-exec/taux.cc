@@ -44,7 +44,7 @@ int main(int argc, char *argv[], const char* envv[])
         if((pos != e.npos) && (pos > 0)) {
           string key = e.substr(0, pos);
           string val = e.substr(pos+1);
-          stack.set(move(key), move(val));
+          stack.set(std::move(key), std::move(val));
         }
       }
     }

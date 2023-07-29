@@ -124,7 +124,7 @@ int main(int argc, const char** argv, const char** envv)
       for(int i=1; i<argc && argv[i]; ++i) {
         string arg = argv[i];
         if(was_last_opt || has_file_arg) {
-          args.push_back(move(arg));
+          args.push_back(std::move(arg));
         } else if(arg == "--") {
           was_last_opt = true;
         } else if((argc == 2) && (arg == "--help")) {
@@ -152,13 +152,13 @@ int main(int argc, const char** argv, const char** envv)
           #ifdef CONFIG_WITH_APP_ATTACHMENT
             // Positional script arg conflicts with built-in library script,
             // so specifying -s/--script is needed then.
-            args.push_back(move(arg));
+            args.push_back(std::move(arg));
           #else
             has_file_arg = true;
             script_path = arg;
           #endif
         } else {
-          args.push_back(move(arg));
+          args.push_back(std::move(arg));
         }
       }
     }

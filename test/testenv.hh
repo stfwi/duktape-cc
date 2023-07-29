@@ -554,10 +554,10 @@ void test_include_script(duktape::engine& js, const std::string source_file="tes
     ifstream fis(test_source_file.c_str(), ios::in);
     string code0;
     code0.assign((istreambuf_iterator<char>(fis)), istreambuf_iterator<char>());
-    string code1 = replace_expect_function_arguments(move(code0), "test_expect", "test_eval_expect");
-    string code2 = replace_expect_function_arguments(move(code1), "test_assert", "test_eval_assert");
-    string code3 = replace_expect_function_arguments(move(code2), "test_expect_noexcept", "test_eval_expect_noexcept");
-    code = replace_expect_function_arguments(move(code3), "test_expect_except", "test_eval_expect_except");
+    string code1 = replace_expect_function_arguments(std::move(code0), "test_expect", "test_eval_expect");
+    string code2 = replace_expect_function_arguments(std::move(code1), "test_assert", "test_eval_assert");
+    string code3 = replace_expect_function_arguments(std::move(code2), "test_expect_noexcept", "test_eval_expect_noexcept");
+    code = replace_expect_function_arguments(std::move(code3), "test_expect_except", "test_eval_expect_except");
   }
   js.eval(std::move(code), test_source_file);
 }
