@@ -119,8 +119,10 @@ To build the binary and tests, you need:
   - GNU `make`, version >= 4.2,
   - Compiler/Linker `g++`, version >= 7.0,
   - Basic unix tools (`cp`, `grep`, `mv`, ...).
+  - For `make coverage` Linux, gcov, lcov.
+  - For `make code-analysis` clang++/clang-tidy/scan-build.
 
-The latter is mentioned for compiling under Windows. You
+The basic tools are mentioned for compiling under Windows. You
 need to add the unix tool binaries of your GIT installation
 to the `PATH` environment variable.
 
