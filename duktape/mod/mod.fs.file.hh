@@ -90,7 +90,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
         std::string s;
         iseof = false;
         if(!size) {
-          int i;
+          int i = 0;
           n = ::read(fd, &i, 0);
         } else {
           s.resize(size);
@@ -199,7 +199,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
 
       static struct ::stat stat(descriptor_type fd)
       {
-        struct ::stat st;
+        struct ::stat st{};
         if(::fstat(fd, &st) != 0) {
           const char* msg = ::strerror(errno);
           throw std::runtime_error(std::string("Failed to set file stat (") + std::string(msg?msg:"Unspecified error") + ")");
@@ -444,7 +444,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
           if(cpath[i] == ':' && (i>0)) --i; else i=0;
           path = &cpath[i];
         }
-        struct ::stat st;
+        struct ::stat st{};
         if(::stat(path.c_str(), &st) != 0) {
           const char* msg = ::strerror(errno);
           throw std::runtime_error(std::string("Failed to get file stat (") + std::string(msg?msg:"Unspecified error") + ")");
@@ -798,8 +798,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
       if(!buf) {
         return stack.throw_exception("File reading failed: no memory for buffer object.");
       } else {
-        char* p = reinterpret_cast<char*>(buf);
-        for(auto e:out) *p++ = e; // std::copy
+        char* p = static_cast<char*>(buf);
+        for(auto e:out) *p++ = e; // NOLINT: std::copy, it's ok.
       }
     }
     return 1;
@@ -1023,7 +1023,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace fileobje
   template <typename PathAccessor>
   int file_lock(duktape::api& stack)
   {
-    char access = ::tolower(stack.to<std::string>(0).c_str()[0]);
+    const auto s = stack.to<std::string>(0);
+    const char access = s.empty() ? ('r') : (char(::tolower(s[0])));
     stack.top(0);
     stack.push_this();
     nfh::descriptor_type fd = nfh::invalid_descriptor;

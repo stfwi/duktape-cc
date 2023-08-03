@@ -201,7 +201,7 @@ namespace sw { namespace detail {
       // Compiler is gently asked to as much as possible in registers, but depending
       // on the processor it will not to that.
       acc_type crc = initial_crc_value;
-      const unsigned char *p = (const unsigned char*) data;
+      const unsigned char *p = static_cast<const unsigned char*>(data);
       if(data) {
         while(size--) crc = (crc_lookups<acc_type>::tab[((crc) ^ (*p++)) & 0xff] ^ ((crc) >> 8));
       }
@@ -234,7 +234,7 @@ namespace sw {
   template <typename=void>
   uint8_t crc8(const void *data, uint8_t size)
   {
-    const uint8_t *p = (const uint8_t*)data;
+    const uint8_t *p = static_cast<const uint8_t*>(data);
     uint16_t crc = 0;
     for (uint8_t j = size; j; --j, ++p) {
       crc ^= ((*p) << 8);
@@ -293,7 +293,7 @@ namespace sw { namespace detail {
 
   public:
 
-    explicit basic_md5()  { clear(); }
+    explicit basic_md5() : buf_(), cnt_(), sum_() { clear(); }
     basic_md5(const basic_md5&) = delete;
     basic_md5(basic_md5&&) = default;
     basic_md5& operator=(const basic_md5&) = delete;
@@ -326,10 +326,10 @@ namespace sw { namespace detail {
       if(size >= thresh) { // transform as many times as possible.
         memcpy(&buf_[index], data, thresh); // fill buffer first, transform
         transform(buf_);
-        for(i=thresh; i+64 <= size; i+=64) transform(((const uint8_t*)data)+i);
+        for(i=thresh; i+64 <= size; i+=64) transform(&static_cast<const uint8_t*>(data)[i]);
         index = 0;
       }
-      memcpy(&buf_[index], ((const uint8_t*)data)+i, size-i); // remainder
+      memcpy(&buf_[index], &(static_cast<const uint8_t*>(data)[i]), size-i); // remainder
     }
 
     /**
@@ -548,7 +548,7 @@ namespace sw { namespace detail {
 
   public:
 
-    explicit basic_sha1()  { buf_.reserve(64); clear(); }
+    explicit basic_sha1() : iterations_(), sum_(), buf_() { buf_.reserve(64); clear(); }
     basic_sha1(const basic_sha1&) = delete;
     basic_sha1(basic_sha1&&) = default;
     basic_sha1& operator=(const basic_sha1&) = delete;
@@ -574,7 +574,7 @@ namespace sw { namespace detail {
     void update(const void* data, size_t size)
     {
       if(!data || !size) return;
-      const char* p = (const char*) data;
+      const char* p = static_cast<const char*>(data);
       uint32_t block[16];
       if(!buf_.empty()) { // Deal with the remaining buf_ data
         while(size && buf_.length() < 64) { buf_ += *p++; --size; } // Copy bytes
@@ -838,15 +838,15 @@ namespace sw { namespace detail {
      */
     void update(const void* data, size_t size)
     {
-      unsigned nb, n, n_tail;
-      const uint8_t *p;
+      unsigned nb=0, n=0, n_tail=0;
+      const uint8_t *p = nullptr;
       n = 128 - sz_;
       n_tail = size < n ? size : n;
       memcpy(&block_[sz_], data, n_tail);
       if (sz_ + size < 128) { sz_ += size; return; }
       n = size - n_tail;
       nb = n >> 7;
-      p = (const uint8_t*) data + n_tail;
+      p = &(static_cast<const uint8_t*>(data)[n_tail]);
       transform(block_, 1);
       transform(p, nb);
       n_tail = n & 0x7f;
@@ -868,8 +868,8 @@ namespace sw { namespace detail {
       #define U32_B(x,b) *((b)+3)=(uint8_t)((x)); *((b)+2)=(uint8_t)((x)>>8); \
               *((b)+1)=(uint8_t)((x)>>16); *((b)+0)=(uint8_t)((x)>>24);
       #endif
-      unsigned nb, n;
-      uint64_t n_total;
+      unsigned nb = 0, n = 0;
+      uint64_t n_total = 0;
       nb = 1 + ((0x80-17) < (sz_ & 0x7f));
       n_total = (iterations_ + sz_) << 3;
       n = nb << 7;
@@ -962,9 +962,9 @@ namespace sw { namespace detail {
         ((uint64_t)*((b)+5)<<16)|((uint64_t)*((b)+4)<<24)|((uint64_t)*((b)+3)<<32)|\
         ((uint64_t)*((b)+2)<<40)|((uint64_t)*((b)+1)<<48)|((uint64_t)*((b)+0)<<56);
       #endif
-      uint64_t t, u, v[8], w[80];
-      const uint8_t *tblock;
-      size_t j;
+      uint64_t t=0, u=0, v[8], w[80];
+      const uint8_t *tblock = nullptr;
+      size_t j = 0;
       for(size_t i = 0; i < size; ++i) {
         tblock = data + (i << 7);
         for(j = 0; j < 16; ++j) SHA256BU64(&tblock[j<<3], &w[j]);

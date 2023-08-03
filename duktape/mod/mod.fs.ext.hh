@@ -216,11 +216,15 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
       struct fts_guard {
         ::FTS* ptr;
         explicit fts_guard() noexcept : ptr(nullptr) {}
+        fts_guard(const fts_guard&) = delete;
+        fts_guard(fts_guard&&) = default;
+        fts_guard& operator=(const fts_guard&) = delete;
+        fts_guard& operator=(fts_guard&&) = default;
         ~fts_guard() noexcept { if(ptr) ::fts_close(ptr); }
       };
 
       auto fts_entcmp = [](const ::FTSENT **a, const ::FTSENT **b) {
-        return ::strcmp((*a)->fts_name, (*b)->fts_name);
+        return ::strcmp(static_cast<const char*>((*a)->fts_name), static_cast<const char*>((*b)->fts_name));
       };
 
       mode_t mode = 0;
@@ -238,7 +242,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
       }
 
       fts_guard tree;
-      ::FTSENT *f;
+      ::FTSENT *f = nullptr;
       {
         char apath[PATH_MAX];
         memset(apath, 0, sizeof(apath));
@@ -388,7 +392,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
           ::close(STDOUT_FILENO); ::open("/dev/null", O_WRONLY);
           ::close(STDERR_FILENO); ::open("/dev/null", O_WRONLY);
           for(fd_t i=3; i<128; ++i) ::close(i);
-          ::execv(argv[0], (char* const*)(&argv[0]));
+          ::execv(argv[0], (char* const*)(&argv[0])); // NOLINT: C API.
           _exit(1);
         } else {
           if(pipe_stdin && pipe_stdin[0]) {
@@ -559,7 +563,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     }
     if(!dst_path.empty()) {
       // If dst is a directory, move in that directory, means append the source basename
-      struct ::stat st;
+      struct ::stat st{};
       if((::stat(dst.c_str(), &st) == 0) && S_ISDIR(st.st_mode)) {
         std::string bsrc = src;
         char *bn = basename(&bsrc.front());
@@ -597,7 +601,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         recursive = stack.get_prop_string<bool>(2, "recursive", false);
       } else if(stack.is_string(2)) {
         std::string s = stack.get_string(2);
-        for(auto& e:s) e = ::tolower(e);
+        for(auto& e:s) e = char(::tolower(e));
         if((s == "r") || (s == "-r")) {
           recursive = true;
         } else if(!s.empty()) {
@@ -743,7 +747,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
         recursive = stack.get_prop_string<bool>(1, "recursive", false);
       } else if(stack.is_string(1)) {
         std::string s = stack.get_string(1);
-        for(auto& e:s) e = ::tolower(e);
+        for(auto& e:s) e = char(::tolower(e));
         if((s == "r") || (s == "-r")) {
           recursive = true;
         } else if(!s.empty()) {
@@ -757,7 +761,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace extended
     if(dst.find_first_of("*?") != dst.npos) return stack.throw_exception("Wildcards not allowed for remove");
     if(dst.find_first_of("'\"") != dst.npos) return stack.throw_exception("Invalid characters in the path to remove");
     #ifndef OS_WINDOWS
-    struct ::stat st;
+    struct ::stat st{};
     if(::stat(dst.c_str(), &st) != 0) {
       return stack.throw_exception(std::string("Failed to remove '") + dst + "': " + ::strerror(errno));
     } else if(S_ISDIR(st.st_mode)) {

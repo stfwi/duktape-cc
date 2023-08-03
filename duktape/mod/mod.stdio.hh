@@ -308,8 +308,8 @@ namespace duktape { namespace detail {
         if(stack.is_buffer(i) || stack.is_buffer_data(i)) {
           const char *buf = nullptr;
           duk_size_t sz = 0;
-          if((buf = reinterpret_cast<const char*>(stack.is_buffer(i) ? stack.get_buffer(i, sz) : stack.get_buffer_data(i, sz))) && (sz > 0)) {
-            (*out_stream).write(buf, sz);
+          if((buf = static_cast<const char*>(stack.is_buffer(i) ? stack.get_buffer(i, sz) : stack.get_buffer_data(i, sz))) && (sz > 0)) {
+            (*out_stream).write(buf, std::streamsize(sz));
           }
         } else {
           (*out_stream) << stack.to<std::string>(i);
@@ -394,7 +394,7 @@ namespace duktape { namespace detail {
           bool return_undefined = false;
           const auto fl = ::fcntl(STDIN_FILENO, F_GETFL);
           if(fl < 0) return 0; // File error (broken pipe, disconnect, etc) -> undefined
-          ::termios tcget, tcset;
+          ::termios tcget{}, tcset{};
           const bool setterm = (::isatty(STDIN_FILENO)) && (::tcgetattr(STDIN_FILENO, &tcget)==0);
           if(setterm) {
             tcset = tcget;
@@ -432,7 +432,7 @@ namespace duktape { namespace detail {
         std::string s((std::istreambuf_iterator<char>(*in_stream)), std::istreambuf_iterator<char>());
         if((nargs > 0) && stack.is<bool>(0) && stack.get<bool>(0)) {
           // Binary without filter function
-          char* buf = reinterpret_cast<char*>(stack.push_buffer(s.length(), false));
+          char* buf = static_cast<char*>(stack.push_buffer(s.length(), false));
           if(!buf) {
             throw script_error("Failed to read binary data from console (buffer allocation failed)");
           } else {
@@ -465,6 +465,14 @@ namespace duktape { namespace detail {
       if(stack.is_error(-1)) return 0;
       stack.push(ss.str());
       return 1;
+    }
+
+    static void set_streams_nonowning(std::ostream* out, std::ostream* err, std::ostream* log, std::istream* in) noexcept
+    {
+      if(out) out_stream = out;
+      if(err) err_stream = err;
+      if(log) log_stream = log;
+      if(in) in_stream = in;
     }
 
   public:
@@ -549,7 +557,7 @@ namespace duktape { namespace detail {
           } else if(std::string("dixXo").find(curfmt.back()) != std::string::npos) {
             if(!stack.is_number(stack_i)) return stack.throw_exception(std::string("No number argument for the format %") + curfmt.back() + " given");
             std::string lc = curfmt;
-            for(auto& e:lc) e = ::tolower(e);
+            for(auto& e:lc) e = char(::tolower(e));
             std::string o(64, '\0');
             int r = -1;
             if(lc.find("ll") != lc.npos) {
@@ -559,7 +567,7 @@ namespace duktape { namespace detail {
               long l = stack.to<long>(stack_i);
               r = ::snprintf(&o[0], o.size()-1, curfmt.c_str(), l);
             } else {
-              int l = stack.to<long>(stack_i);
+              int l = stack.to<int>(stack_i);
               r = ::snprintf(&o[0], o.size()-1, curfmt.c_str(), l);
             }
             if((r < 0) || (size_t(r) >= o.size()-1)) return stack.throw_exception("Formatting failed");
@@ -589,8 +597,8 @@ namespace duktape { namespace detail {
       if((nargs == 1) && (stack.is_buffer(0) || stack.is_buffer_data(0))) {
         const char *buf = nullptr;
         duk_size_t sz = 0;
-        if((buf = reinterpret_cast<const char*>(stack.is_buffer(0) ? stack.get_buffer(0, sz) : stack.get_buffer_data(0, sz) )) && (sz > 0)) {
-          (*stream).write(buf, sz);
+        if((buf = static_cast<const char*>(stack.is_buffer(0) ? stack.get_buffer(0, sz) : stack.get_buffer_data(0, sz) )) && (sz > 0)) {
+          (*stream).write(buf, std::streamsize(sz));
           (*stream).flush();
         }
       } else if(nargs > 0) {
@@ -643,25 +651,25 @@ namespace duktape { namespace detail {
       #endif
     }
 
-  public:
+  private:
 
-    static std::ostream* out_stream;
-    static std::ostream* err_stream;
-    static std::ostream* log_stream;
-    static std::istream* in_stream;
+    static std::ostream* out_stream; // NOLINT: Private, checked.
+    static std::ostream* err_stream; // NOLINT: Private, checked.
+    static std::ostream* log_stream; // NOLINT: Private, checked.
+    static std::istream* in_stream;  // NOLINT: Private, checked.
   };
 
   template <typename T>
-  std::ostream* stdio<T>::out_stream = &std::cout;
+  std::ostream* stdio<T>::out_stream = &std::cout; // NOLINT: Private, checked.
 
   template <typename T>
-  std::ostream* stdio<T>::err_stream = &std::cerr;
+  std::ostream* stdio<T>::err_stream = &std::cerr; // NOLINT: Private, checked.
 
   template <typename T>
-  std::ostream* stdio<T>::log_stream = &std::cerr;
+  std::ostream* stdio<T>::log_stream = &std::cerr; // NOLINT: Private, checked.
 
   template <typename T>
-  std::istream* stdio<T>::in_stream = &std::cin;
+  std::istream* stdio<T>::in_stream = &std::cin; // NOLINT: Private, checked.
 
 }}
 

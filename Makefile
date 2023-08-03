@@ -177,13 +177,6 @@ documentation: $(BUILDDIR)/cli/$(BINARY) | doc/src/documentation.djs doc/src/rea
 	$(BUILDDIR)/cli/$(BINARY) -s doc/src/documentation.djs --readme  -o readme.md
 
 #---------------------------------------------------------------------------------------------------
-# Code analysis
-#---------------------------------------------------------------------------------------------------
-.PHONY: code-analysis
-code-analysis:
-	@[ ! -z "$(shell which clang-tidy)" ] || echo "[warn] clang-tidy is not installed."
-
-#---------------------------------------------------------------------------------------------------
 # Help
 #---------------------------------------------------------------------------------------------------
 .PHONY: help

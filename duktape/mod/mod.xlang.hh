@@ -158,8 +158,8 @@ namespace duktape { namespace detail { namespace xlang {
       using coeff_type = std::decay_t<CoeffType>;
       using vect_type  = ValueContainerType;
       using value_type = typename std::decay_t<typename vect_type::value_type>;
-      static_assert(std::is_arithmetic_v<coeff_type> && !std::is_pointer_v<coeff_type>, "Arithmetic coefficient type is no number.");
-      static_assert(std::is_arithmetic_v<value_type> && !std::is_pointer_v<value_type>, "Arithmetic value type is no number.");
+      static_assert(std::is_arithmetic<coeff_type>::value && !std::is_pointer<coeff_type>::value, "Arithmetic coefficient type is no number.");
+      static_assert(std::is_arithmetic<value_type>::value && !std::is_pointer<value_type>::value, "Arithmetic value type is no number.");
       const auto size = x.size();
       if(size != y.size()) throw std::runtime_error("Cannot fit, x and y data do not have the same size.");
       if(size == 0) throw std::runtime_error("Cannot fit, x and y data are empty.");

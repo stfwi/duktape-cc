@@ -90,11 +90,11 @@ namespace sw { namespace ipc {
   public:
 
     explicit memory_mapped_file() noexcept
-      : path_(), handles_(), adr_(nullptr), size_(), offset_(), error_()
+      : path_(), handles_(), adr_(nullptr), size_(), offset_(), flags_(), error_()
       {
         using namespace std;
         static_assert(
-          (is_arithmetic_v<value_type> ||  is_trivial_v<value_type>) && (!is_pointer_v<value_type>)
+          (is_arithmetic<value_type>::value ||  is_trivial<value_type>::value) && (!is_pointer<value_type>::value)
           , "Incompatible value type (must be auto memory)"
         );
       }
@@ -191,7 +191,7 @@ namespace sw { namespace ipc {
             if(flags & flag_shared) file_mode |= ::mode_t(S_IRGRP|S_IROTH);
             if(!(flags & flag_protected)) file_mode |= ::mode_t(S_IWGRP|S_IWOTH);
             if((handles_.fd=::open(file_path.c_str(), open_flags, file_mode)) < 0) return failed();
-            struct ::stat st;
+            struct ::stat st{};
             if(::fstat(handles_.fd, &st) < 0) return failed();
             if(st.st_size < long(file_size) && (::ftruncate(handles_.fd, file_size)<0)) return failed();
           }
@@ -291,13 +291,17 @@ namespace sw { namespace ipc {
 
     inline bool set(const index_type index, const value_type value) noexcept
     {
+      static_assert(std::is_unsigned<index_type>::value, "index_type can be <0");
       if(index >= size() || (!adr_) || (!(flags_ & flag_readwrite))) return false;
-      reinterpret_cast<value_type*>(adr_)[index] = value;
+      static_cast<value_type*>(adr_)[index] = value; // NOLINT: No std::span available yet.
       return true;
     }
 
     inline value_type get(const index_type index, const value_type default_value) const noexcept
-    { return (index >= size() || (!adr_)) ? default_value : reinterpret_cast<const value_type*>(adr_)[index]; }
+    {
+      static_assert(std::is_unsigned<index_type>::value, "index_type can be <0");
+      return (index >= size() || (!adr_)) ? default_value : static_cast<const value_type*>(adr_)[index]; // NOLINT: No std::span available yet.
+    }
 
     inline value_type get(const index_type index) const noexcept
     { return get(index, value_type()); }
@@ -371,6 +375,7 @@ namespace duktape { namespace detail { namespace ext { namespace mmap {
     instance_tracking(const instance_tracking&) = delete;
     instance_tracking(instance_tracking&&) = default;
     instance_tracking& operator=(const instance_tracking&) = delete;
+    instance_tracking& operator=(instance_tracking&&) = default;
 
     ~instance_tracking() noexcept
     {
@@ -394,11 +399,11 @@ namespace duktape { namespace detail { namespace ext { namespace mmap {
   private:
 
     std::deque<descriptor_type> open_;
-    static instance_tracking instance_;
+    static instance_tracking instance_; // NOLINT: Private singleton.
   };
 
   template <typename T>
-  instance_tracking<T> instance_tracking<T>::instance_ = instance_tracking<T>();
+  instance_tracking<T> instance_tracking<T>::instance_ = instance_tracking<T>(); // NOLINT: Private singleton.
 
 }}}}
 
@@ -541,9 +546,9 @@ namespace duktape { namespace mod { namespace ext { namespace mmap {
           stack.push(instance.get(size_t(offset)));
           return true;
         } else {
-          auto* buffer = reinterpret_cast<native_mmap::value_type*>(stack.push_array_buffer(size_t(length), true));
+          auto* buffer = static_cast<native_mmap::value_type*>(stack.push_array_buffer(size_t(length), true));
           if(!buffer) throw duktape::script_error("sys.mmap.get: No memory for allocating the return value buffer.");
-          for(size_t i=0; i<size_t(length); ++i) buffer[i] = instance.get(offset+i);
+          for(size_t i=0; i<size_t(length); ++i) buffer[i] = instance.get(offset+i); // NOLINT: No std::span yet.
         }
         return true;
       })
@@ -565,13 +570,13 @@ namespace duktape { namespace mod { namespace ext { namespace mmap {
           const auto offset = stack.get<int>(0);
           if((offset<0) || (size_t(offset)>=instance.size())) throw duktape::script_error(string("sys.mmap.set: Offset exceeds memory map range:  ") + to_string(offset));
           size_t buffer_size = 0;
-          const auto* buffer = reinterpret_cast<const native_mmap::value_type*>(stack.is_buffer(1) ? stack.get_buffer(1, buffer_size) : stack.get_buffer_data(1, buffer_size));
+          const auto* buffer = static_cast<const native_mmap::value_type*>(stack.is_buffer(1) ? stack.get_buffer(1, buffer_size) : stack.get_buffer_data(1, buffer_size));
           if(size_t(buffer_size+offset) > instance.size()) {
             throw duktape::script_error("sys.mmap.set: Input buffer size (with offset) exceeds the memory map range.");
           } else if(!buffer) {
             throw duktape::script_error("sys.mmap.set: Input buffer is invalid (null).");
           }
-          for(size_t i=0; i<buffer_size; ++i) instance.set(size_t(offset)+i, buffer[i]);
+          for(size_t i=0; i<buffer_size; ++i) instance.set(size_t(offset)+i, buffer[i]); // NOLINT: No std::span.
           stack.top(0);
           stack.push_this();
           return true;

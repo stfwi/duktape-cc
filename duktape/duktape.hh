@@ -282,17 +282,19 @@ namespace duktape { namespace detail {
   public:
 
     basic_stack_guard() = delete;
-
     basic_stack_guard(const basic_stack_guard&) = delete;
+    basic_stack_guard(basic_stack_guard&&) = default;
+    basic_stack_guard& operator=(const basic_stack_guard&) = delete;
+    basic_stack_guard& operator=(basic_stack_guard&&) = default;
 
     basic_stack_guard(::duk_context* ctx, bool collect_garbage=false) noexcept
-            : ctx_(ctx), initial_top_(-1), gc_(collect_garbage)
-    { if(ctx_) initial_top_ = ::duk_get_top(ctx_); }
+            : ctx_(ctx), initial_top_((!ctx) ? (-1) : (::duk_get_top(ctx))), gc_(collect_garbage)
+    {}
 
     template <typename T>
     basic_stack_guard(const basic_api<T>& o, bool collect_garbage=false) noexcept
-            : ctx_(o.ctx()), gc_(collect_garbage)
-    { if(ctx_) initial_top_ = ::duk_get_top(ctx_); }
+            : ctx_(o.ctx()), initial_top_((!o.ctx()) ? (-1) : (::duk_get_top(o.ctx()))), gc_(collect_garbage)
+    {}
 
     ~basic_stack_guard() noexcept
     {
@@ -685,7 +687,7 @@ namespace duktape { namespace detail {
     const void* get_buffer(index_type index, size_type& out_size) const
     {
       auto sz = ::duk_size_t(0);
-      auto rp = reinterpret_cast<const void*>(::duk_get_buffer(ctx_, index, &sz));
+      auto rp = static_cast<const void*>(::duk_get_buffer(ctx_, index, &sz));
       out_size = static_cast<size_type>(sz);
       return rp;
     }
@@ -693,7 +695,7 @@ namespace duktape { namespace detail {
     const void* get_buffer_data(index_type index, size_type& out_size) const
     {
       auto sz = ::duk_size_t(0);
-      auto rp = reinterpret_cast<const void*>(::duk_get_buffer_data(ctx_, index, &sz));
+      auto rp = static_cast<const void*>(::duk_get_buffer_data(ctx_, index, &sz));
       out_size = static_cast<size_type>(sz);
       return rp;
     }
@@ -707,8 +709,8 @@ namespace duktape { namespace detail {
     int get_int(index_type index) const
     { return ::duk_get_int(ctx_,  index); }
 
-    size_type get_length(index_type index) const
-    { return static_cast<size_type>(::duk_get_length(ctx_, index)); }
+    index_type get_length(index_type index) const
+    { return static_cast<index_type>(::duk_get_length(ctx_, index)); }
 
     void get_memory_functions(duk_memory_functions& out_funcs) const
     { ::duk_get_memory_functions(ctx_, &out_funcs); }
@@ -911,8 +913,9 @@ namespace duktape { namespace detail {
     index_type push_object() const
     { return ::duk_push_object(ctx_); }
 
-    void push_pointer(void *p) const
-    { ::duk_push_pointer(ctx_, p); }
+    template<typename T>
+    void push_pointer(T *p) const
+    { ::duk_push_pointer(ctx_, reinterpret_cast<void*>(p)); } // NOLINT: C API pointer interface.
 
     void push_this() const
     { ::duk_push_this(ctx_); }
@@ -954,7 +957,7 @@ namespace duktape { namespace detail {
     void* to_buffer(index_type index, size_type& out_size) const
     {
       auto sz = ::duk_size_t(0);
-      auto rp = reinterpret_cast<void*>(::duk_to_buffer_raw(ctx_, index, &sz, Mode));
+      auto rp = static_cast<void*>(::duk_to_buffer_raw(ctx_, index, &sz, Mode));
       out_size = static_cast<size_type>(sz);
       return rp;
     }
@@ -1002,7 +1005,7 @@ namespace duktape { namespace detail {
     { ::duk_size_t l=0; const char* s = ::duk_to_lstring(ctx_, index, &l); return (s && (l>0))?(s):(""); }
 
     string safe_to_string(index_type index) const
-    { ::duk_size_t l=0; const char *s = ::duk_safe_to_lstring(ctx_, index, &l); return (s && (l>0)) ? (string(s, s+l)) : (""); }
+    { ::duk_size_t l=0; const char *s = ::duk_safe_to_lstring(ctx_, index, &l); return (s && (l>0)) ? (string(s, size_t(0), size_t(l))) : (""); }
 
     string to_stacktrace(index_type index) const
     { const char *s = ::duk_to_stacktrace(ctx_, index); return string((s)?(s):("Error")); }
@@ -1142,7 +1145,7 @@ namespace duktape { namespace detail {
     void* steal_buffer(index_type index, size_type& out_size)
     {
       auto sz = ::duk_size_t(0);
-      auto rp = reinterpret_cast<void*>(::duk_steal_buffer(ctx_, index, &sz));
+      auto rp = static_cast<void*>(::duk_steal_buffer(ctx_, index, &sz));
       out_size = static_cast<size_type>(sz);
       return rp;
     }
@@ -1192,13 +1195,13 @@ namespace duktape { namespace detail {
       ::duk_size_t size = 0;
       const char* buffer = nullptr;
       if(is_buffer(index)) {
-        buffer = reinterpret_cast<const char*>(::duk_get_buffer(ctx_, index, &size));
+        buffer = static_cast<const char*>(::duk_get_buffer(ctx_, index, &size));
       } else if(is_buffer_data(index)) {
-        buffer = reinterpret_cast<const char*>(::duk_get_buffer_data(ctx_, index, &size));
+        buffer = static_cast<const char*>(::duk_get_buffer_data(ctx_, index, &size));
       }
       if(buffer && size) {
         data.resize(size);
-        std::copy(&(buffer[0]), &(buffer[size]), data.begin());
+        std::copy(&(buffer[0]), &(buffer[size]), data.begin()); // NOLINT: No std::span available yet.
       }
       return data;
     }
@@ -1529,7 +1532,7 @@ namespace duktape { namespace detail {
       if(!is_pointer(-1)) {
         throw engine_error("Duktape stack has no duktape::engine assigned.");
       }
-      return *reinterpret_cast<engine*>(get_pointer(-1));
+      return *static_cast<engine*>(get_pointer(-1));
     }
 
     string callstack() const
@@ -1641,10 +1644,9 @@ namespace duktape { namespace detail {
     void push_variadic(T val, Args ...args) const
     { push<T>(val); push_variadic(args...); }
 
-  protected:
+  private:
 
     duk_context* ctx_;
-
   };
 }}
 
@@ -1804,7 +1806,7 @@ namespace duktape { namespace detail {
     using type = const char*;
 
     static void push(duk_context* ctx, type val)
-    { return api(ctx).push_string(reinterpret_cast<const char*>(val)); }
+    { return api(ctx).push_string(static_cast<const char*>(val)); }
   };
 
   template <typename T> struct conv<std::vector<T>>
@@ -1863,7 +1865,7 @@ namespace duktape { namespace detail {
         stack.throw_exception("Property is no array.");
         return type();
       }
-      type ret;
+      auto ret = type();
       const api::index_type size = stack.get_length(index);
       for(auto i = api::index_type(0); i < size; ++i) {
         if(!stack.get_prop_index(index, i)) return type();
@@ -1943,7 +1945,7 @@ namespace duktape { namespace detail { namespace {
       api stack(ctx);
       stack.push_current_function();
       stack.get_prop_string(-1, "\xff_fp");
-      function_type fn = reinterpret_cast<function_type>(stack.get_pointer(-1));
+      function_type fn = reinterpret_cast<function_type>(stack.get_pointer(-1)); // NOLINT: Only function_type pointers are used.
       stack.pop(2);
       if((!is_byref_api) && (stack.top() != sizeof...(Args))) {
         // Note: Duktape should have filled the args with undefined.
@@ -2061,10 +2063,12 @@ namespace duktape {
     native_object() noexcept = default;
     native_object(const native_object&) = default;
     native_object(native_object&&) noexcept = default;
+    native_object& operator=(const native_object&) = default;
+    native_object& operator=(native_object&&) noexcept = default;
     ~native_object() noexcept = default;
 
     explicit native_object(std::string name) noexcept : name_(name),
-                                               constructor_([](api&){return new value_type();}), // Note: The raw pointer is passed to Duktape, memory management of these objects is handled there.
+                                               constructor_([](api&){return new value_type();}), // NOLINT: The raw pointer is passed to Duktape, memory management of these objects is handled there.
                                                methods_(), getters_(), setters_()
     {}
 
@@ -2082,7 +2086,7 @@ namespace duktape {
         stack.get_prop_string(-1, "\xff_op");
         void* p = stack.get_pointer(-1);
         if(!p) return 0;
-        delete reinterpret_cast<value_type*>(p);
+        delete static_cast<value_type*>(p); // NOLINT: Onwership passed from Duktape back.
       } catch(...) {
         // we're not allowed to throw, so if the object
         // does not have the right type we currently may
@@ -2117,7 +2121,7 @@ namespace duktape {
         if(stack.is_callable(-1)) return 1; // it's a method
         stack.top(1);             // [target]
         stack.get_prop_string(-1, "\xff_accessor");
-        native_object* accessor = reinterpret_cast<native_object*>(stack.get_pointer(-1, nullptr));
+        native_object* accessor = static_cast<native_object*>(stack.get_pointer(-1, nullptr));
         if(accessor == nullptr) throw script_error(std::string("Native method not called with 'this' being a native object."));
         if(instance_.get() != accessor) throw engine_error("Inconsistent native object properties.");
         auto it = accessor->getters_.find(key);
@@ -2127,7 +2131,7 @@ namespace duktape {
         }
         stack.top(1);             // [target]
         stack.get_prop_string(-1, "\xff_op");
-        value_type* ptr = reinterpret_cast<value_type*>(stack.get_pointer(-1, nullptr));
+        value_type* ptr = static_cast<value_type*>(stack.get_pointer(-1, nullptr));
         stack.top(0);
         it->second(stack, *ptr);
         return (stack.top() > 0) ? 1 : 0;
@@ -2159,14 +2163,14 @@ namespace duktape {
         stack.top(2);             // [target value]
         stack.swap(0, 1);         // [value target]
         stack.get_prop_string(-1, "\xff_op");
-        value_type* ptr = reinterpret_cast<value_type*>(stack.get_pointer(-1, nullptr));
+        value_type* ptr = static_cast<value_type*>(stack.get_pointer(-1, nullptr));
         stack.top(2);             // [target value]
         stack.get_prototype(-1);  // [value target proto]
         stack.get_prop_string(-1, key); // [value target proto prop]
         if(stack.is_callable(-1)) throw script_error(std::string("Native methods are not to be overwritten."));
         stack.top(2);             // [value target]
         stack.get_prop_string(-1, "\xff_accessor");
-        native_object* accessor = reinterpret_cast<native_object*>(stack.get_pointer(-1, nullptr));
+        native_object* accessor = static_cast<native_object*>(stack.get_pointer(-1, nullptr));
         if(accessor == nullptr) throw script_error(std::string("Native setter not called with 'this' being a native object."));
         if(instance_.get() != accessor) throw engine_error("Inconsistent native object properties.");
         auto its = accessor->setters_.find(key);
@@ -2213,7 +2217,7 @@ namespace duktape {
         stack.top(2);             // [target, key]
         string key = stack.get<std::string>(1);
         stack.get_prop_string(0, "\xff_accessor");
-        native_object* accessor = reinterpret_cast<native_object*>(stack.get_pointer(-1, nullptr));
+        native_object* accessor = static_cast<native_object*>(stack.get_pointer(-1, nullptr));
         if(accessor == nullptr) throw script_error(std::string("Native method not called with 'this' being a native object."));
         if(instance_.get() != accessor) throw engine_error("Inconsistent native object properties.");
         stack.push(accessor->getters_.find(key) != accessor->getters_.end()); // intentionally not write-only, too.
@@ -2239,7 +2243,7 @@ namespace duktape {
       api stack(ctx);
       try {
         stack.get_prop_string(0, "\xff_accessor");
-        native_object* accessor = reinterpret_cast<native_object*>(stack.get_pointer(-1, nullptr));
+        native_object* accessor = static_cast<native_object*>(stack.get_pointer(-1, nullptr));
         if(accessor == nullptr) throw script_error(std::string("Native method not called with 'this' being a native object."));
         if(instance_.get() != accessor) throw engine_error("Inconsistent native object properties.");
         auto v = vector<string>();
@@ -2271,7 +2275,7 @@ namespace duktape {
         auto top = stack.top();
         stack.push_current_function();
         stack.get_prop_string(-1, "\xff_accessor");
-        native_object* accessor = reinterpret_cast<native_object*>(stack.get_pointer(-1, nullptr));
+        native_object* accessor = static_cast<native_object*>(stack.get_pointer(-1, nullptr));
         stack.top(top);
         if(instance_.get() != accessor) throw engine_error("Inconsistent native object properties.");
         void* o = accessor->constructor_(stack);
@@ -2330,11 +2334,11 @@ namespace duktape {
       try {
         stack.push_this();
         stack.get_prop_string(-1, "\xff_accessor");
-        native_object* accessor = reinterpret_cast<native_object*>(stack.get_pointer(-1, nullptr));
+        native_object* accessor = static_cast<native_object*>(stack.get_pointer(-1, nullptr));
         if(instance_.get() != accessor) throw engine_error("Inconsistent native object properties.");
         stack.top(1);
         stack.get_prop_string(-1, "\xff_op");
-        value_type* ptr = reinterpret_cast<value_type*>(stack.get_pointer(-1, nullptr));
+        value_type* ptr = static_cast<value_type*>(stack.get_pointer(-1, nullptr));
         stack.top(0);
         if(!ptr) { stack.push("nullptr"); return 1; } // assumption: not my object or not initialised correctly.
         stack.push(((std::string("[") + accessor->name_ + " object (native: " + typeid(value_type).name()) + ")]"));
@@ -2360,12 +2364,12 @@ namespace duktape {
         api::index_type argtop = stack.top();
         stack.push_this();
         stack.get_prop_string(-1, "\xff_accessor");
-        native_object* accessor = reinterpret_cast<native_object*>(stack.get_pointer(-1, nullptr));
+        native_object* accessor = static_cast<native_object*>(stack.get_pointer(-1, nullptr));
         if(accessor == nullptr) throw script_error(std::string("Native method not called with 'this' being a native object."));
         if(instance_.get() != accessor) throw engine_error("Inconsistent native object properties.");
         stack.top(argtop+1);
         stack.get_prop_string(-1, "\xff_op");
-        value_type* ptr = reinterpret_cast<value_type*>(stack.get_pointer(-1, nullptr));
+        value_type* ptr = static_cast<value_type*>(stack.get_pointer(-1, nullptr));
         if(!ptr) throw script_error("Native object missing.");
         stack.top(argtop);
         stack.push_current_function();
@@ -2461,7 +2465,7 @@ namespace duktape {
       stack.top(0);                                   // []
       stack.select(name_);                            // [ctor]
       stack.push_string("\xff_accessor");             // [ctor acc_key]
-      stack.push_pointer((void*)instance_.get());     // [ctor acc_key acc_ptr]
+      stack.push_pointer(instance_.get());            // [ctor acc_key acc_ptr]
       stack.def_prop(-3, defflags::convert(acf));     // [ctor]
       stack.push_string("prototype");                 // [ctor proto_key]
       stack.push_bare_object();                       // [ctor proto_key proto]
@@ -2502,11 +2506,11 @@ namespace duktape {
     std::vector<std::tuple<std::string, method_type, int>> methods_;
     std::unordered_map<std::string, getter_type> getters_;
     std::unordered_map<std::string, setter_type> setters_;
-    static std::unique_ptr<native_object> instance_;
+    static std::unique_ptr<native_object> instance_; // NOLINT: Private lazy initialized singleton.
   };
 
   template <typename T>
-  std::unique_ptr<native_object<T>> native_object<T>::instance_ = nullptr;
+  std::unique_ptr<native_object<T>> native_object<T>::instance_ = nullptr; // NOLINT: Private lazy singleton.
 
 }
 
@@ -2677,7 +2681,7 @@ namespace duktape { namespace detail {
       stack().require_stack(2);
       stack().push_string(code);
       stack().push_string(file);
-      bool ok;
+      auto ok = bool();
       try {
         ok = (stack().eval_raw(0, 0, DUK_COMPILE_EVAL | DUK_COMPILE_SAFE | DUK_COMPILE_SHEBANG | (use_strict ? DUK_COMPILE_STRICT : 0)) == 0);
       } catch(const exit_exception&) {
@@ -2931,7 +2935,7 @@ namespace duktape { namespace detail {
       stack().def_prop(-3, defflags::convert(define_flags_));
       stack().get_prop_string(-1, name);
       stack().push_string("\xff_fp");
-      stack().push_pointer((void*)fn); //@sw: double check / alternative: fn pointer vs data pointers size.
+      stack().push_pointer(fn);
       stack().def_prop(-3, defflags::convert(define_flags_));
     }
 
@@ -3087,7 +3091,7 @@ namespace duktape { namespace detail {
       stack().def_prop(-3, defflags::convert(define_flags_));
       stack().get_prop_string(-1, name);
       stack().push_string("\xff_fp");
-      stack().push_pointer((void*)fn);
+      stack().push_pointer(fn);
       stack().def_prop(-3, defflags::convert(define_flags_));
     }
 
