@@ -1,6 +1,7 @@
 #include <duktape/duktape.hh>
 #include <duktape/mod/mod.stdio.hh>
 #include <duktape/mod/mod.stdlib.hh>
+#include <cmath>
 
 using namespace std;
 
@@ -19,25 +20,19 @@ using namespace std;
  */
 struct circle
 {
-  double x, y, r;
-
   circle() noexcept : x(0), y(0), r(1) {}
   circle(double xc, double yc, double rc) noexcept : x(xc), y(yc), r(rc) {}
   circle(const circle&) = default;
   circle(circle&&) = default;
+  circle& operator=(const circle&) = default;
+  circle& operator=(circle&&) = default;
   ~circle() = default;
 
-  void move(double newx, double newy) noexcept
-  { x=newx; y=newy; }
-
-  static constexpr double pi = double(4) * atan(double(1));
-
-  double circumference() const noexcept
-  { return pi * r * 2.; }
-
-  double area() const noexcept
-  { return pi * r * r; }
-
+  static constexpr double pi = M_PI;
+  void move(double newx, double newy) noexcept  { x=newx; y=newy; }
+  double circumference() const noexcept { return pi * r * 2.; }
+  double area() const noexcept { return pi * r * r; }
+  double x, y, r;
 };
 
 
@@ -71,9 +66,9 @@ int main(int, const char**)
     // (3) throw because nothing else is accepted in this example.
     .constructor([](duktape::api& stack) {
       if(stack.top()==0) {
-        return new circle();
+        return new circle(); // NOLINT: Ownership transferred to duktape engine.
       } else if(stack.top()==3) {
-        return new circle(stack.get<double>(0), stack.get<double>(1), stack.get<double>(2));
+        return new circle(stack.get<double>(0), stack.get<double>(1), stack.get<double>(2)); // NOLINT
       } else {
         throw duktape::script_error("Circle constructor needs either none or three arguments (x,z,r)");
       }

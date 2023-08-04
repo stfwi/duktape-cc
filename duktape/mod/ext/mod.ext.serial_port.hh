@@ -185,15 +185,19 @@
       #ifdef __linux__
       struct dir_gaurd {
         ::DIR *d;
-        dir_gaurd() : d(nullptr) {};
+        dir_gaurd(dir_gaurd&&) = delete;
+        dir_gaurd(const dir_gaurd&) = delete;
+        dir_gaurd& operator=(dir_gaurd&&) = delete;
+        dir_gaurd& operator=(const dir_gaurd&) = delete;
+        explicit dir_gaurd() : d(nullptr) {};
         ~dir_gaurd() { if(d) ::closedir(d); }
       };
       dir_gaurd dg;
       const std::string basepath = "/dev";
       if((dg.d=::opendir(basepath.c_str())) != nullptr) {
-        struct ::dirent *dir;
+        struct ::dirent *dir = nullptr;
         while((dir=readdir(dg.d)) != nullptr) {
-          std::string file = dir->d_name;
+          std::string file = static_cast<const char*>(dir->d_name);
           if(file.find("ttyS") == 0 || file.find("ttyUSB") == 0) {
             map[file] = basepath + "/" + file;
           }
@@ -528,9 +532,7 @@
       #else
       ::memset(&attr_orig_, 0, sizeof(attr_orig_));
       mdlns_orig_ = 0;
-      int fd = -1;
-
-      int n;
+      int fd=-1, n=0;
       if((fd=::open(port_.c_str(), O_RDWR|O_NDELAY|O_NOCTTY|O_CLOEXEC|O_EXCL|O_NONBLOCK)) < 0) {
         error_ = e_io;
         if(string_type(strerror(errno)).find("denied") != string_type::npos) {
@@ -685,7 +687,7 @@
       ::tcflush(d_, TCIOFLUSH);
       if(d_ >= 0) {
         for(size_t i=0; i<sizeof((attr_orig_)); i++) {
-          if(((unsigned char*)&(attr_orig_))[i]) {
+          if((reinterpret_cast<unsigned char*>(&(attr_orig_))[i])) { // NOLINT: C API.
             ::tcsetattr(d_, TCSANOW, &(attr_orig_));
             ::ioctl(d_, TIOCMSET, &mdlns_orig_);
             break;
@@ -782,7 +784,7 @@
           memset(data, 0, sz);
           if(timeout_ms != 0) {
             struct ::pollfd pfd = { d_, POLLIN|POLLPRI, 0 };
-            struct ::timespec to, ts;
+            struct ::timespec to{}, ts{};
             if(::clock_gettime(CLOCK_MONOTONIC, &to) < 0) {
               error_message_ = string_type("Getting timeout initial time failed: ") + ::strerror(errno);
               error_ = e_io;
@@ -794,7 +796,7 @@
                 to.tv_sec += to.tv_nsec / 1000000000;
                 to.tv_nsec %= 1000000000;
               }
-              int r;
+              int r = 0;
               while(((r=::poll(&pfd, 1, (int)(timeout_ms))) < 0) && (errno != EAGAIN)) {
                 if(::clock_gettime(CLOCK_MONOTONIC, &ts) < 0) {
                   error_message_ = string_type("Getting timeout initial time failed: ") + ::strerror(errno);
@@ -865,9 +867,9 @@
       data.clear();
       size_type n_read = 0;
       bool ok = false;
-      char buffer[4096];
-      while((ok=read(buffer, sizeof(buffer), n_read, timeout_ms)) && n_read) {
-        data.append(buffer, n_read);
+      auto buffer = std::array<char, 4096>();
+      while((ok=read(buffer.data(), buffer.size(), n_read, timeout_ms)) && n_read) {
+        data.append(buffer.data(), n_read);
         const auto now = milliclock();
         if(now >= deadline) break;
         timeout_ms -= timeout_type(deadline-now);
@@ -976,7 +978,7 @@
      * @return bool
      */
     inline bool write(const void *data, size_type sz)
-    { size_type n; return write(data, sz, n); (void)n; }
+    { size_type n=0; return write(data, sz, n); (void)n; }
 
     /**
      * Writes into the port TX buffer, returns success.
@@ -1049,13 +1051,13 @@
     string_type settings() const
     {
       std::stringstream ss;
+      // NOLINTBEGIN
       ss << port_ << "," << ((long) baudrate_)
-        << ((parity_ == parity_none) ? "N" : ((parity_ == parity_even) ? "E"
-              : ((parity_ == parity_odd) ? "O" : "?")))
-        << ((long) databits_)
-        << (stopbits_==stopbits_1 ? "1" : ((stopbits_==stopbits_15 ? "1.5"
-              : (((stopbits_==stopbits_2 ? "2" : "?"))))))
+         << ((parity_ == parity_none) ? "N" : ((parity_ == parity_even) ? "E" : ((parity_ == parity_odd) ? "O" : "?")))
+         << ((long) databits_)
+         << ((stopbits_==stopbits_1) ? "1" : ((stopbits_==stopbits_15 ? "1.5" : (((stopbits_==stopbits_2 ? "2" : "?"))))))
         ;
+      // NOLINTEND
 
       switch(flowcontrol_) {
         case flowcontrol_none:
@@ -1134,7 +1136,7 @@
         }
       #else
         if(!prt.empty()) {
-          struct ::stat st;
+          struct ::stat st{};
           if((::stat(prt.c_str(), &st) == 0) && (st.st_mode & S_IFCHR)) {
             port_ = prt;
           } else {
@@ -1384,7 +1386,7 @@
       {
         error_ = e_ok;
         error_message_.clear();
-        int r;
+        int r = 0;
         if(::ioctl(d_, TIOCMGET, &r) < 0) { set_error(); return false; }
         return (r & what) != 0;
       }
@@ -1394,7 +1396,7 @@
       {
         error_ = e_ok;
         error_message_.clear();
-        int r;
+        int r = 0;
         if(::ioctl(d_, TIOCMGET, &r) < 0) { set_error(); return; }
         if(val) r |= what; else r &= ~(what);
         if(::ioctl(d_, TIOCMSET, &r) < 0) set_error();
@@ -1722,6 +1724,7 @@ namespace duktape { namespace detail { namespace ext { namespace serial_port {
     open_port_tracking(const open_port_tracking&) = delete;
     open_port_tracking(open_port_tracking&&) = default;
     open_port_tracking& operator=(const open_port_tracking&) = delete;
+    open_port_tracking& operator=(open_port_tracking&&) = default;
 
     ~open_port_tracking() noexcept
     {
@@ -1745,11 +1748,11 @@ namespace duktape { namespace detail { namespace ext { namespace serial_port {
   private:
 
     std::deque<descriptor_type> open_;
-    static open_port_tracking instance_;
+    static open_port_tracking instance_; // NOLINT: Private singleton.
   };
 
   template <typename T>
-  open_port_tracking<T> open_port_tracking<T>::instance_ = open_port_tracking<T>();
+  open_port_tracking<T> open_port_tracking<T>::instance_ = open_port_tracking<T>(); // NOLINT: Private singleton.1055
 
 }}}}
 

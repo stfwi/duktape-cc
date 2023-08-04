@@ -1,0 +1,176 @@
+---
+#
+# @file .clang-format
+# @requires clang-format version >=14.0.0
+# @author sw
+#
+# c/c++ coding style auto formatting using clang-format.
+#
+# Does NOT cover the following aspects:
+#
+#  - Line ending must be manually checked for LF
+#  - File must end with empty line
+#  - Braces for control statements must be manually added,
+#    in case the statement is not in the same line.
+#  - Braces for `case` statements must be added, if multiple
+#    statements are in the case block (means all except `case 0: return 5;`)
+#
+#--
+Language: Cpp
+Standard: 'Cpp14' # Auto
+ColumnLimit: '120'
+TabWidth: '2'
+IndentWidth: '2'
+UseTab: Never
+# clang17 LineEnding: 'LF'
+# clang17 InsertNewlineAtEOF: 'true'
+AccessModifierOffset: '-2'
+ContinuationIndentWidth: '2'
+#--
+AlignAfterOpenBracket: AlwaysBreak
+AlignConsecutiveAssignments: 'false'
+AlignConsecutiveBitFields: 'true'
+AlignConsecutiveDeclarations: 'false'
+AlignConsecutiveMacros: 'false'
+AlignEscapedNewlines: Left
+AlignTrailingComments: 'true'
+AlignArrayOfStructures: 'Right'
+AllowAllArgumentsOnNextLine: 'true'
+AllowAllConstructorInitializersOnNextLine: 'true'
+AllowAllParametersOfDeclarationOnNextLine: 'true'
+AllowShortBlocksOnASingleLine: 'true'
+AllowShortCaseLabelsOnASingleLine: 'true'
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLambdasOnASingleLine: All
+AllowShortLoopsOnASingleLine: 'true'
+AlwaysBreakAfterDefinitionReturnType: None
+AlwaysBreakAfterReturnType: None
+AlwaysBreakBeforeMultilineStrings: 'false'
+AlwaysBreakTemplateDeclarations: 'Yes'
+BinPackArguments: 'false'
+BinPackParameters: 'false'
+#--
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterNamespace: false
+  AfterClass: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterFunction: true
+  AfterEnum: false
+  AfterControlStatement: 'Never'
+  AfterCaseLabel: false
+  AfterExternBlock: false
+  BeforeCatch: false
+  BeforeElse: false
+  BeforeLambdaBody: false
+  BeforeWhile: false
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+#--
+# clang17 BreakBeforeInlineASMColon: 'OnlyMultiline'
+BreakBeforeTernaryOperators: 'true'
+BreakBeforeBinaryOperators: 'NonAssignment'
+BreakBeforeConceptDeclarations: 'true' # clang17->'Allowed'
+BreakAfterJavaFieldAnnotations: 'true'
+#clang17 BreakAfterAttributes: 'Always'
+#clang17 BreakArrays: false
+BreakConstructorInitializers: AfterColon
+BreakInheritanceList: AfterColon
+BreakStringLiterals: 'true'
+BreakConstructorInitializers: 'AfterColon'
+BreakInheritanceList: 'AfterColon'
+#--
+CompactNamespaces: 'true'
+ConstructorInitializerAllOnOneLineOrOnePerLine: 'true'
+ConstructorInitializerIndentWidth: '4'
+PackConstructorInitializers: 'CurrentLine'
+ReflowComments: 'true'
+Cpp11BracedListStyle: 'true'
+DisableFormat: 'false'
+FixNamespaceComments: 'false'
+IndentPPDirectives: BeforeHash
+IndentWrappedFunctionNames: 'false'
+PPIndentWidth: '2'
+JavaScriptQuotes: Leave
+KeepEmptyLinesAtTheStartOfBlocks: 'false'
+MaxEmptyLinesToKeep: '1'
+NamespaceIndentation: All
+PointerAlignment: 'Left'
+ReferenceAlignment: 'Left'
+DerivePointerAlignment: 'true'
+#--
+QualifierAlignment: 'Custom'
+#clang17 QualifierOrder: ['static', 'friend', 'inline', 'constexpr', 'const', 'volatile', 'restrict', 'type']
+QualifierOrder: ['static', 'inline', 'constexpr', 'const', 'volatile', 'type']
+#--
+SortIncludes: 'false'
+SortUsingDeclarations: 'false'
+SpaceAfterCStyleCast: 'false'
+SpaceAfterLogicalNot: 'false'
+SpaceAfterTemplateKeyword: 'false'
+SpaceAroundPointerQualifiers: 'Default'
+SpaceBeforeAssignmentOperators: 'true'
+SpaceBeforeCaseColon: 'false'
+SpaceBeforeCpp11BracedList: 'false'
+SpaceBeforeCtorInitializerColon: 'true'
+SpaceBeforeInheritanceColon: 'true'
+SpaceBeforeParens: Never
+SpaceBeforeRangeBasedForLoopColon: 'false'
+SpaceBeforeSquareBrackets: 'false'
+SpaceInEmptyBlock: 'false'
+SpaceInEmptyParentheses: 'false'
+SpacesInConditionalStatement: 'false'
+SpacesBeforeTrailingComments: '2'
+SpacesInAngles: 'Never'
+SpacesInContainerLiterals: 'false'
+SpacesInCStyleCastParentheses: 'false'
+SpacesInParentheses: 'false'
+SpacesInSquareBrackets: 'false'
+EmptyLineAfterAccessModifier: 'Always'
+EmptyLineBeforeAccessModifier: 'LogicalBlock'
+IndentAccessModifiers: 'false'
+IndentCaseBlocks: 'true'
+IndentCaseLabels: 'true'
+IndentExternBlock: 'Indent'
+IndentGotoLabels: 'false' # who needs that?
+IndentRequires: 'true' # clang17 -> IndentRequiresClause: 'true'
+#--
+#clang17 InsertBraces: 'true' # enforce if {}
+#clang17 RemoveSemicolon: 'true' # remove unneeded ;, e.g. after closing function block.
+InsertTrailingCommas: 'Wrapped'
+LambdaBodyIndentation: 'Signature'
+#clang17 RequiresClausePosition: 'OwnLine'
+#clang17 RequiresExpressionIndentation: 'OuterScope'
+SeparateDefinitionBlocks: 'Always'
+ShortNamespaceLines: '10'
+#--
+SpacesInLineCommentPrefix:
+  Minimum: 1
+  Maximum: -1
+#--
+#PenaltyBreakAssignment: 1
+#PenaltyBreakBeforeFirstCallParameter: 1
+#PenaltyBreakComment: 1
+#PenaltyBreakFirstLessLess: 1
+#PenaltyBreakOpenParenthesis: 1
+#PenaltyBreakString: 1
+#PenaltyBreakTemplateDeclaration: 1
+#PenaltyExcessCharacter: 1
+#PenaltyIndentedWhitespace: 1
+#PenaltyReturnTypeOnItsOwnLine: 1
+#--
+#CommentPragmas: ''
+#ForEachMacros:''
+#IfMacros: ''
+#MacroBlockBegin: ''
+#MacroBlockEnd: ''
+#NamespaceMacros: ''
+#RawStringFormats: ''
+#StatementAttributeLikeMacros: ''
+#StatementMacros: ''
+#TypenameMacros: ''
+#WhitespaceSensitiveMacros: ''
+...

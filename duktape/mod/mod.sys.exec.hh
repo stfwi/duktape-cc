@@ -109,7 +109,8 @@
       explicit child_process() :
         program_(), arguments_(), environment_(), timeout_ms_(), ignore_stdout_(), ignore_stderr_(), redirect_stderr_to_stdout_(),
         without_path_search_(), dont_inherit_environment_(), no_argument_escaping_(), no_pipe_auto_closing_(false), exit_code_(-1),
-        was_timeout_(false), process_terminated_(true), start_time_(), proc_(), stdin_data_(), stdout_data_(), stderr_data_()
+        was_timeout_(false), process_terminated_(true), auto_close_stdin_(), start_time_(), proc_(), stdin_data_(), stdout_data_(),
+        stderr_data_()
       {}
 
       child_process(
@@ -130,7 +131,8 @@
         ignore_stdout_(ignore_stdout), ignore_stderr_(ignore_stderr), redirect_stderr_to_stdout_(redirect_stderr_to_stdout),
         without_path_search_(without_path_search), dont_inherit_environment_(dont_inherit_environment),
         no_argument_escaping_(no_argument_escaping), no_pipe_auto_closing_(dont_auto_close_pipes), exit_code_(-1), was_timeout_(false),
-        process_terminated_(false), start_time_(), proc_(), stdin_data_(std::move(stdin_data)), stdout_data_(), stderr_data_()
+        process_terminated_(false), auto_close_stdin_(), start_time_(), proc_(), stdin_data_(std::move(stdin_data)), stdout_data_(),
+        stderr_data_()
       {
         run(std::move(program), std::move(arguments), std::move(environment), timeout_ms);
       }
@@ -335,15 +337,15 @@
               // Set additional environment over the own process env and run
               for(size_t i=0; (i < envv.size()-2) && envv[i] && envv[i+1]; i+=2) ::setenv(envv[i], envv[i+1], 1);
               if(without_path_search_) {
-                ::execv(program.c_str(), (char* const*)(&argv[0]));
+                ::execv(program.c_str(), const_cast<char* const*>(&argv[0])); // NOLINT: function is argv/envv owner.
               } else {
-                ::execvp(program.c_str(), (char* const*)(&argv[0]));
+                ::execvp(program.c_str(), const_cast<char* const*>(&argv[0])); // NOLINT
               }
             } else {
               if(without_path_search_) {
-                ::execve(program.c_str(), (char* const*)(&argv[0]), (char* const*)(&envv[0]));
+                ::execve(program.c_str(), const_cast<char* const*>(&argv[0]), const_cast<char* const*>(&envv[0])); // NOLINT
               } else {
-                ::execvpe(program.c_str(), (char* const*)(&argv[0]), (char* const*)(&envv[0]));
+                ::execvpe(program.c_str(), const_cast<char* const*>(&argv[0]), const_cast<char* const*>(&envv[0])); // NOLINT
               }
             }
             cerr << "Failed to run ''" << program << "': " << ::strerror(errno) << "\n";
@@ -351,7 +353,7 @@
           _exit(1);
         } else {
           // Parent, close unused fds and set variables used further on.
-          const auto unblock = [](fd_t fd) { int o; if((fd >=0) && (o=::fcntl(fd, F_GETFL, 0)) >= 0) { ::fcntl(fd, F_SETFL, o|O_NONBLOCK); } };
+          const auto unblock = [](fd_t fd) { int o=0; if((fd >=0) && (o=::fcntl(fd, F_GETFL, 0)) >= 0) { ::fcntl(fd, F_SETFL, o|O_NONBLOCK); } };
           proc_.ifd = pi[1]; unblock(proc_.ifd); close_pipe(pi[0]);
           proc_.ofd = po[0]; unblock(proc_.ofd); close_pipe(po[1]);
           proc_.efd = pe[0]; unblock(proc_.efd); close_pipe(pe[1]);
@@ -413,7 +415,7 @@
           if(!process_terminated_) {
             pfd[0].fd = proc_.ofd; pfd[0].events = POLLIN|POLLPRI; pfd[0].revents = 0;
             pfd[1].fd = proc_.efd; pfd[1].events = POLLIN|POLLPRI; pfd[1].revents = 0;
-            rp=::poll(pfd, sizeof(pfd)/sizeof(struct ::pollfd), poll_wait);
+            rp=::poll(pfd, sizeof(pfd)/sizeof(struct ::pollfd), int(poll_wait));
           }
           if((proc_.ofd >= 0) && (pfd[0].revents || (rp < 0))) { // r<0: force read to close broken pipes
             char data[4096];
@@ -442,7 +444,7 @@
           process_terminated_ = true;
         } else {
           // Check if the child process has terminated
-          int r, status = 0;
+          int r = 0, status = 0;
           if((r=::waitpid(proc_.pid, &status, WNOHANG)) < 0) {
             switch(errno) {
               case EAGAIN:
@@ -501,7 +503,7 @@
           if(pid > 0) {
             ::kill(pid, SIGTERM);
             ::sleep(0);
-            int status = -1, r;
+            int status = -1, r = 0;
             if(((r=::waitpid((const ::pid_t) pid, &status, WNOHANG)) == 0) || (r<0 && (errno == ECHILD))) {
               ::kill(pid, SIGKILL);
             }
@@ -1135,7 +1137,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       }
     }
     try {
-      auto proc = child_process(
+      auto proc = child_process<>(
         std::move(program), std::move(arguments), std::move(environment), std::move(stdin_data),
         timeout_ms, ignore_stdout, ignore_stderr, redirect_stderr_to_stdout, without_path_search,
         noenv, false, keep_stdin_open
@@ -1213,7 +1215,7 @@ namespace duktape { namespace detail { namespace system { namespace exec {
       args.push_back(escape_shell_arg(command));
       #endif
       try {
-        auto proc = child_process(
+        auto proc = child_process<>(
           std::move(sh), std::move(args), std::vector<std::string>(), std::string(), timeout_ms,
           false, true, false, true, false, no_arg_escape, false
         );

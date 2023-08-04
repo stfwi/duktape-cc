@@ -113,7 +113,7 @@
       auto val = value;
       while(i--) {
         swapped = (swapped<<8) | (val & Integer(0xff));
-        val >>= 8;
+        val >>= 8; // NOLINT: Will overflow at i==0, no problem.
       }
       return swapped;
     }

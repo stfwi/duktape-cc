@@ -46,6 +46,7 @@
 
 #include "../duktape.hh"
 #include "mod.sys.hh"
+#include <algorithm>
 #include <iostream>
 #include <streambuf>
 #include <sstream>
@@ -216,7 +217,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
           stack.push(contents);
           return 1;
         } else {
-          char* buffer = reinterpret_cast<char*>(stack.push_array_buffer(contents.length(), true));
+          char* buffer = static_cast<char*>(stack.push_array_buffer(contents.length(), true));
           if(!buffer) return 0;
           if(contents.length() > 0) std::copy(contents.begin(), contents.end(), buffer);
           return 1;
@@ -314,7 +315,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace generic 
     }
     #else
     char name[256];
-    struct ::passwd pw, *ppw;
+    struct ::passwd pw{}, *ppw=nullptr;
     if((::getpwuid_r(::getuid(), &pw, name, sizeof(name), &ppw) == 0) && pw.pw_dir) {
       return StringType((const char*)pw.pw_dir);
     } else {
@@ -411,7 +412,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
           return homedir<PathAccessor>(stack);
         } else if(path[1] == '/') {
           char name[256];
-          struct ::passwd pw, *ppw;
+          struct ::passwd pw{}, *ppw=nullptr;
           if((::getpwuid_r(::getuid(), &pw, name, sizeof(name), &ppw) != 0) || (!pw.pw_dir)) return 0;
           path = std::string(pw.pw_dir) + path.substr(1);
         }
@@ -594,8 +595,8 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
       stack.set("atime", unix_timestamp(st.st_atim));
       {
         char name[256];
-        struct ::passwd pw, *ppw;
-        struct ::group gr, *pgr;
+        struct ::passwd pw{}, *ppw=nullptr;
+        struct ::group gr{}, *pgr=nullptr;
         if((::getpwuid_r(st.st_uid, &pw, name, sizeof(name), &ppw) == 0) && pw.pw_name) {
           stack.set("owner", (const char*)pw.pw_name);
         }
@@ -630,7 +631,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   {
     if(!stack.is<std::string>(0)) return 0;
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
-    struct ::stat st;
+    struct ::stat st{};
     if(LinkStat) {
       #ifndef OS_WINDOWS
       if(::lstat(path.c_str(), &st) != 0) return 0;
@@ -649,7 +650,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   {
     if(!stack.is<std::string>(0)) return 0;
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
-    struct ::stat st;
+    struct ::stat st{};
     if(::stat(path.c_str(), &st) != 0) return 0;
     stack.push(st.st_size);
     return 1;
@@ -661,10 +662,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     if(!stack.is<std::string>(0)) return 0;
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
     #ifndef OS_WINDOWS
-    struct ::stat st;
+    struct ::stat st{};
     if(::stat(path.c_str(), &st) != 0) return 0;
     char name[256];
-    struct ::passwd pw, *ppw;
+    struct ::passwd pw{}, *ppw=nullptr;
     if((::getpwuid_r(st.st_uid, &pw, name, sizeof(name), &ppw) == 0) && pw.pw_name) {
       stack.push((const char*)pw.pw_name);
       return 1;
@@ -706,10 +707,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     #ifndef OS_WINDOWS
     if(!stack.is<std::string>(0)) return 0;
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
-    struct ::stat st;
+    struct ::stat st{};
     if(::stat(path.c_str(), &st) != 0) return 0;
     char name[256];
-    struct ::group gr, *pgr;
+    struct ::group gr{}, *pgr=nullptr;
     if((::getgrgid_r(st.st_gid, &gr, name, sizeof(name), &pgr) == 0) && gr.gr_name) {
       stack.push((const char*)gr.gr_name);
       return 1;
@@ -727,7 +728,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   {
     if(!stack.is<std::string>(0)) return 0;
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
-    struct ::stat st;
+    struct ::stat st{};
     if(::stat(path.c_str(), &st) != 0) return 0;
     #ifdef OS_MAC
     stack.push(unix_timestamp(st.st_mtimespec.tv_sec));
@@ -744,7 +745,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   {
     if(!stack.is<std::string>(0)) return 0;
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
-    struct ::stat st;
+    struct ::stat st{};
     if(::stat(path.c_str(), &st) != 0) return 0;
     #ifdef OS_MAC
     stack.push(unix_timestamp(st.st_atimespec.tv_sec));
@@ -761,7 +762,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   {
     if(!stack.is<std::string>(0)) return 0;
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
-    struct ::stat st;
+    struct ::stat st{};
     if(::stat(path.c_str(), &st) != 0) return 0;
     #ifdef OS_MAC
     stack.push(unix_timestamp(st.st_ctimespec.tv_sec));
@@ -777,7 +778,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   int exists(duktape::api& stack)
   {
     #ifndef OS_WINDOWS
-    struct ::stat st;
+    struct ::stat st{};
     stack.push((stack.is<std::string>(0))
       && (::stat(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &st) == 0)
       && ((S_ISREG(st.st_mode) || S_ISDIR(st.st_mode) || S_ISFIFO(st.st_mode) || S_ISLNK(st.st_mode) ||
@@ -797,7 +798,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   int isfile(duktape::api& stack)
   {
     #ifndef OS_WINDOWS
-    struct ::stat st;
+    struct ::stat st{};
     stack.push(stack.is<std::string>(0) && (::stat(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &st) == 0) && S_ISREG(st.st_mode));
     return 1;
     #else
@@ -814,7 +815,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   int isdir(duktape::api& stack)
   {
     #ifndef OS_WINDOWS
-    struct ::stat st;
+    struct ::stat st{};
     stack.push(stack.is<std::string>(0) && (::stat(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &st) == 0) && S_ISDIR(st.st_mode));
     return 1;
     #else
@@ -831,7 +832,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   int islink(duktape::api& stack)
   {
     #ifndef OS_WINDOWS
-    struct ::stat st;
+    struct ::stat st{};
     stack.push(stack.is<std::string>(0) && (::lstat(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &st) == 0) && S_ISLNK(st.st_mode));
     #else
     stack.push(false); /// @todo: implement windows.islink
@@ -843,7 +844,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
   int isfifo(duktape::api& stack)
   {
     #ifndef OS_WINDOWS
-    struct ::stat st;
+    struct ::stat st{};
     stack.push(stack.is<std::string>(0) && (::stat(PathAccessor::to_sys(stack.to<std::string>(0)).c_str(), &st) == 0) && S_ISFIFO(st.st_mode));
     #else
     stack.push(false);
@@ -894,7 +895,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     char outpath[PATH_MAX];
     ssize_t n = 0;
     if((n=::readlink(inpath.c_str(), outpath, sizeof(outpath))) <= 0) return 0; // error or empty return.
-    outpath[n] = '\0';
+    outpath[std::min(n, ssize_t((PATH_MAX)-1))] = '\0'; // NOLINT: Range checked.
     stack.push(PathAccessor::to_js(std::string(outpath)));
     return 1;
     #else
@@ -965,7 +966,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
       ::_mkdir(path.c_str());
     }
     #endif
-    struct ::stat st;
+    struct ::stat st{};
     stack.push((::stat(path.c_str(), &st) == 0) && S_ISDIR(st.st_mode)); // true if dir was created and accessible.
     return 1;
   }
@@ -997,9 +998,9 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
       return 1;
     }
     std::string path = PathAccessor::to_sys(stack.to<std::string>(0));
-    struct ::utimbuf ut;
+    struct ::utimbuf ut{};
     if(!mtime_set || !atime_set) {
-      struct ::stat st;
+      struct ::stat st{};
       if(::stat(path.c_str(), &st) != 0) return 0;
       #ifdef OS_MAC
       ut.modtime = st.st_mtimespec.tv_sec;
@@ -1097,6 +1098,10 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
       struct dir_guard {
         HANDLE hFind;
         explicit dir_guard() noexcept : hFind(INVALID_HANDLE_VALUE) {}
+        dir_guard(const dir_guard&) = delete;
+        dir_guard(dir_guard&&) = default;
+        dir_guard& operator=(const dir_guard&) = delete;
+        dir_guard& operator=(dir_guard&&) = default;
         ~dir_guard() noexcept { if(hFind != INVALID_HANDLE_VALUE) ::FindClose(hFind); }
       };
       WIN32_FIND_DATAA ffd;
@@ -1142,10 +1147,14 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     struct dir_guard {
       DIR* dir;
       explicit dir_guard() noexcept : dir(nullptr) {}
+      dir_guard(const dir_guard&) = delete;
+      dir_guard(dir_guard&&) = default;
+      dir_guard& operator=(const dir_guard&) = delete;
+      dir_guard& operator=(dir_guard&&) = default;
       ~dir_guard() noexcept {if(dir) ::closedir(dir); }
     };
     dir_guard dir; // calls ::closedir if ::opendir does not return nullptr.
-    struct ::dirent entry;
+    struct ::dirent entry{};
     struct ::dirent *de = nullptr;
     if(!(dir.dir = ::opendir(path.c_str()))) return 0;
     if(!stack.check_stack_top(5)) return stack.throw_exception("Out of JS stack.");
@@ -1186,10 +1195,12 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
     {
       struct glob_data {
         glob_t data;
-        explicit inline glob_data() noexcept : data()
-        { memset(&data, 0, sizeof(data)); }
-        ~glob_data() noexcept
-        { if(data.gl_pathv) { ::globfree(&data); }}
+        ~glob_data() noexcept { if(data.gl_pathv) { ::globfree(&data); }}
+        explicit inline glob_data() noexcept : data() { memset(&data, 0, sizeof(data)); }
+        glob_data(const glob_data&) = delete;
+        glob_data(glob_data&&) = default;
+        glob_data& operator=(const glob_data&) = delete;
+        glob_data& operator=(glob_data&&) = default;
       };
 
       glob_data gb;

@@ -220,7 +220,7 @@ namespace {
     if((nargs == 1) && stack.is_buffer(0)) {
       const char *buf = nullptr;
       duk_size_t sz = 0;
-      if((buf = reinterpret_cast<const char*>(stack.get_buffer(0, sz))) && (sz > 0)) {
+      if((buf = static_cast<const char*>(stack.get_buffer(0, sz))) && (sz > 0)) {
         ss.write(buf, sz);
       }
     } else if(nargs > 0) {

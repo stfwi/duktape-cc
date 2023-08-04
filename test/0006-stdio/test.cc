@@ -119,7 +119,7 @@ namespace {
     std::stringstream localout;
     duktape::api& stack = js.stack();
     try {
-      duktape::mod::stdio::out_stream = &localout;
+      duktape::mod::stdio::set_streams_nonowning(&localout, nullptr, nullptr, nullptr);
       stack.top(0);
       stack.get_global_string("printf");
       stack.push(fmt);
@@ -129,12 +129,12 @@ namespace {
         throw duktape::script_error(stack.to<string>(-1));
       }
       stack.top(0);
-      duktape::mod::stdio::out_stream = &sout;
+      duktape::mod::stdio::set_streams_nonowning(&sout, nullptr, nullptr, nullptr);
       string s = localout.str();
       test_note(string("output: '") + s + "'");
       return s;
     } catch(...) {
-      duktape::mod::stdio::out_stream = &sout;
+      duktape::mod::stdio::set_streams_nonowning(&sout, nullptr, nullptr, nullptr);
       stack.top(0);
       throw;
     }
@@ -242,10 +242,7 @@ namespace {
 
 void test(duktape::engine& js)
 {
-  duktape::mod::stdio::in_stream = &ssin;
-  duktape::mod::stdio::err_stream = &sout;
-  duktape::mod::stdio::out_stream = &sout;
-  duktape::mod::stdio::log_stream = &sout;
+  duktape::mod::stdio::set_streams_nonowning(&sout, &sout, &sout, &ssin);
   duktape::mod::stdio::define_in(js);      // Note: That also overrides alert and print.
   test_basics(js);
   test_printf_valid(js);

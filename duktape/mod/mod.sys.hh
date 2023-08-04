@@ -156,8 +156,8 @@ namespace duktape { namespace detail {
         if(!stack.is_date(index)) return type{0,0};
         type ts{0,0};
         uint64_t v = (uint64_t) stack.to_number(index); // duktape will coerce the \x00Value property.
-        ts.tv_sec = v / 1000;
-        ts.tv_nsec = (v % 1000) * 1000000;
+        ts.tv_sec = time_t(v / 1000);
+        ts.tv_nsec = int32_t(v % 1000) * 1000000;
         return ts;
       }
 
@@ -224,7 +224,7 @@ namespace duktape { namespace detail { namespace system {
   int getuser(duktape::api& stack)
   {
     #ifndef OS_WINDOWS
-    uid_t uid;
+    uid_t uid = 0;
     if(stack.is_undefined(0)) {
       uid = ::getuid();
     } else if(stack.is<uid_t>(0)) {
@@ -233,7 +233,7 @@ namespace duktape { namespace detail { namespace system {
       return 0;
     }
     char name[256];
-    struct ::passwd pw, *ppw;
+    struct ::passwd pw{}, *ppw = nullptr;
     if((::getpwuid_r(uid, &pw, name, sizeof(name), &ppw) == 0) && pw.pw_name) {
       stack.push((const char*)pw.pw_name);
       return 1;
@@ -262,7 +262,7 @@ namespace duktape { namespace detail { namespace system {
       return 0;
     }
     char name[256];
-    struct ::group gr, *pgr;
+    struct ::group gr{}, *pgr = nullptr;
     if((::getgrgid_r(gid, &gr, name, sizeof(name), &pgr) == 0) && gr.gr_name) {
       stack.push((const char*)gr.gr_name);
       return 1;
@@ -319,7 +319,7 @@ namespace duktape { namespace detail { namespace system {
   {
     stack.push_object();
     #if defined(unix) || defined(__unix) || defined(__unix__) || defined(__linux__)
-    struct ::utsname un;
+    struct ::utsname un{};
     if(::uname(&un) != 0) return 0;
     stack.set("sysname", (const char*)un.sysname);
     stack.set("release", (const char*)un.release);
@@ -400,7 +400,7 @@ namespace duktape { namespace detail { namespace system {
   template <typename=void>
   int isatty_by_name(duktape::api& stack)
   {
-    enum { ckin, ckout, ckerr } check;
+    enum { ckin, ckout, ckerr } check = ckin;
     bool r = false;
     {
       std::string s = stack.get<std::string>(0);
