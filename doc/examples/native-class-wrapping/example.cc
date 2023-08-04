@@ -1,7 +1,6 @@
 #include <duktape/duktape.hh>
 #include <duktape/mod/mod.stdio.hh>
 #include <duktape/mod/mod.stdlib.hh>
-#include <cmath>
 
 using namespace std;
 
@@ -28,7 +27,7 @@ struct circle
   circle& operator=(circle&&) = default;
   ~circle() = default;
 
-  static constexpr double pi = M_PI;
+  static constexpr double pi = 3.14159265358979323846; // M_PI not in win32.
   void move(double newx, double newy) noexcept  { x=newx; y=newy; }
   double circumference() const noexcept { return pi * r * 2.; }
   double area() const noexcept { return pi * r * r; }
