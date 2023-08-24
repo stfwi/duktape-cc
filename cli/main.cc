@@ -27,7 +27,7 @@
 #include <duktape/mod/ext/mod.conv.hh>
 #include <duktape/mod/ext/mod.ext.serial_port.hh>
 #include <duktape/mod/ext/mod.ext.mmap.hh>
-#ifdef CONFIG_WITH_APP_ATTACHMENT
+#ifdef WITH_APP_ATTACHMENT
   #include <duktape/mod/ext/app_attachment/mod.ext.app_attachment.hh>
 #endif
 #ifdef WITH_RESOURCE_IMPORT
@@ -149,7 +149,7 @@ int main(int argc, const char** argv, const char** envv)
             script_path = arg;
           }
         } else if((!has_file_arg) && (arg.length() > 0) && (arg[0] != '-')) {
-          #ifdef CONFIG_WITH_APP_ATTACHMENT
+          #ifdef WITH_APP_ATTACHMENT
             // Positional script arg conflicts with built-in library script,
             // so specifying -s/--script is needed then.
             args.push_back(std::move(arg));
@@ -192,19 +192,37 @@ int main(int argc, const char** argv, const char** envv)
     duktape::engine js;
     // Module imports
     {
-      #ifndef CONFIG_WITHOUT_STANDARD_MODULES
+      #ifndef WITHOUT_STDLIB
         duktape::mod::stdlib::define_in(js);
+      #endif
+      #ifndef WITHOUT_STDIO
         duktape::mod::stdio::define_in(js);
+      #endif
+      #ifndef WITHOUT_FILESYSTEM
         duktape::mod::filesystem::generic::define_in(js);
         duktape::mod::filesystem::basic::define_in(js);
         duktape::mod::filesystem::extended::define_in(js);
         duktape::mod::filesystem::fileobject::define_in(js);
+      #endif
+      #ifndef WITHOUT_SYSTEM
         duktape::mod::system::define_in(js);
+      #endif
+      #ifndef WITHOUT_SYSTEM_EXEC
         duktape::mod::system::exec::define_in(js);
+      #endif
+      #ifndef WITHOUT_SYSTEM_HASH
         duktape::mod::system::hash::define_in(js);
+      #endif
+      #ifndef WITHOUT_XLANG
         duktape::mod::xlang::define_in(js);
+      #endif
+      #ifndef WITHOUT_CONVERSION
         duktape::mod::ext::conv::define_in(js);
+      #endif
+      #ifndef WITHOUT_SERIALPORT
         duktape::mod::ext::serial_port::define_in(js);
+      #endif
+      #ifndef WITHOUT_MMAP
         duktape::mod::ext::mmap::define_in(js);
       #endif
       #ifdef WITH_RESOURCE_IMPORT
@@ -243,7 +261,7 @@ int main(int argc, const char** argv, const char** envv)
     // Script execution
     {
       // Built-in library, if available, is executed first.
-      #ifdef CONFIG_WITH_APP_ATTACHMENT
+      #ifdef WITH_APP_ATTACHMENT
       const bool has_lib = duktape::mod::ext::app_attachment::define_in(js);
       #else
       constexpr bool has_lib = false;
