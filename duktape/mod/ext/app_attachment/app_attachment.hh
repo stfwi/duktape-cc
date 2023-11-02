@@ -69,7 +69,7 @@
  *
  * Notes:
  *
- *  - Windows: - Unix tools are helpfull, e.g. install GIT with global %path% integration (rm.exe and cat.exe).
+ *  - Windows: - Unix tools are helpful, e.g. install GIT with global %path% integration (rm.exe and cat.exe).
  *             - In the Makefile you need to add ".exe" to the file names.
  *             - In the Makefile you may have to invoke "$(AUX_BINARY)", not "./$(AUX_BINARY)"
  *
@@ -169,12 +169,13 @@ namespace sw { namespace util { namespace detail {
     {
       static_assert(std::is_integral<typename InContainer::value_type>::value && std::is_integral<typename OutContainer::value_type>::value, "Container elements have to be integral.");
       static_assert(sizeof(typename InContainer::value_type) == sizeof(typename OutContainer::value_type),"Container elements have to have identical sizes.");
-      auto xo = typename OutContainer::value_type(0);
+      using element_type = typename OutContainer::value_type;
+      auto xo = element_type(0);
       auto out_data = OutContainer();
       out_data.reserve(in_data.size());
       for(size_t i=0; i<in_data.size(); ++i) {
-        xo = (xo<<8) | boundary_mark[i & 0xff];
-        out_data.push_back(in_data[i] ^ xo); // @see serialize()
+        xo = element_type(xo<<8) | element_type(boundary_mark[i & 0xff]);
+        out_data.push_back(element_type(in_data[i] ^ xo));
       }
       return out_data;
     }
@@ -187,12 +188,13 @@ namespace sw { namespace util { namespace detail {
     {
       static_assert(std::is_integral<typename InContainer::value_type>::value && std::is_integral<typename OutContainer::value_type>::value,"Container elements have to be integral.");
       static_assert(sizeof(typename InContainer::value_type) == sizeof(typename OutContainer::value_type),"Container elements have to have identical sizes.");
-      auto xo = typename OutContainer::value_type(0);
+      using element_type = typename OutContainer::value_type;
+      auto xo = element_type(0);
       auto out_data = OutContainer();
       out_data.reserve(in_data.size());
       for(size_t i=0; i<in_data.size(); ++i) {
-        xo = (xo<<8) | boundary_marker[i & 0xff];
-        out_data.push_back(in_data[i] ^ xo); // @see serialize()
+        xo = element_type(xo<<8) | element_type(boundary_marker[i & 0xff]);
+        out_data.push_back(element_type(in_data[i] ^ xo)); // @see serialize()
       }
       return out_data;
     }

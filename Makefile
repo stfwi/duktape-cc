@@ -25,12 +25,12 @@ BUILD_DIRECTORY=build
 ifdef DEBUG
  # Note: "debug" is intentinoally with full optimization. It's for symbols, not for stepping through code.
  FLAGSCXX+=-Os -g -fno-omit-frame-pointer -fdata-sections -ffunction-sections
- FLAGSLD+=-Os -g -fno-omit-frame-pointer -Wl,--gc-sections
+ FLAGSLD+=-Os -g -fno-omit-frame-pointer
  DUKOPTS+=-g -Os
 else
  STRIP=$(TOOLCHAIN)strip
  FLAGSCXX+=-Os -fomit-frame-pointer -fdata-sections -ffunction-sections
- FLAGSLD+=-Os -Wl,--gc-sections
+ FLAGSLD+=-Os
 endif
 
 # make command line overrides
