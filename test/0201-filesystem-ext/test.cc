@@ -11,7 +11,7 @@ namespace {
 
   void test_copy_function(duktape::engine& js)
   {
-    test_comment("test_copy_function");
+    test_info("test_copy_function");
     test_makefiletree();
     test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
     // file copy: file only
@@ -44,7 +44,7 @@ namespace {
 
   void test_move_function(duktape::engine& js)
   {
-    test_comment("test_move_function");
+    test_info("test_move_function");
     test_makefiletree();
     test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
     test_expect( js.eval<bool>("fs.move(test_abspath('z'), test_abspath('ZZ')) // rename file") && exists(test_path("ZZ")) && !exists(test_path("z")) );
@@ -75,7 +75,7 @@ namespace {
 
   void test_remove_function(duktape::engine& js)
   {
-    test_comment("test_remove_function");
+    test_info("test_remove_function");
     test_makefiletree();
     test_expect( js.eval<bool>("fs.chdir(testdir) === true") );
     test_expect_except( js.eval<bool>("fs.remove()") );
@@ -101,7 +101,7 @@ namespace {
 
   void mk_fs_find_test_tree()
   {
-    test_comment( "Generating fs.find() test structure in " << test_path() );
+    test_info( "Generating fs.find() test structure in ", test_path() );
     test_rmfiletree();
 
     #define TEST_NUMDIRS (12)

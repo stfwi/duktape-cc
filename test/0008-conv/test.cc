@@ -21,7 +21,7 @@ namespace {
       js.define("array_values", values);
 
       string s = js.eval<string>("array_values");
-      test_comment("Array values: " << s);
+      test_info("Array values: ", s);
 
       std::vector<int> readback = js.eval<std::vector<int>>("array_values");
 
@@ -32,7 +32,7 @@ namespace {
         for(size_t i=1; i<readback.size(); ++i) sss << "," << std::dec << readback[i];
         sss << "}";
         string s = sss.str();
-        test_comment("Readback is: " << s);
+        test_info("Readback is: ", s);
       }
 
       test_expect( readback.size() == values.size() );
@@ -101,8 +101,8 @@ namespace {
 
     ts.tv_sec = 3600; ts.tv_nsec = 987000000;
     test_expect_noexcept( js.define("thetime", ts) );
-    test_info( "::timespec{3600,987000000} === " << js.eval<string>("thetime.valueOf();") );
-    test_info( "::timespec{3600,987000000} === " << js.eval<string>("thetime;") );
+    test_info( "::timespec{3600,987000000} === ", js.eval<string>("thetime.valueOf();") );
+    test_info( "::timespec{3600,987000000} === ", js.eval<string>("thetime;") );
     test_expect( js.eval<long>("thetime.valueOf();") == 3600987 );
 
     test_expect_noexcept( ts=js.eval<timespec_type>("new Date('1970-01-01T00:05:00.1')") );
@@ -164,7 +164,7 @@ void test(duktape::engine& js)
 {
   test_conv_std_vector(js);
   #ifndef __linux__
-    test_note("Skipped Date() to :timespec longer1ace for non-linux OS.");
+    test_info("Skipped Date() to :timespec longer1ace for non-linux OS.");
   #else
     test_timespec(js);
   #endif

@@ -670,6 +670,7 @@ namespace duktape { namespace detail {
     static int win32codepage(duktape::api& stack)
     {
       #ifndef OS_WINDOWS
+        (void)stack;
         return 0;
       #else
         auto codepage = stack.get<int>(0);

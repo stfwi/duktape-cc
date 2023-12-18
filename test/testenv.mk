@@ -111,6 +111,7 @@ $(BUILDDIR)/test/1%/test.log: test/1%/test.js $(TEST_SCRIPT_BINARY)
 	@[ -f test.gcda ] && mv test.gcda $(dir $@) || /bin/true
 	@[ ! -f test.gcno ] && cp $(patsubst %$(BINARY_EXTENSION),%.gcno,$(TEST_SCRIPT_BINARY)) >/dev/null 2>&1 $(dir $@) || /bin/true
  endif
+
 #---------------------------------------------------------------------------------------------------
 # Coverage (only available with gcov/lcov using linux g++)
 #---------------------------------------------------------------------------------------------------

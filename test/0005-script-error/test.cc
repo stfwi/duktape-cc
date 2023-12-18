@@ -22,7 +22,7 @@ int wrapped_engine_call(duktape::api& stack)
     if(!pjs) {
       test_fail("Global test js object pointer not set.");
     } else {
-      test_note("-> wrapped_engine_call()");
+      test_info("-> wrapped_engine_call()");
       pjs->call<void>(stack.to<string>(0));
       test_fail("wrapped_engine_call() did not catch an exception");
     }
@@ -40,7 +40,7 @@ int wrapped_engine_eval(duktape::api& stack)
     if(!pjs) {
       test_fail("Global test js object pointer not set.");
     } else {
-      test_note("-> wrapped_engine_eval()");
+      test_info("-> wrapped_engine_eval()");
       pjs->eval<void>(stack.to<string>(0));
       test_fail("wrapped_engine_eval() did not catch an exception");
     }
@@ -55,7 +55,7 @@ int wrapped_engine_eval(duktape::api& stack)
 // the `stackcall` function returns.
 int wrapped_apistack_call(duktape::api& stack)
 {
-  test_note("-> wrapped_apistack_call()");
+  test_info("-> wrapped_apistack_call()");
   try {
     if(!pjs) {
       test_fail("Global test js object pointer not set.");
@@ -75,7 +75,7 @@ int wrapped_apistack_call(duktape::api& stack)
 
 void wrapped_native_function_throwing_script_error()
 {
-  test_note("-> wrapped_native_function_throwing_script_error()");
+  test_info("-> wrapped_native_function_throwing_script_error()");
   throwing_cc_function_called = true;
   throw duktape::script_error("c++ duktape::script_error");
   test_fail("wrapped_native_function_throwing_script_error() did throw");
@@ -97,8 +97,8 @@ void test(duktape::engine& js)
     test_fail("test() no exception was thrown");
   } catch(const duktape::script_error& e) {
     test_pass(string("test() catch: caught:") + e.what());
-    test_note("test() catch: context:" << js.stack().dump_context());
-    test_note("test() catch: callstack:\n" << e.callstack());
+    test_info("test() catch: context:", js.stack().dump_context());
+    test_info("test() catch: callstack:\n", e.callstack());
   }
 
   if(!throwing_cc_function_called) {

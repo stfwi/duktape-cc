@@ -35,7 +35,7 @@ void test(duktape::engine& js)
       js.eval<void>("include('test-stdlib-include6.js')");
       test_fail("No script error 'Test error' thrown");
     } catch(const duktape::script_error& e) {
-      test_note(e.what());
+      test_info(e.what());
       test_expect(string(e.what()) == "Error: Test error");
     } catch(...) {
       test_fail("Unexpected exception other than script error thrown.");
@@ -44,7 +44,7 @@ void test(duktape::engine& js)
       js.eval<void>("include('test-stdlib-include7.js')");
       test_fail("No exit exception thrown");
     } catch(const duktape::exit_exception& e) {
-      test_note("message: '" << e.what() << "', exit code:" << e.exit_code());
+      test_info("message: '", e.what(), "', exit code:", e.exit_code());
       test_expect(string(e.what()) == "exit");
       test_expect(e.exit_code() == 6);
     } catch(...) {

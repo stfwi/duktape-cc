@@ -203,7 +203,7 @@ namespace duktape { namespace detail { namespace xlang {
 
 namespace duktape { namespace detail { namespace xlang {
 
-  static std::string errstr() noexcept
+  std::string errstr() noexcept
   {
     #ifdef OS_WINDOWS
     std::string s(256,0);
@@ -214,7 +214,7 @@ namespace duktape { namespace detail { namespace xlang {
     #else
     return "";
     #endif
-  };
+  }
 
   // Initial implementation, the two function can be de-duplicated on occasion.
   template<typename=void>
