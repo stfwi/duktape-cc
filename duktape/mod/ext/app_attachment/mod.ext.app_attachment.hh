@@ -80,10 +80,14 @@ namespace duktape { namespace mod { namespace ext { namespace app_attachment {
   static bool define_in(duktape::engine& js, const bool renaming_check=true)
   {
     using namespace std;
-    js.define("sys.app.attachment.write", write_attachment<>);
+    #ifdef WITH_APP_ATTACHMENT_READABLE
     js.define("sys.app.attachment.read", read_attachment<>);
+    #endif
     auto attachment = read_attachment();
-    if(attachment.empty()) return false;
+    if(attachment.empty()) {
+      js.define("sys.app.attachment.write", write_attachment<>);
+      return false;
+    }
     // Shall run with c++14 and minimum dependencies, so the lambdas represent `to_lower(std::filesystem::stem(path))`.
     constexpr auto filen = [](string s) { const char *p = basename(&s.front()); return (!p) ? string() : string(p); };
     constexpr auto noext = [](string s) { const auto p = s.find_last_of("."); if((p != s.npos) && (p > 1) && (p < s.size()-1)) {s.resize(p);} return s; };
@@ -94,7 +98,7 @@ namespace duktape { namespace mod { namespace ext { namespace app_attachment {
     if(renaming_check && (appname_ref == appname_act)) {
       throw duktape::script_error(string("Applications cannot be renamed '") + appname_act + "' from '" + appname_ref +  "'.");
     }
-    if((attachment.find("#!/") == 0) && ( (attachment.find(appname_ref) != attachment.npos) || (attachment.find(appname_act) != attachment.npos) )) {
+    if((attachment.find("#!/") == 0) && ((!renaming_check) || (attachment.find(appname_ref) != attachment.npos) || (attachment.find(appname_act) != attachment.npos) )) {
       js.eval<void>(attachment, "(library code)");
       js.define("sys.app.attachment.included", true);
       return true;

@@ -41,9 +41,13 @@
 #define DUKTAPE_CROSS_LANGUAGE_EXTENSIONS_HH
 
 #include "../duktape.hh"
+#include <mod/mod.sys.os.hh>
 #include <algorithm>
 #include <string>
 
+#ifdef OS_WINDOWS
+  #include <windows.h>
+#endif
 
 namespace duktape { namespace detail { namespace xlang {
 
@@ -196,6 +200,92 @@ namespace duktape { namespace detail { namespace xlang {
   }
 
 }}}
+
+namespace duktape { namespace detail { namespace xlang {
+
+  std::string errstr() noexcept
+  {
+    #ifdef OS_WINDOWS
+    std::string s(256,0);
+    size_t n = ::FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, nullptr, ::GetLastError(), MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT), &s[0], s.size()-1, nullptr);
+    if(!n) return std::string();
+    s.resize(n);
+    return s;
+    #else
+    return "";
+    #endif
+  }
+
+  // Initial implementation, the two function can be de-duplicated on occasion.
+  template<typename=void>
+  int codepage_to_utf8(duktape::api& stack)
+  {
+    #ifndef OS_WINDOWS
+    stack.top(0);
+    return stack.throw_exception("Codepage to utf8 only implemented for windows.");
+    #else
+    const auto codepage = stack.get<int>(0);
+    stack.top(0);
+    if(codepage <= 0) return stack.throw_exception("No codepage given (a number, e.g. 1252)");
+    stack.push_this();
+    auto s = stack.to<std::string>(0);
+    stack.top(0);
+    if(s.empty()) { stack.push(s); return 1; }
+    int size = ::MultiByteToWideChar(codepage, 0, s.data(), -1, 0, 0);
+    if(size <= 0) return stack.throw_exception("Multibyte conversion failed, unexpected winapi response.");
+    std::wstring ws(std::wstring::size_type(size+4), 0);
+    if(::MultiByteToWideChar(codepage, 0, s.data(), -1, &ws[0], size) == 0) return stack.throw_exception(errstr());
+    size = ::WideCharToMultiByte(CP_UTF8, 0, &ws[0], -1, 0, 0, 0, 0);
+    if(size <= 0) return stack.throw_exception("Multibyte conversion failed, unexpected winapi response.");
+    s = std::string(std::string::size_type(size+4), 0);
+    if(::WideCharToMultiByte(CP_UTF8, 0, &ws[0], -1, &s[0], size, 0, 0) == 0) return stack.throw_exception(errstr());
+    stack.push(s.c_str());
+    return 1;
+    #endif
+  }
+
+  template<typename=void>
+  int utf8_to_codepage(duktape::api& stack)
+  {
+    #ifndef OS_WINDOWS
+    stack.top(0);
+    return stack.throw_exception("Utf8 to codepage only implemented for windows.");
+    #else
+    const auto codepage = stack.get<int>(0);
+    stack.top(0);
+    if(codepage <= 0) return stack.throw_exception("No codepage given (a number, e.g. 1252)");
+    stack.push_this();
+    auto s = stack.to<std::string>(0);
+    stack.top(0);
+    if(s.empty()) { stack.push(s); return 1; }
+    int size = ::MultiByteToWideChar(CP_UTF8, 0, s.data(), -1, 0, 0);
+    if(size <= 0) return stack.throw_exception("Multibyte conversion failed, unexpected winapi response.");
+    std::wstring ws(std::wstring::size_type(size), 0);
+    if(::MultiByteToWideChar(CP_UTF8, 0, s.data(), -1, &ws[0], size) == 0) return stack.throw_exception(errstr());
+    size = ::WideCharToMultiByte(codepage, 0, &ws[0], -1, 0, 0, 0, 0);
+    if(size <= 0) return stack.throw_exception("Multibyte conversion failed, unexpected winapi response.");
+    s = std::string(size, 0);
+    if(::WideCharToMultiByte(codepage, 0, &ws[0], -1, &s[0], size, 0, 0) == 0) return stack.throw_exception(errstr());
+    stack.push(s.c_str());
+    return 1;
+    #endif
+  }
+
+  template<typename=void>
+  int string_bytes(duktape::api& stack)
+  {
+    stack.top(0);
+    stack.push_this();
+    const auto s = stack.to<std::string>(0);
+    stack.top(0);
+    auto v = std::vector<uint8_t>(s.size());
+    std::copy(s.begin(), s.end(), v.begin());
+    stack.push(std::move(v));
+    return 1;
+  }
+
+}}}
+
 
 namespace duktape { namespace mod { namespace xlang {
 
@@ -376,6 +466,53 @@ namespace duktape { namespace mod { namespace xlang {
     String.prototype.trim = function() {};
     #endif
     js.eval<void>(";Object.defineProperty(String.prototype, 'trim', {value:function(){return this.replace(/^\\s+/,'').replace(/\\s+$/,'')}, configurable:false, writable:false, enumerable:false});"); // Initially not worth doing this with c++.
+
+    #if(0 && JSDOC)
+    /**
+     * Converts a windows code-page encoded string to utf-8.
+     * Throws on error.
+     *
+     * Example:
+     *
+     *    const utf8_string = windows_string.toUTF8(1252);
+     *
+     * @param {number} codepage
+     * @return {string}
+     */
+    String.prototype.toUTF8 = function(codepage) {};
+    #endif
+    js.define("String.prototype.toUTF8", codepage_to_utf8, 1);
+
+
+    #if(0 && JSDOC)
+    /**
+     * Converts a utf-8 encoded string to windows code-page based
+     * encoding. Throws on error.
+     *
+     * Example:
+     *
+     *    const win_string = utf8_string.fromUTF8(1252);
+     *
+     * @param {number} codepage
+     * @return {string}
+     */
+    String.prototype.fromUTF8 = function(codepage) {};
+    #endif
+    js.define("String.prototype.fromUTF8", utf8_to_codepage, 1);
+
+    #if(0 && JSDOC)
+    /**
+     * Returns the raw bytes of a string as numeric array.
+     *
+     * Example:
+     *
+     *    const bytes = str.bytes();
+     *
+     * @return {array}
+     */
+    String.prototype.bytes = function() {};
+    #endif
+    js.define("String.prototype.bytes", string_bytes, 0);
 
     js.define_flags(flags);
   }

@@ -21,7 +21,7 @@ void test(duktape::engine& js)
   test_expect(js.eval<int>("use_engine_stack()") == 123456789);
 
   // negative test:
-  test_note("Removing engine pointer from stack context ...");
+  test_info("Removing engine pointer from stack context ...");
   js.stack().push_heap_stash();
   js.stack().del_prop_string(-1, "_engine_");
   try {

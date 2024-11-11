@@ -25,12 +25,12 @@ BUILD_DIRECTORY=build
 ifdef DEBUG
  # Note: "debug" is intentinoally with full optimization. It's for symbols, not for stepping through code.
  FLAGSCXX+=-Os -g -fno-omit-frame-pointer -fdata-sections -ffunction-sections
- FLAGSLD+=-Os -g -fno-omit-frame-pointer -Wl,--gc-sections
+ FLAGSLD+=-Os -g -fno-omit-frame-pointer
  DUKOPTS+=-g -Os
 else
  STRIP=$(TOOLCHAIN)strip
  FLAGSCXX+=-Os -fomit-frame-pointer -fdata-sections -ffunction-sections
- FLAGSLD+=-Os -Wl,--gc-sections
+ FLAGSLD+=-Os
 endif
 
 # make command line overrides
@@ -68,7 +68,10 @@ ifeq ($(WITH_DEFAULT_STRICT_INCLUDE),1)
  FLAGSCXX+=-DWITH_DEFAULT_STRICT_INCLUDE
 endif
 ifneq ($(WITHOUT_APP_ATTACHMENT),1)
- FLAGSCXX+=-DCONFIG_WITH_APP_ATTACHMENT
+ FLAGSCXX+=-DWITH_APP_ATTACHMENT
+endif
+ifeq ($(WITH_MINIMAL_MODS),1)
+ FLAGSCXX+=-DWITHOUT_SYSTEM_EXEC -DWITHOUT_SYSTEM_HASH -DWITHOUT_CONVERSION -DWITHOUT_SERIALPORT -DWITHOUT_MMAP
 endif
 
 #---------------------------------------------------------------------------------------------------

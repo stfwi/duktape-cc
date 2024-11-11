@@ -8,30 +8,30 @@ void test(duktape::engine& js)
 {
   duktape::mod::system::define_in<>(js);
 
-  test_comment( "sys.pid() = " << js.eval<long>("sys.pid()") );
+  test_note( "sys.pid() = " << js.eval<long>("sys.pid()") );
   test_expect( js.eval<long>("sys.pid()") > 0 );
 
 #ifdef __linux__
 
-  test_comment( "sys.uid() = " << js.eval<long>("sys.uid()") );
+  test_note( "sys.uid() = " << js.eval<long>("sys.uid()") );
   test_expect( js.eval<long>("sys.uid()") > 0 );
 
-  test_comment( "sys.gid() = " << js.eval<long>("sys.gid()") );
+  test_note( "sys.gid() = " << js.eval<long>("sys.gid()") );
   test_expect( js.eval<long>("sys.gid()") > 0 );
 
-  test_comment( "sys.user() = " << js.eval<string>("sys.user()") );
+  test_note( "sys.user() = " << js.eval<string>("sys.user()") );
   test_expect( js.eval<bool>("typeof(sys.user()) === 'string'") );
-  test_comment( "sys.user(0) = " << js.eval<string>("sys.user(0)") );
+  test_note( "sys.user(0) = " << js.eval<string>("sys.user(0)") );
   test_expect( js.eval<bool>("sys.user(0) === 'root'") );
   test_expect( js.eval<bool>("sys.user('invalid-arg') === undefined") );
 
-  test_comment( "sys.group() = " << js.eval<string>("sys.group()") );
+  test_note( "sys.group() = " << js.eval<string>("sys.group()") );
   test_expect( js.eval<bool>("typeof(sys.group()) === 'string'") );
-  test_comment( "sys.group(0) = " << js.eval<string>("sys.group(0)") );
+  test_note( "sys.group(0) = " << js.eval<string>("sys.group(0)") );
   test_expect( js.eval<bool>("sys.group(0) === 'root'") );
   test_expect( js.eval<bool>("sys.group('invalid-arg') === undefined") );
 
-  test_comment( "sys.uname() = " << js.eval<string>("JSON.stringify(sys.uname())") );
+  test_note( "sys.uname() = " << js.eval<string>("JSON.stringify(sys.uname())") );
   test_expect( js.eval<bool>("sys.uname().sysname !== undefined") );
   test_expect( js.eval<bool>("sys.uname().release !== undefined") );
   test_expect( js.eval<bool>("sys.uname().machine !== undefined") );

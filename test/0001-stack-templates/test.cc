@@ -204,8 +204,8 @@ namespace {
     {
       const char* val = "TEST";
       string cmp(val);
-      test_comment("type: 'const char*'");
-      test_comment("value: " << val);
+      test_info("type: 'const char*'");
+      test_info("value: ", val);
       duktape::stack_guard sg(stack);
       stack.push(val);
       test_expect(stack.top() == 1);

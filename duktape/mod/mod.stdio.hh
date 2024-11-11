@@ -256,6 +256,22 @@ namespace duktape { namespace detail {
       #endif
       js.define("console.vt100", win32vt100);
       win32vt100(true);
+
+      #if(0 && JSDOC)
+      /**
+       * Set the console code page (windows only).
+       * Code pages are numeric, except the aliases
+       * "utf8", "utf7", and "latin1".
+       *
+       *  Example: console.codepage(1252);
+       *           print( console.codepage() );
+       *
+       * @param {number|undefined|string} page
+       * @return number
+       */
+      console.codepage = function(page) {};
+      #endif
+      js.define("console.codepage", win32codepage, 1);
     }
 
   public:
@@ -359,16 +375,20 @@ namespace duktape { namespace detail {
               // Console
               DWORD console_mode = 0;
               if(::GetConsoleMode(hnd, &console_mode)) {
+                ::SetConsoleMode(hnd, console_mode & ~DWORD(ENABLE_LINE_INPUT));
                 if(::WaitForSingleObject(hnd, 0) == WAIT_OBJECT_0) {
-                  char buf[buffer_size];
-                  DWORD n_read = 0;
-                  ::SetConsoleMode(hnd, console_mode & ~DWORD(ENABLE_LINE_INPUT));
-                  if((!::ReadConsoleA(hnd, buf, max_chars, &n_read, nullptr)) || (!n_read)) break;
-                  ::SetConsoleMode(hnd, console_mode);
-                  // Console is user input text mode, so normalizing CR to LF is valid.
-                  for(size_t i=0; i<n_read; ++i) { if(buf[i]=='\r') { buf[i] = '\n'; } }
-                  s.append(buf, n_read);
+                  auto n_read = DWORD(0);
+                  auto ir = INPUT_RECORD();
+                  while(::PeekConsoleInputA(hnd, &ir, 1, &n_read) && (n_read)) {
+                    if((ir.EventType == KEY_EVENT) && ((ir.Event.KeyEvent.bKeyDown))) {
+                      auto ch = char(ir.Event.KeyEvent.uChar.AsciiChar);
+                      if(ch == '\r') ch = '\n';
+                      if(ch) s.push_back(ch);
+                    }
+                    ::ReadConsoleInputA(hnd, &ir, 1, &n_read);
+                  }
                 }
+                ::SetConsoleMode(hnd, console_mode);
               } else {
                 // Not a console but something entirely unexpected, read blocking.
                 std::string buf((std::istreambuf_iterator<char>(*in_stream)), std::istreambuf_iterator<char>());
@@ -648,6 +668,30 @@ namespace duktape { namespace detail {
         }
       }
       #endif
+      #endif
+    }
+
+    static int win32codepage(duktape::api& stack)
+    {
+      #ifndef OS_WINDOWS
+        (void)stack;
+        return 0;
+      #else
+        auto codepage = stack.get<int>(0);
+        if(codepage==0 && stack.is<std::string>(0)) {
+          const auto pagename = stack.get<std::string>(0);
+          // @todo constexpr map when it can be used.
+          if(pagename=="utf8") codepage = CP_UTF8;
+          else if(pagename=="utf7") codepage = CP_UTF7;
+          else if(pagename=="latin1") codepage = 1252;
+        }
+        if(codepage > 0) {
+          ::SetConsoleCP(UINT(codepage));
+          ::SetConsoleOutputCP(UINT(codepage));
+        }
+        stack.top(0);
+        stack.push(int(::GetConsoleOutputCP()));
+        return 1;
       #endif
     }
 

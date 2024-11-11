@@ -1115,7 +1115,7 @@ namespace duktape { namespace detail { namespace filesystem { namespace basic {
         err = ::GetLastError();
       } else {
         do {
-          if((!ffd.cFileName) || (!ffd.cFileName[0])) continue;
+          if(!ffd.cFileName[0]) continue;
           std::string s(ffd.cFileName);
           if((s == ".") || (s == "..")) continue;
           stack.push(PathAccessor::to_js(s));

@@ -1,6 +1,6 @@
 #ifndef DUKTAPE_HH_TESTING_ENVIRONMENT_HH
 #define DUKTAPE_HH_TESTING_ENVIRONMENT_HH
-
+#define WITH_MICROTEST_TMPFILE
 #include "../duktape/duktape.hh"
 #include "microtest.hh"
 #include <stdexcept>
@@ -41,7 +41,8 @@ namespace testenv {
 
     std::string test_path(std::string path="") {
       while(!path.empty() && path.front() == '/') path = path.substr(1);
-      return path.empty() ? ::sw::utest::tmpdir::path() : (::sw::utest::tmpdir::path() + "/" + path);
+      static auto tmp_dir =  test_make_tmpdir();
+      return path.empty() ? tmp_dir.path() : (tmp_dir.path() + "/" + path);
     }
 
     void test_makesymlink(std::string src, std::string dst) {
@@ -62,8 +63,9 @@ namespace testenv {
     }
 
     std::string test_path(std::string path="") {
-      while(!path.empty() && path.front() == '/') path = path.substr(1);
-      path = path.empty() ? ::sw::utest::tmpdir::path() : (std::string(::sw::utest::tmpdir::path()) + "\\" + path);
+      static auto tmp_dir =  test_make_tmpdir();
+      while(!path.empty() && ((path.front() == '/') || (path.front() == '\\'))) path = path.substr(1);
+      path = path.empty() ? tmp_dir.path() : (tmp_dir.path() + "\\" + path);
       for(auto& e:path) if(e=='/') e='\\';
       return path;
     }
@@ -129,7 +131,7 @@ namespace testenv {
   void test_makefiletree()
   {
     using namespace std;
-    test_comment("(Re)building test temporary file tree '" << test_path() << "'");
+    test_info("(Re)building test temporary file tree: ", test_path());
     test_rmfiletree();
     test_makedir(test_path(), true);
     #ifndef OS_WINDOWS
@@ -562,7 +564,6 @@ void test_include_script(duktape::engine& js, const std::string source_file="tes
   js.eval(std::move(code), test_source_file);
 }
 
-
 void testenv_init(duktape::engine& js)
 {
   js.define("print", ecma_print); // may be overwritten by stdio
@@ -599,7 +600,7 @@ int main(int argc, char *argv[], const char** envv)
     try {
       test(js);
     } catch(const duktape::exit_exception& e) {
-      test_note(std::string("Exit with code ") + std::to_string(e.exit_code()) + "'.");
+      test_info(std::string("Exit with code ") + std::to_string(e.exit_code()) + "'.");
     } catch(const duktape::script_error& e) {
       test_fail("Unexpected script error: '", e.what(), "'", e.callstack());
     } catch(const duktape::engine_error& e) {
@@ -614,7 +615,6 @@ int main(int argc, char *argv[], const char** envv)
   } catch (...) {
     test_fail("Unexpected init exception.");
   }
-  ::sw::utest::tmpdir::remove();
   return test_summary();
 }
 

@@ -269,7 +269,7 @@ namespace {
         test_fail(exit_str + " did not throw an exit_exception.");
       } catch(const duktape::exit_exception& e) {
         test_pass(exit_str + " did throw the exit_exception.");
-        test_note("exit_exception message: '" << e.what() << "'");
+        test_info("exit_exception message: '", e.what(), "'");
         test_expect(e.exit_code() == code);
       } catch(...) {
         test_fail(exit_str + " did not throw exit_exception, but something else.");
@@ -309,13 +309,13 @@ namespace {
       try {
         js.define(name);
         js.undef(name);
-        test_note("js.define/js.undef with name='" << name << "' did not throw");
+        test_info("js.define/js.undef with name='", name, "' did not throw");
         return caught_type{string(),string()};
       } catch(const duktape::engine_error& e) {
-        test_note("js.define/js.undef with name='" << name << "' threw engine_error('" << e.what() << "')");
+        test_info("js.define/js.undef with name='", name, "' threw engine_error('", e.what(), "')");
         return caught_type{"engine_error", e.what()};
       } catch(const std::exception& e) {
-        test_note("js.define/js.undef with name='" << name << "' threw std::exception('" << e.what() << "')");
+        test_info("js.define/js.undef with name='", name, "' threw std::exception('", e.what(), "')");
         return caught_type{"exception", e.what()};
       } catch(...) {
         return caught_type{"...", ""};

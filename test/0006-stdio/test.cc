@@ -59,39 +59,39 @@ namespace {
       test_expect( sout.str() == "Test string 1 false 16 11,12\n");
       reset_streams();
       test_expect_noexcept(js.eval<void>("print('Test string', 1, false, 0x10, [11,12]);"));
-      test_note( "stdout = " << js.call<string>("JSON.stringify", sout.str()));
+      test_info( "stdout = ", js.call<string>("JSON.stringify", sout.str()));
       test_expect( sout.str() == "Test string 1 false 16 11,12\n");
       reset_streams();
       test_expect_noexcept(js.eval<void>("print(new Buffer([48,49,50]));")); // binary print, don't add newline.
-      test_note( "stdout = " << js.call<string>("JSON.stringify", sout.str()));
+      test_info( "stdout = ", js.call<string>("JSON.stringify", sout.str()));
       test_expect( sout.str() == "012");
       reset_streams();
       test_expect_noexcept(js.eval<void>("alert('Test string', 1, false, 0x10, [11,12]);"));
-      test_note( "stdout = " << js.call<string>("JSON.stringify", sout.str()));
+      test_info( "stdout = ", js.call<string>("JSON.stringify", sout.str()));
       test_expect( sout.str() == "Test string 1 false 16 11,12\n");
       reset_streams();
       test_expect_noexcept(js.eval<void>("console.write('Test string', 1, false, 0x10, [11,12]);"));
-      test_note( "stdout = " << js.call<string>("JSON.stringify", sout.str()));
+      test_info( "stdout = ", js.call<string>("JSON.stringify", sout.str()));
       test_expect( sout.str() == "Test string1false1611,12"); // no fillers, no newline.
       reset_streams();
       test_expect_noexcept(js.eval<void>("console.write('Test string', 1, false, 0x10, [11,12]);"));
-      test_note( "stdout = " << js.call<string>("JSON.stringify", sout.str()));
+      test_info( "stdout = ", js.call<string>("JSON.stringify", sout.str()));
       test_expect( sout.str() == "Test string1false1611,12"); // no fillers, no newline.
       reset_streams();
       test_expect_noexcept(js.eval<void>("console.write(new Buffer([48,49,50]));"));
-      test_note( "stdout (ASCII 48='0') = " << sout.str());
+      test_info( "stdout (ASCII 48='0') = ", sout.str());
       test_expect( sout.str() == "012"); // binary output, ascii(48)='0'
       reset_streams();
       test_expect_noexcept(js.eval<void>("console.write(new Buffer([48,49,50]).buffer);")); // plain buffer / array buffer
-      test_note( "stdout = " << sout.str());
+      test_info( "stdout = ", sout.str());
       test_expect( sout.str() == "012"); // binary output, ascii(48)='0'
       reset_streams();
       test_expect_noexcept(js.eval<void>("printf('%s|%10s|%d|%5d|%2x|%4x|%5.2f|%.1lf', 'string', 'string10', 42, 500, 0xff, 0xffff, 5.2, 1.0);"));
-      test_note( "stdout = '" << sout.str() << "'");
+      test_info( "stdout = '", sout.str(), "'");
       test_expect( sout.str() == "string|  string10|42|  500|ff|ffff| 5.20|1.0");
       reset_streams();
       test_expect_noexcept(js.eval<void>("printf('%s with implicit toString()', 10);")); // implicit to_string()
-      test_note( "stdout = '" << sout.str() << "'");
+      test_info( "stdout = '", sout.str(), "'");
       test_expect( sout.str() == "10 with implicit toString()");
       reset_streams();
       test_expect_except(js.eval<void>("printf('%lf', {});")); // no number
@@ -99,7 +99,7 @@ namespace {
       test_expect_except(js.eval<void>("sprintf('%s', {});")); // not string compatible
       reset_streams();
       test_expect_noexcept(js.eval<void>("printf('%2s', '123');")); // at least 2 chars, if input is more extend.
-      test_note( "stdout = '" << sout.str() << "'");
+      test_info( "stdout = '", sout.str(), "'");
       test_expect( sout.str() == "123");
       reset_streams();
       test_expect(js.eval<string>("sprintf('%2s', '123');") == "123"); // implementation identical to printf, only using string stream.
@@ -131,7 +131,7 @@ namespace {
       stack.top(0);
       duktape::mod::stdio::set_streams_nonowning(&sout, nullptr, nullptr, nullptr);
       string s = localout.str();
-      test_note(string("output: '") + s + "'");
+      test_info(string("output: '") + s + "'");
       return s;
     } catch(...) {
       duktape::mod::stdio::set_streams_nonowning(&sout, nullptr, nullptr, nullptr);
