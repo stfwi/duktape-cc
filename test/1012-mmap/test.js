@@ -43,6 +43,7 @@ expect_except("Invalid path", function(){ new sys.mmap("", "wn", 10) });
 
 const mmap_file = test_relpath("test1.mmap");
 const mmap_size = 1024;
+fs.unlink(mmap_file);
 
 test_note("mmap_file = ", mmap_file);
 test_note("mmap_size = ", mmap_size);

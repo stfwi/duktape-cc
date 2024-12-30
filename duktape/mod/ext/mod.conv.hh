@@ -187,7 +187,7 @@ namespace duktape { namespace ext { namespace detail { namespace conv { namespac
     const auto dec = stack.get<double>(0);
     if((dec < numeric_limits<T>::min()) || (dec > numeric_limits<T>::max())) throw duktape::script_error(string("toHex: Number exceeds the numeric value range of the conversion: ") + to_string(dec));
     stack.top(0);
-    auto val = convert_endianess<machine_endianness(), E>(typename make_unsigned<T>::type(dec));
+    auto val = convert_endianess<machine_endianness(), E>(typename make_unsigned<T>::type(static_cast<T>(dec)));
     auto s = string(sizeof(T)*2, '0');
     auto i = s.size();
     while(val) {
