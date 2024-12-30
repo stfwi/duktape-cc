@@ -68,7 +68,7 @@
     #ifdef __linux__
       #include <sys/file.h>
       #include <sys/stat.h>
-      #include <sys/poll.h>
+      #include <poll.h>
       #include <dirent.h>
     #endif
   #endif

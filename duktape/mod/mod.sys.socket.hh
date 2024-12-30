@@ -89,7 +89,7 @@
   #include <netinet/in.h>
   #include <netinet/tcp.h>
   #include <netdb.h>
-  #include <sys/poll.h>
+  #include <poll.h>
   #include <arpa/inet.h>
   #include <fcntl.h>
   #include <signal.h>

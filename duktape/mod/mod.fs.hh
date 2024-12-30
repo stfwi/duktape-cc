@@ -88,13 +88,11 @@
   #include <pwd.h>
   #include <grp.h>
   #include <utime.h>
+  #include <sys/wait.h>
   #if defined(OS_LINUX)
-    #include <wait.h>
     #include <sys/file.h>
     #include <sys/sendfile.h>
     #include <fcntl.h>
-  #else
-    #include <sys/wait.h>
   #endif
 #endif
 

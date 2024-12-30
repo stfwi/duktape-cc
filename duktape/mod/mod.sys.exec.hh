@@ -78,11 +78,7 @@
     #include <sys/stat.h>
     #include <sys/types.h>
     #include <sys/time.h>
-    #ifdef OS_LINUX
-      #include <wait.h>
-    #else
-      #include <sys/wait.h>
-    #endif
+    #include <sys/wait.h>
   #endif
 
   namespace duktape { namespace detail { namespace system { namespace exec {
